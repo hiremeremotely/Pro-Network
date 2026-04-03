@@ -3,20 +3,36 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: ProConnect professional networking and remote jobs platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: profiles
+    description: User profile operations
+  - name: education
+    description: Education history operations
+  - name: experience
+    description: Work experience operations
+  - name: portfolio
+    description: Portfolio project operations
+  - name: skills
+    description: User skills operations
+  - name: jobs
+    description: Remote job listing operations
+  - name: applications
+    description: Job application operations
+  - name: feed
+    description: Activity feed and stats
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +40,691 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /profiles:
+    get:
+      operationId: listProfiles
+      tags: [profiles]
+      summary: List profiles
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of profiles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profiles:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Profile"
+                  total:
+                    type: integer
+                required: [profiles, total]
+    post:
+      operationId: createProfile
+      tags: [profiles]
+      summary: Create a new profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProfileBody"
+      responses:
+        "201":
+          description: Profile created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+
+  /profiles/{id}:
+    get:
+      operationId: getProfile
+      tags: [profiles]
+      summary: Get profile by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileFull"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      operationId: updateProfile
+      tags: [profiles]
+      summary: Update a profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileBody"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+    delete:
+      operationId: deleteProfile
+      tags: [profiles]
+      summary: Delete a profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /profiles/{profileId}/education:
+    get:
+      operationId: listEducation
+      tags: [education]
+      summary: List education entries for a profile
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of education entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Education"
+    post:
+      operationId: createEducation
+      tags: [education]
+      summary: Add education entry
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEducationBody"
+      responses:
+        "201":
+          description: Education created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Education"
+
+  /profiles/{profileId}/education/{id}:
+    put:
+      operationId: updateEducation
+      tags: [education]
+      summary: Update education entry
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEducationBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Education"
+    delete:
+      operationId: deleteEducation
+      tags: [education]
+      summary: Delete education entry
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /profiles/{profileId}/experience:
+    get:
+      operationId: listExperience
+      tags: [experience]
+      summary: List experience entries for a profile
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of experience entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Experience"
+    post:
+      operationId: createExperience
+      tags: [experience]
+      summary: Add experience entry
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExperienceBody"
+      responses:
+        "201":
+          description: Experience created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Experience"
+
+  /profiles/{profileId}/experience/{id}:
+    put:
+      operationId: updateExperience
+      tags: [experience]
+      summary: Update experience entry
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExperienceBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Experience"
+    delete:
+      operationId: deleteExperience
+      tags: [experience]
+      summary: Delete experience entry
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /profiles/{profileId}/portfolio:
+    get:
+      operationId: listPortfolio
+      tags: [portfolio]
+      summary: List portfolio projects for a profile
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of portfolio projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PortfolioProject"
+    post:
+      operationId: createPortfolioProject
+      tags: [portfolio]
+      summary: Add portfolio project
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePortfolioProjectBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioProject"
+
+  /profiles/{profileId}/portfolio/{id}:
+    put:
+      operationId: updatePortfolioProject
+      tags: [portfolio]
+      summary: Update portfolio project
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePortfolioProjectBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioProject"
+    delete:
+      operationId: deletePortfolioProject
+      tags: [portfolio]
+      summary: Delete portfolio project
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /profiles/{profileId}/skills:
+    get:
+      operationId: listProfileSkills
+      tags: [skills]
+      summary: List skills for a profile
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of skills
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Skill"
+    post:
+      operationId: addProfileSkill
+      tags: [skills]
+      summary: Add skill to profile
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSkillBody"
+      responses:
+        "201":
+          description: Skill added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Skill"
+
+  /profiles/{profileId}/skills/{id}:
+    delete:
+      operationId: deleteProfileSkill
+      tags: [skills]
+      summary: Remove skill from profile
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /jobs:
+    get:
+      operationId: listJobs
+      tags: [jobs]
+      summary: List remote jobs
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: experienceLevel
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: List of jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Job"
+                  total:
+                    type: integer
+                required: [jobs, total]
+    post:
+      operationId: createJob
+      tags: [jobs]
+      summary: Post a new remote job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJobBody"
+      responses:
+        "201":
+          description: Job created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /jobs/{id}:
+    get:
+      operationId: getJob
+      tags: [jobs]
+      summary: Get job by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      operationId: updateJob
+      tags: [jobs]
+      summary: Update job listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJobBody"
+      responses:
+        "200":
+          description: Updated job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+    delete:
+      operationId: deleteJob
+      tags: [jobs]
+      summary: Delete a job listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /jobs/{jobId}/applications:
+    get:
+      operationId: listApplications
+      tags: [applications]
+      summary: List applications for a job
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Application"
+    post:
+      operationId: applyToJob
+      tags: [applications]
+      summary: Apply to a job
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApplicationBody"
+      responses:
+        "201":
+          description: Application submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Application"
+
+  /profiles/{profileId}/applications:
+    get:
+      operationId: listProfileApplications
+      tags: [applications]
+      summary: List job applications for a profile
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Application"
+
+  /feed/stats:
+    get:
+      operationId: getFeedStats
+      tags: [feed]
+      summary: Get platform stats
+      responses:
+        "200":
+          description: Platform stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedStats"
+
+  /feed/featured-profiles:
+    get:
+      operationId: listFeaturedProfiles
+      tags: [feed]
+      summary: Get featured/top profiles
+      responses:
+        "200":
+          description: Featured profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Profile"
+
+  /feed/featured-jobs:
+    get:
+      operationId: listFeaturedJobs
+      tags: [feed]
+      summary: Get featured remote jobs
+      responses:
+        "200":
+          description: Featured jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Job"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +732,451 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    Profile:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        headline:
+          type: string
+        bio:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        coverUrl:
+          type: string
+          nullable: true
+        website:
+          type: string
+          nullable: true
+        linkedinUrl:
+          type: string
+          nullable: true
+        githubUrl:
+          type: string
+          nullable: true
+        twitterUrl:
+          type: string
+          nullable: true
+        openToWork:
+          type: boolean
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required: [id, name, headline, openToWork, createdAt, updatedAt]
+
+    ProfileFull:
+      allOf:
+        - $ref: "#/components/schemas/Profile"
+        - type: object
+          properties:
+            education:
+              type: array
+              items:
+                $ref: "#/components/schemas/Education"
+            experience:
+              type: array
+              items:
+                $ref: "#/components/schemas/Experience"
+            portfolio:
+              type: array
+              items:
+                $ref: "#/components/schemas/PortfolioProject"
+            skills:
+              type: array
+              items:
+                $ref: "#/components/schemas/Skill"
+          required: [education, experience, portfolio, skills]
+
+    CreateProfileBody:
+      type: object
+      properties:
+        name:
+          type: string
+        headline:
+          type: string
+        bio:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        coverUrl:
+          type: string
+          nullable: true
+        website:
+          type: string
+          nullable: true
+        linkedinUrl:
+          type: string
+          nullable: true
+        githubUrl:
+          type: string
+          nullable: true
+        twitterUrl:
+          type: string
+          nullable: true
+        openToWork:
+          type: boolean
+      required: [name, headline]
+
+    UpdateProfileBody:
+      type: object
+      properties:
+        name:
+          type: string
+        headline:
+          type: string
+        bio:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        coverUrl:
+          type: string
+          nullable: true
+        website:
+          type: string
+          nullable: true
+        linkedinUrl:
+          type: string
+          nullable: true
+        githubUrl:
+          type: string
+          nullable: true
+        twitterUrl:
+          type: string
+          nullable: true
+        openToWork:
+          type: boolean
+
+    Education:
+      type: object
+      properties:
+        id:
+          type: integer
+        profileId:
+          type: integer
+        school:
+          type: string
+        degree:
+          type: string
+          nullable: true
+        fieldOfStudy:
+          type: string
+          nullable: true
+        startYear:
+          type: integer
+        endYear:
+          type: integer
+          nullable: true
+        description:
+          type: string
+          nullable: true
+      required: [id, profileId, school, startYear]
+
+    CreateEducationBody:
+      type: object
+      properties:
+        school:
+          type: string
+        degree:
+          type: string
+          nullable: true
+        fieldOfStudy:
+          type: string
+          nullable: true
+        startYear:
+          type: integer
+        endYear:
+          type: integer
+          nullable: true
+        description:
+          type: string
+          nullable: true
+      required: [school, startYear]
+
+    Experience:
+      type: object
+      properties:
+        id:
+          type: integer
+        profileId:
+          type: integer
+        company:
+          type: string
+        title:
+          type: string
+        location:
+          type: string
+          nullable: true
+        remote:
+          type: boolean
+        startDate:
+          type: string
+        endDate:
+          type: string
+          nullable: true
+        current:
+          type: boolean
+        description:
+          type: string
+          nullable: true
+      required: [id, profileId, company, title, remote, startDate, current]
+
+    CreateExperienceBody:
+      type: object
+      properties:
+        company:
+          type: string
+        title:
+          type: string
+        location:
+          type: string
+          nullable: true
+        remote:
+          type: boolean
+        startDate:
+          type: string
+        endDate:
+          type: string
+          nullable: true
+        current:
+          type: boolean
+        description:
+          type: string
+          nullable: true
+      required: [company, title, remote, startDate, current]
+
+    PortfolioProject:
+      type: object
+      properties:
+        id:
+          type: integer
+        profileId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        projectUrl:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        featured:
+          type: boolean
+      required: [id, profileId, title, tags, featured]
+
+    CreatePortfolioProjectBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        projectUrl:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        featured:
+          type: boolean
+      required: [title, tags]
+
+    Skill:
+      type: object
+      properties:
+        id:
+          type: integer
+        profileId:
+          type: integer
+        name:
+          type: string
+        level:
+          type: string
+          nullable: true
+      required: [id, profileId, name]
+
+    CreateSkillBody:
+      type: object
+      properties:
+        name:
+          type: string
+        level:
+          type: string
+          nullable: true
+      required: [name]
+
+    Job:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        company:
+          type: string
+        companyLogoUrl:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        description:
+          type: string
+        category:
+          type: string
+        experienceLevel:
+          type: string
+        salaryMin:
+          type: integer
+          nullable: true
+        salaryMax:
+          type: integer
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        featured:
+          type: boolean
+        applicationCount:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required: [id, title, company, description, category, experienceLevel, tags, featured, applicationCount, createdAt, updatedAt]
+
+    CreateJobBody:
+      type: object
+      properties:
+        title:
+          type: string
+        company:
+          type: string
+        companyLogoUrl:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        description:
+          type: string
+        category:
+          type: string
+        experienceLevel:
+          type: string
+        salaryMin:
+          type: integer
+          nullable: true
+        salaryMax:
+          type: integer
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        featured:
+          type: boolean
+      required: [title, company, description, category, experienceLevel, tags]
+
+    Application:
+      type: object
+      properties:
+        id:
+          type: integer
+        jobId:
+          type: integer
+        profileId:
+          type: integer
+        coverLetter:
+          type: string
+          nullable: true
+        status:
+          type: string
+        appliedAt:
+          type: string
+        profile:
+          $ref: "#/components/schemas/Profile"
+        job:
+          $ref: "#/components/schemas/Job"
+      required: [id, jobId, profileId, status, appliedAt, profile, job]
+
+    CreateApplicationBody:
+      type: object
+      properties:
+        profileId:
+          type: integer
+        coverLetter:
+          type: string
+          nullable: true
+      required: [profileId]
+
+    FeedStats:
+      type: object
+      properties:
+        totalProfiles:
+          type: integer
+        totalJobs:
+          type: integer
+        totalApplications:
+          type: integer
+        openToWorkProfiles:
+          type: integer
+        remoteJobsPostedThisWeek:
+          type: integer
+        topCategories:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+              count:
+                type: integer
+            required: [category, count]
+      required: [totalProfiles, totalJobs, totalApplications, openToWorkProfiles, remoteJobsPostedThisWeek, topCategories]

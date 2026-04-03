@@ -1,8 +1,24 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import profilesRouter from "./profiles";
+import educationRouter from "./education";
+import experienceRouter from "./experience";
+import portfolioRouter from "./portfolio";
+import skillsRouter from "./skills";
+import jobsRouter from "./jobs";
+import applicationsRouter from "./applications";
+import feedRouter from "./feed";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(profilesRouter);
+router.use(educationRouter);
+router.use(experienceRouter);
+router.use(portfolioRouter);
+router.use(skillsRouter);
+router.use(jobsRouter);
+router.use(applicationsRouter);
+router.use(feedRouter);
 
 export default router;
