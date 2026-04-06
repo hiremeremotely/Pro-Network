@@ -36,10 +36,16 @@ export default function Landing() {
       <header className="w-full border-b border-gray-100 bg-white">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <img src={logo} alt="Hire Me Remotely" className="h-10 w-auto" />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <Link href="/feed">
               <Button variant="ghost" size="sm" className="font-semibold text-gray-600 hover:text-gray-900">
                 Sign in
+              </Button>
+            </Link>
+            <Link href="/profile/edit">
+              <Button variant="outline" size="sm" className="font-semibold rounded-full px-4 border-primary/40 text-primary hover:bg-primary/5 hover:border-primary hidden sm:inline-flex items-center gap-1.5">
+                <BuildingIcon className="w-3.5 h-3.5" />
+                For Companies
               </Button>
             </Link>
             <Link href="/profile/edit">
