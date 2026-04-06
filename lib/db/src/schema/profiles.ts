@@ -4,10 +4,12 @@ import { z } from "zod/v4";
 
 export const profilesTable = pgTable("profiles", {
   id: serial("id").primaryKey(),
+  accountType: text("account_type").notNull().default("individual"),
   name: text("name").notNull(),
   headline: text("headline").notNull(),
   bio: text("bio"),
   location: text("location"),
+  industry: text("industry"),
   avatarUrl: text("avatar_url"),
   coverUrl: text("cover_url"),
   website: text("website"),

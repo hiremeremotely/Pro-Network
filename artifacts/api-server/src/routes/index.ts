@@ -8,6 +8,7 @@ import skillsRouter from "./skills";
 import jobsRouter from "./jobs";
 import applicationsRouter from "./applications";
 import feedRouter from "./feed";
+import postsRouter from "./posts";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(skillsRouter);
 router.use(jobsRouter);
 router.use(applicationsRouter);
 router.use(feedRouter);
+router.use(postsRouter);
 
 export default router;
