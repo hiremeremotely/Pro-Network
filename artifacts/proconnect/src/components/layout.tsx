@@ -21,7 +21,7 @@ export function Layout({ children }: LayoutProps) {
   const [search, setSearch] = useState("");
 
   const navItems = [
-    { href: "/", label: "Home", icon: HomeIcon },
+    { href: "/feed", label: "Home", icon: HomeIcon },
     { href: "/profiles", label: "Network", icon: UsersIcon },
     { href: "/jobs", label: "Jobs", icon: BriefcaseIcon },
     { href: "/applications", label: "Applications", icon: BellIcon },
