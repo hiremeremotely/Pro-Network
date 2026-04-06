@@ -110,6 +110,19 @@ export default function Landing() {
               </Link>
             </div>
 
+            <div className="flex items-center gap-3 my-4">
+              <Separator className="flex-1" />
+              <span className="text-xs text-gray-400 font-medium">Are you a company?</span>
+              <Separator className="flex-1" />
+            </div>
+
+            <Link href="/profile/edit" className="block">
+              <Button variant="outline" className="w-full h-12 rounded-full font-semibold text-sm border-primary/40 text-primary hover:bg-primary/5 hover:border-primary flex items-center gap-3">
+                <BuildingIcon className="w-5 h-5" />
+                Continue as a Company
+              </Button>
+            </Link>
+
             <p className="text-center text-xs text-gray-400 mt-6 leading-relaxed">
               Already on Hire Me Remotely?{" "}
               <Link href="/feed" className="font-semibold text-primary hover:underline">Sign in</Link>
