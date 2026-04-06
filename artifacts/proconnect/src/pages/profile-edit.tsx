@@ -184,7 +184,7 @@ export default function ProfileEdit() {
     <div className="container mx-auto px-4 py-10 pb-24 max-w-4xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-1">Edit Profile</h1>
-        <p className="text-muted-foreground">Manage your professional presence on ProConnect.</p>
+        <p className="text-muted-foreground">Manage your professional presence on Hire Me Remotely.</p>
       </div>
 
       <Tabs defaultValue="profile">

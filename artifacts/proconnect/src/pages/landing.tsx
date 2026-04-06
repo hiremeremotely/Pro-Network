@@ -1,428 +1,231 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
-  ArrowRightIcon,
-  CheckIcon,
+  MapPinIcon,
   BriefcaseIcon,
-  UsersIcon,
-  GlobeIcon,
-  ZapIcon,
-  ShieldCheckIcon,
-  TrendingUpIcon,
+  ThumbsUpIcon,
+  MessageSquareIcon,
   BuildingIcon,
-  StarIcon,
-  ChevronRightIcon,
+  CheckCircleIcon,
 } from "lucide-react";
+import logo from "@assets/hr_1775483051104.png";
 
-const INDIVIDUALS = [
-  { name: "Alex Chen", role: "Full-Stack Engineer", location: "San Francisco", avatar: "https://i.pravatar.cc/150?u=1", open: true },
-  { name: "Maria Santos", role: "Senior UX Designer", location: "Lisbon, Portugal", avatar: "https://i.pravatar.cc/150?u=2", open: false },
-  { name: "James Okafor", role: "Backend Engineer", location: "Lagos, Nigeria", avatar: "https://i.pravatar.cc/150?u=3", open: true },
+const PREVIEW_PROFILES = [
+  { name: "Alex Chen", role: "Full-Stack Engineer", loc: "San Francisco", avatar: "https://i.pravatar.cc/80?u=1", open: true },
+  { name: "Maria Santos", role: "Senior UX Designer", loc: "Lisbon, Portugal", avatar: "https://i.pravatar.cc/80?u=2", open: false },
+  { name: "James Okafor", role: "Backend Engineer", loc: "Lagos, Nigeria", avatar: "https://i.pravatar.cc/80?u=3", open: true },
 ];
 
-const COMPANIES = [
-  { name: "Linear", desc: "The issue tracker that actually works", industry: "Software", initials: "LI", color: "from-violet-500 to-purple-600" },
-  { name: "Vercel", desc: "Develop. Preview. Ship.", industry: "Cloud Infrastructure", initials: "VC", color: "from-gray-800 to-black" },
-  { name: "Figma", desc: "Design tool loved by millions", industry: "Design Tools", initials: "FG", color: "from-pink-500 to-red-500" },
-];
-
-const FEATURES_INDIVIDUAL = [
-  "Showcase your portfolio, skills & experience",
-  "Get discovered by top remote companies",
-  "Apply to curated remote job listings",
-  "Build your professional network globally",
-  "Share updates and insights with your feed",
-];
-
-const FEATURES_COMPANY = [
-  "Create a branded company profile page",
-  "Post job listings visible to thousands",
-  "Browse and contact qualified candidates",
-  "Share company updates and culture",
-  "Access detailed applicant profiles",
-];
-
-const TESTIMONIALS = [
-  {
-    text: "ProConnect got me in front of companies I'd never have found on traditional job boards. Landed a senior role within 3 weeks.",
-    name: "Alex Chen",
-    role: "Full-Stack Engineer",
-    avatar: "https://i.pravatar.cc/150?u=1",
-  },
-  {
-    text: "As a designer based in Lisbon, this platform connected me with clients and teams across the US and EU seamlessly.",
-    name: "Maria Santos",
-    role: "Senior UX Designer",
-    avatar: "https://i.pravatar.cc/150?u=2",
-  },
-  {
-    text: "We filled two engineering roles in under a month. The quality of candidates here is noticeably higher than anywhere else.",
-    name: "Priya Mehta",
-    role: "Head of Talent, Forma",
-    avatar: "https://i.pravatar.cc/150?u=4",
-  },
+const PREVIEW_JOBS = [
+  { title: "Senior Frontend Engineer", company: "Linear", loc: "Remote – Americas", badge: "Featured" },
+  { title: "Full-Stack Engineer", company: "Vercel", loc: "Remote – Worldwide", badge: "New" },
 ];
 
 export default function Landing() {
+  const [email, setEmail] = useState("");
+
   return (
-    <div className="min-h-screen bg-white text-gray-900 overflow-x-hidden">
+    <div className="min-h-screen bg-white flex flex-col">
 
       {/* ── Navbar ── */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-gray-100">
+      <header className="w-full border-b border-gray-100 bg-white">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 font-black text-xl tracking-tight">
-            <div className="bg-primary text-white w-8 h-8 rounded-lg flex items-center justify-center font-black text-base">P</div>
-            ProConnect
-          </Link>
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-500">
-            <a href="#individuals" className="hover:text-gray-900 transition-colors">For Professionals</a>
-            <a href="#companies" className="hover:text-gray-900 transition-colors">For Companies</a>
-            <a href="#testimonials" className="hover:text-gray-900 transition-colors">Stories</a>
-            <Link href="/jobs" className="hover:text-gray-900 transition-colors">Browse Jobs</Link>
-          </nav>
+          <img src={logo} alt="Hire Me Remotely" className="h-10 w-auto" />
           <div className="flex items-center gap-3">
             <Link href="/feed">
-              <Button variant="ghost" size="sm" className="text-sm font-semibold">Sign in</Button>
+              <Button variant="ghost" size="sm" className="font-semibold text-gray-600 hover:text-gray-900">
+                Sign in
+              </Button>
             </Link>
             <Link href="/profile/edit">
-              <Button size="sm" className="text-sm font-semibold rounded-full px-5">Join free</Button>
+              <Button size="sm" className="font-semibold rounded-full px-5">
+                Join free
+              </Button>
             </Link>
           </div>
         </div>
       </header>
 
-      {/* ── Hero ── */}
-      <section className="relative pt-24 pb-20 md:pt-32 md:pb-28 overflow-hidden">
-        {/* Background blobs */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-32 -right-32 w-[600px] h-[600px] bg-primary/8 rounded-full blur-3xl" />
-          <div className="absolute top-40 -left-40 w-[500px] h-[500px] bg-violet-100 rounded-full blur-3xl" />
-        </div>
+      {/* ── Main ── */}
+      <main className="flex-1 flex items-center">
+        <div className="max-w-6xl mx-auto px-6 py-12 md:py-20 w-full grid md:grid-cols-2 gap-12 md:gap-20 items-center">
 
-        <div className="relative max-w-6xl mx-auto px-6 text-center">
-          <Badge className="mb-6 bg-primary/10 text-primary border-0 text-xs font-semibold px-4 py-1.5 rounded-full inline-flex items-center gap-1.5">
-            <GlobeIcon className="w-3.5 h-3.5" />
-            The remote-first professional network
-          </Badge>
-
-          <h1 className="text-5xl md:text-7xl font-black tracking-tight leading-[1.05] mb-6 max-w-4xl mx-auto">
-            Where remote talent
-            <br />
-            <span className="text-primary relative">
-              gets discovered.
-              <svg className="absolute -bottom-2 left-0 w-full" height="8" viewBox="0 0 400 8" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-                <path d="M0 6 Q100 0 200 6 Q300 12 400 6" stroke="currentColor" strokeWidth="3" strokeLinecap="round" fill="none" opacity="0.4"/>
-              </svg>
-            </span>
-          </h1>
-
-          <p className="text-xl md:text-2xl text-gray-500 max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
-            ProConnect connects ambitious remote professionals with the world's best companies — through a social platform built for how we work today.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-            <Link href="/profile/edit">
-              <Button size="lg" className="h-14 px-8 text-base font-bold rounded-full shadow-lg shadow-primary/25 group">
-                Get started free
-                <ArrowRightIcon className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </Link>
-            <Link href="/jobs">
-              <Button size="lg" variant="outline" className="h-14 px-8 text-base font-semibold rounded-full border-2">
-                Browse remote jobs
-              </Button>
-            </Link>
-          </div>
-
-          {/* Social proof avatars */}
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex -space-x-3">
-              {[1,2,3,4,5,6].map(i => (
-                <Avatar key={i} className="w-10 h-10 border-2 border-white shadow-sm">
-                  <AvatarImage src={`https://i.pravatar.cc/80?u=${i * 7}`} />
-                  <AvatarFallback className="text-xs" />
-                </Avatar>
-              ))}
-              <div className="w-10 h-10 rounded-full border-2 border-white bg-primary text-white text-[11px] font-bold flex items-center justify-center shadow-sm">+2k</div>
-            </div>
-            <p className="text-sm text-gray-400 font-medium">
-              Joined by <span className="text-gray-700 font-semibold">2,000+ remote professionals</span> this month
+          {/* LEFT — Sign up / Sign in */}
+          <div className="max-w-sm w-full mx-auto md:mx-0">
+            <h1 className="text-4xl md:text-5xl font-black tracking-tight leading-tight text-gray-900 mb-3">
+              Your remote career starts here.
+            </h1>
+            <p className="text-gray-500 text-base mb-8 leading-relaxed">
+              Connect with top remote companies, showcase your skills, and land your next opportunity — all in one place.
             </p>
-          </div>
-        </div>
-      </section>
 
-      {/* ── Stats bar ── */}
-      <section className="border-y border-gray-100 bg-gray-50 py-10">
-        <div className="max-w-4xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          {[
-            { num: "12K+", label: "Professionals" },
-            { num: "400+", label: "Remote jobs" },
-            { num: "180+", label: "Countries" },
-            { num: "94%", label: "Hired within 60 days" },
-          ].map(s => (
-            <div key={s.label}>
-              <p className="text-3xl md:text-4xl font-black text-gray-900 mb-1">{s.num}</p>
-              <p className="text-sm text-gray-400 font-medium">{s.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── For Individuals ── */}
-      <section id="individuals" className="py-24 md:py-32">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="grid md:grid-cols-2 gap-16 items-center">
-            {/* Left copy */}
-            <div>
-              <Badge className="mb-5 bg-blue-50 text-blue-600 border-0 text-xs font-semibold px-3 py-1 rounded-full">
-                <UsersIcon className="w-3.5 h-3.5 mr-1.5 inline" />For Professionals
-              </Badge>
-              <h2 className="text-4xl md:text-5xl font-black tracking-tight leading-tight mb-5">
-                Your career,<br/>your way.
-              </h2>
-              <p className="text-lg text-gray-500 font-medium mb-8 leading-relaxed">
-                Build a rich profile that showcases who you really are — not just a résumé. Share your story, work, and ideas with the people and companies that matter.
-              </p>
-              <ul className="space-y-3 mb-10">
-                {FEATURES_INDIVIDUAL.map(f => (
-                  <li key={f} className="flex items-start gap-3 text-sm font-medium text-gray-700">
-                    <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <CheckIcon className="w-3 h-3 text-primary" />
-                    </div>
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Link href="/profile/edit">
-                <Button className="rounded-full px-7 font-semibold group">
-                  Create your profile
-                  <ChevronRightIcon className="w-4 h-4 ml-1.5 group-hover:translate-x-0.5 transition-transform" />
+            {/* Email input */}
+            <div className="space-y-3 mb-4">
+              <Input
+                type="email"
+                placeholder="Email or phone"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className="h-12 rounded-lg border-gray-300 text-sm focus-visible:ring-primary"
+              />
+              <Link href="/profile/edit" className="block">
+                <Button className="w-full h-12 rounded-full font-bold text-base">
+                  Continue
                 </Button>
               </Link>
             </div>
 
-            {/* Right: Profile cards */}
-            <div className="relative">
-              <div className="space-y-4">
-                {INDIVIDUALS.map((person, i) => (
-                  <div
-                    key={person.name}
-                    className={`bg-white border border-gray-200 rounded-2xl p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow ${i === 1 ? "ml-6" : ""}`}
-                  >
-                    <Avatar className="w-14 h-14 border-2 border-white shadow flex-shrink-0">
-                      <AvatarImage src={person.avatar} />
-                      <AvatarFallback>{person.name.slice(0,2)}</AvatarFallback>
+            {/* Divider */}
+            <div className="flex items-center gap-3 my-5">
+              <Separator className="flex-1" />
+              <span className="text-xs text-gray-400 font-medium">or</span>
+              <Separator className="flex-1" />
+            </div>
+
+            {/* Social sign-in */}
+            <div className="space-y-3">
+              <Link href="/feed" className="block">
+                <Button variant="outline" className="w-full h-12 rounded-full font-semibold text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 flex items-center gap-3">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                  </svg>
+                  Continue with Google
+                </Button>
+              </Link>
+              <Link href="/feed" className="block">
+                <Button variant="outline" className="w-full h-12 rounded-full font-semibold text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 flex items-center gap-3">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="black" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701z"/>
+                  </svg>
+                  Continue with Apple
+                </Button>
+              </Link>
+            </div>
+
+            <p className="text-center text-xs text-gray-400 mt-6 leading-relaxed">
+              Already on Hire Me Remotely?{" "}
+              <Link href="/feed" className="font-semibold text-primary hover:underline">Sign in</Link>
+            </p>
+
+            {/* Policies */}
+            <p className="text-center text-[11px] text-gray-400 mt-4 leading-relaxed">
+              By joining, you agree to our{" "}
+              <a href="#" className="underline hover:text-gray-600">Terms</a> and{" "}
+              <a href="#" className="underline hover:text-gray-600">Privacy Policy</a>.
+            </p>
+          </div>
+
+          {/* RIGHT — Platform preview */}
+          <div className="hidden md:flex flex-col gap-4 relative">
+
+            {/* Profile cards */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Professionals near you</p>
+              <div className="space-y-3">
+                {PREVIEW_PROFILES.map((p) => (
+                  <div key={p.name} className="flex items-center gap-3">
+                    <Avatar className="w-10 h-10 border border-gray-100 flex-shrink-0">
+                      <AvatarImage src={p.avatar} />
+                      <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">{p.name.slice(0,2)}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-sm text-gray-900">{person.name}</p>
-                      <p className="text-xs text-gray-500 mb-1">{person.role}</p>
-                      <div className="flex items-center gap-1 text-xs text-gray-400">
-                        <GlobeIcon className="w-3 h-3" />
-                        {person.location}
+                      <p className="text-sm font-semibold text-gray-900 truncate">{p.name}</p>
+                      <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                        <MapPinIcon className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">{p.role} · {p.loc}</span>
                       </div>
                     </div>
-                    {person.open && (
-                      <Badge className="bg-green-50 text-green-600 border-0 text-[10px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0">
-                        Open to work
+                    {p.open && (
+                      <Badge className="bg-green-50 text-green-600 border-0 text-[10px] font-semibold px-2 rounded-full flex-shrink-0">
+                        Open
                       </Badge>
                     )}
                   </div>
                 ))}
               </div>
-              {/* Floating engagement badge */}
-              <div className="absolute -bottom-4 -right-4 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-lg flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <ZapIcon className="w-4 h-4 text-primary" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-gray-900">Profile viewed</p>
-                  <p className="text-[11px] text-gray-400">3 companies this week</p>
-                </div>
-              </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* ── For Companies ── */}
-      <section id="companies" className="py-24 md:py-32 bg-gray-950 text-white">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="grid md:grid-cols-2 gap-16 items-center">
-            {/* Left: Company cards */}
-            <div className="order-2 md:order-1">
-              <div className="space-y-4">
-                {COMPANIES.map((co, i) => (
-                  <div
-                    key={co.name}
-                    className={`bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center gap-4 hover:bg-white/8 transition-colors ${i === 1 ? "ml-6" : ""}`}
-                  >
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${co.color} flex items-center justify-center flex-shrink-0 text-white font-black text-sm`}>
-                      {co.initials}
+            {/* Jobs card */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Remote jobs for you</p>
+              <div className="space-y-3">
+                {PREVIEW_JOBS.map((j) => (
+                  <div key={j.title} className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <BriefcaseIcon className="w-4 h-4 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-sm text-white">{co.name}</p>
-                      <p className="text-xs text-gray-400 mb-1">{co.desc}</p>
-                      <Badge className="bg-white/10 text-gray-300 border-0 text-[10px] font-medium px-2 py-0.5 rounded-full">
-                        {co.industry}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-gray-900 leading-tight truncate">{j.title}</p>
+                        <Badge className="bg-primary/10 text-primary border-0 text-[10px] font-semibold px-1.5 rounded flex-shrink-0">{j.badge}</Badge>
+                      </div>
+                      <p className="text-[11px] text-gray-400">{j.company} · {j.loc}</p>
                     </div>
-                    <Button size="sm" variant="outline" className="border-white/20 text-white hover:bg-white/10 text-xs rounded-full px-3 flex-shrink-0">
-                      Follow
-                    </Button>
                   </div>
                 ))}
               </div>
-              {/* Floating stat badge */}
-              <div className="mt-4 bg-primary/20 border border-primary/30 rounded-2xl px-4 py-3 flex items-center gap-3">
-                <TrendingUpIcon className="w-5 h-5 text-primary flex-shrink-0" />
-                <p className="text-sm font-medium text-gray-200">
-                  Companies on ProConnect fill roles <span className="text-primary font-bold">3× faster</span> than traditional job boards
-                </p>
-              </div>
             </div>
 
-            {/* Right copy */}
-            <div className="order-1 md:order-2">
-              <Badge className="mb-5 bg-primary/20 text-primary border-0 text-xs font-semibold px-3 py-1 rounded-full">
-                <BuildingIcon className="w-3.5 h-3.5 mr-1.5 inline" />For Companies
-              </Badge>
-              <h2 className="text-4xl md:text-5xl font-black tracking-tight leading-tight mb-5">
-                Hire the<br/>remote-ready.
-              </h2>
-              <p className="text-lg text-gray-400 font-medium mb-8 leading-relaxed">
-                Create your company profile, share your culture, and reach thousands of vetted remote professionals who are actively looking for their next opportunity.
-              </p>
-              <ul className="space-y-3 mb-10">
-                {FEATURES_COMPANY.map(f => (
-                  <li key={f} className="flex items-start gap-3 text-sm font-medium text-gray-300">
-                    <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <CheckIcon className="w-3 h-3 text-primary" />
-                    </div>
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Link href="/profile/edit">
-                <Button className="rounded-full px-7 font-semibold group bg-white text-gray-900 hover:bg-gray-100">
-                  Set up company profile
-                  <ChevronRightIcon className="w-4 h-4 ml-1.5 group-hover:translate-x-0.5 transition-transform" />
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── How it works ── */}
-      <section className="py-24 bg-white">
-        <div className="max-w-6xl mx-auto px-6 text-center">
-          <Badge className="mb-5 bg-primary/10 text-primary border-0 text-xs font-semibold px-3 py-1 rounded-full">How it works</Badge>
-          <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-4">Up and running in minutes</h2>
-          <p className="text-gray-500 text-lg mb-16 max-w-xl mx-auto font-medium">No gatekeeping. No complicated forms. Just a streamlined path from sign-up to hired.</p>
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              { step: "01", icon: UsersIcon, title: "Create your profile", desc: "Add your experience, skills, portfolio, and what you're looking for. Individuals and companies are both welcome.", color: "bg-blue-50 text-blue-600" },
-              { step: "02", icon: GlobeIcon, title: "Join the network", desc: "Post updates, follow companies, connect with peers, and get your work in front of the people who matter.", color: "bg-violet-50 text-violet-600" },
-              { step: "03", icon: ZapIcon, title: "Land the opportunity", desc: "Apply to jobs directly, get reached out to by companies, or hire the right person for your remote team.", color: "bg-orange-50 text-orange-600" },
-            ].map(item => (
-              <div key={item.step} className="text-left p-8 bg-gray-50 rounded-3xl border border-gray-100 hover:border-primary/20 hover:shadow-md transition-all">
-                <div className="flex items-center justify-between mb-6">
-                  <div className={`w-12 h-12 rounded-2xl ${item.color} flex items-center justify-center`}>
-                    <item.icon className="w-6 h-6" />
-                  </div>
-                  <span className="text-4xl font-black text-gray-100">{item.step}</span>
-                </div>
-                <h3 className="text-xl font-bold mb-2">{item.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Testimonials ── */}
-      <section id="testimonials" className="py-24 bg-gray-50 border-y border-gray-100">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-14">
-            <Badge className="mb-5 bg-yellow-50 text-yellow-600 border-0 text-xs font-semibold px-3 py-1 rounded-full">
-              <StarIcon className="w-3.5 h-3.5 mr-1.5 inline" />Success stories
-            </Badge>
-            <h2 className="text-4xl md:text-5xl font-black tracking-tight">Loved by remote professionals</h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map(t => (
-              <div key={t.name} className="bg-white border border-gray-200 rounded-3xl p-7 flex flex-col gap-5 hover:shadow-md transition-shadow">
-                <div className="flex gap-1 text-yellow-400">
-                  {[...Array(5)].map((_, i) => <StarIcon key={i} className="w-4 h-4 fill-current" />)}
-                </div>
-                <p className="text-gray-700 text-sm leading-relaxed font-medium flex-1">"{t.text}"</p>
-                <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
-                  <Avatar className="w-10 h-10 border-2 border-gray-100">
-                    <AvatarImage src={t.avatar} />
-                    <AvatarFallback className="text-xs">{t.name.slice(0,2)}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">{t.name}</p>
-                    <p className="text-xs text-gray-400">{t.role}</p>
+            {/* Post engagement preview */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
+              <div className="flex items-start gap-3 mb-3">
+                <Avatar className="w-9 h-9 border border-gray-100 flex-shrink-0">
+                  <AvatarImage src="https://i.pravatar.cc/80?u=7" />
+                  <AvatarFallback className="text-xs">VE</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900 leading-tight">Vercel</p>
+                  <div className="flex items-center gap-1 text-[11px] text-gray-400">
+                    <BuildingIcon className="w-3 h-3" /> Company · 2h ago
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── CTA ── */}
-      <section className="py-24 md:py-32 bg-white">
-        <div className="max-w-3xl mx-auto px-6 text-center">
-          <div className="bg-primary rounded-3xl px-10 py-14 md:py-20 relative overflow-hidden shadow-2xl shadow-primary/30">
-            <div className="absolute -top-20 -right-20 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-black/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="relative">
-              <ShieldCheckIcon className="w-10 h-10 text-white/60 mx-auto mb-4" />
-              <h2 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">Ready to stand out?</h2>
-              <p className="text-white/75 text-lg font-medium mb-10 max-w-lg mx-auto leading-relaxed">
-                Join thousands of remote professionals and companies building real careers and real teams on ProConnect.
+              <p className="text-xs text-gray-600 leading-relaxed mb-3">
+                We're hiring! Looking for a Senior Frontend Engineer passionate about performance and great UIs. 🚀
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link href="/profile/edit">
-                  <Button size="lg" variant="secondary" className="h-14 px-8 text-base font-bold rounded-full text-primary hover:bg-white w-full sm:w-auto">
-                    Join as a Professional
-                  </Button>
-                </Link>
-                <Link href="/profile/edit">
-                  <Button size="lg" variant="outline" className="h-14 px-8 text-base font-bold rounded-full border-white/30 text-white hover:bg-white/10 w-full sm:w-auto">
-                    Join as a Company
-                  </Button>
-                </Link>
+              <div className="flex items-center gap-4 text-[11px] text-gray-400 border-t border-gray-100 pt-2">
+                <span className="flex items-center gap-1"><ThumbsUpIcon className="w-3.5 h-3.5" /> 312 likes</span>
+                <span className="flex items-center gap-1"><MessageSquareIcon className="w-3.5 h-3.5" /> 67 comments</span>
+              </div>
+            </div>
+
+            {/* Floating trust badge */}
+            <div className="absolute -bottom-4 -left-6 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-lg flex items-center gap-2.5">
+              <CheckCircleIcon className="w-5 h-5 text-green-500 flex-shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-gray-900">Hired in 21 days</p>
+                <p className="text-[11px] text-gray-400">Average time on platform</p>
               </div>
             </div>
           </div>
+
         </div>
-      </section>
+      </main>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-gray-100 bg-gray-50 py-12">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <Link href="/" className="flex items-center gap-2 font-black text-lg">
-              <div className="bg-primary text-white w-7 h-7 rounded-lg flex items-center justify-center font-black text-sm">P</div>
-              ProConnect
-            </Link>
-            <div className="flex items-center gap-6 text-sm text-gray-400 font-medium">
-              <a href="#" className="hover:text-gray-700 transition-colors">About</a>
-              <a href="#" className="hover:text-gray-700 transition-colors">Privacy</a>
-              <a href="#" className="hover:text-gray-700 transition-colors">Terms</a>
-              <Link href="/jobs" className="hover:text-gray-700 transition-colors">Browse Jobs</Link>
-              <Link href="/profiles" className="hover:text-gray-700 transition-colors">Network</Link>
-            </div>
-            <p className="text-sm text-gray-400">© 2026 ProConnect</p>
+      <footer className="border-t border-gray-100 py-6">
+        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <img src={logo} alt="Hire Me Remotely" className="h-7 w-auto opacity-60" />
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-xs text-gray-400">
+            <a href="#" className="hover:text-gray-700">About</a>
+            <a href="#" className="hover:text-gray-700">Accessibility</a>
+            <a href="#" className="hover:text-gray-700">Privacy Policy</a>
+            <a href="#" className="hover:text-gray-700">Terms</a>
+            <Link href="/jobs" className="hover:text-gray-700">Browse Jobs</Link>
+            <Link href="/profiles" className="hover:text-gray-700">Network</Link>
           </div>
+          <p className="text-xs text-gray-300">© 2026 Hire Me Remotely</p>
         </div>
       </footer>
+
     </div>
   );
 }

@@ -411,7 +411,7 @@ export default function Home() {
               <a href="#" className="hover:underline">Terms</a>
               <a href="#" className="hover:underline">Advertising</a>
             </div>
-            <p className="mt-2">ProConnect &copy; 2026</p>
+            <p className="mt-2">Hire Me Remotely &copy; 2026</p>
           </div>
         </aside>
       </div>

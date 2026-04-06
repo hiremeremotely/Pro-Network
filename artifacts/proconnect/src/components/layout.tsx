@@ -7,10 +7,9 @@ import {
   UsersIcon,
   BriefcaseIcon,
   BellIcon,
-  MessageSquareIcon,
   SearchIcon,
-  BuildingIcon,
 } from "lucide-react";
+import logo from "@assets/hr_1775483051104.png";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -29,17 +28,12 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f3f2ef]">
-      {/* LinkedIn-style sticky header */}
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
-          {/* Logo */}
-          <Link href="/" className="flex-shrink-0 flex items-center gap-1.5">
-            <div className="bg-primary text-primary-foreground w-9 h-9 rounded-lg flex items-center justify-center font-black text-xl">
-              P
-            </div>
+          <Link href="/" className="flex-shrink-0 flex items-center">
+            <img src={logo} alt="Hire Me Remotely" className="h-8 w-auto" />
           </Link>
 
-          {/* Search bar */}
           <div className="relative flex-shrink-0 w-64 hidden sm:block">
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
@@ -50,13 +44,11 @@ export function Layout({ children }: LayoutProps) {
             />
           </div>
 
-          {/* Spacer */}
           <div className="flex-1" />
 
-          {/* Nav items */}
           <nav className="hidden md:flex items-stretch h-14">
             {navItems.map((item) => {
-              const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+              const isActive = location === item.href || (item.href !== "/feed" && location.startsWith(item.href));
               return (
                 <Link
                   key={item.href}
@@ -74,10 +66,8 @@ export function Layout({ children }: LayoutProps) {
             })}
           </nav>
 
-          {/* Divider */}
           <div className="hidden md:block h-8 w-px bg-gray-200 mx-1" />
 
-          {/* Profile avatar */}
           <Link href="/profile/edit" className="flex-shrink-0 flex flex-col items-center gap-1 px-2 text-xs font-medium text-gray-500 hover:text-gray-900">
             <Avatar className="w-7 h-7 border border-gray-300">
               <AvatarImage src="https://i.pravatar.cc/150?u=1" />
@@ -92,11 +82,10 @@ export function Layout({ children }: LayoutProps) {
         {children}
       </main>
 
-      {/* Mobile bottom nav */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-white shadow-lg">
         <nav className="flex items-stretch h-14">
           {navItems.map((item) => {
-            const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+            const isActive = location === item.href || (item.href !== "/feed" && location.startsWith(item.href));
             return (
               <Link
                 key={item.href}
