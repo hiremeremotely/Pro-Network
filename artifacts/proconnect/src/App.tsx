@@ -12,6 +12,7 @@ import ProfileEdit from "@/pages/profile-edit";
 import Jobs from "@/pages/jobs";
 import JobDetail from "@/pages/job-detail";
 import Applications from "@/pages/applications";
+import Admin from "@/pages/admin";
 
 const queryClient = new QueryClient();
 
@@ -20,6 +21,9 @@ function Router() {
     <Switch>
       {/* Landing page has its own header/footer — no shared Layout */}
       <Route path="/" component={Landing} />
+
+      {/* Admin backoffice — its own layout */}
+      <Route path="/admin" component={Admin} />
 
       {/* All app pages use the LinkedIn-style Layout */}
       <Route>
