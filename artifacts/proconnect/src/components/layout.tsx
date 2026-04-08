@@ -96,7 +96,7 @@ export function Layout({ children }: LayoutProps) {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/admin" className="flex items-center gap-2 cursor-pointer text-primary">
+                <Link href="/bo" className="flex items-center gap-2 cursor-pointer text-primary">
                   <LayoutDashboardIcon className="w-4 h-4" /> Admin Panel
                 </Link>
               </DropdownMenuItem>

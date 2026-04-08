@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { useBoAuth } from "@/contexts/bo-auth";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -108,6 +109,14 @@ const NAV: { id: Section; label: string; icon: React.ElementType }[] = [
 ];
 
 function Sidebar({ active, onChange }: { active: Section; onChange: (s: Section) => void }) {
+  const { session, logout } = useBoAuth();
+  const [, navigate] = useLocation();
+
+  function handleLogout() {
+    logout();
+    navigate("/bo");
+  }
+
   return (
     <aside className="w-60 bg-white border-r border-gray-200 flex flex-col min-h-screen shrink-0">
       <div className="px-5 py-5 border-b border-gray-100">
@@ -135,16 +144,22 @@ function Sidebar({ active, onChange }: { active: Section; onChange: (s: Section)
           </button>
         ))}
       </nav>
-      <div className="px-4 py-4 border-t border-gray-100">
+      <div className="px-4 py-4 border-t border-gray-100 space-y-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
             <UserCheckIcon className="w-4 h-4 text-primary" />
           </div>
-          <div>
-            <p className="text-xs font-semibold text-gray-800">Admin</p>
-            <p className="text-[10px] text-gray-400">Super admin</p>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-gray-800 truncate">{session?.name ?? "Admin"}</p>
+            <p className="text-[10px] text-gray-400 truncate">{session?.email ?? ""}</p>
           </div>
         </div>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
+        >
+          <LogOutIcon className="w-3.5 h-3.5" /> Sign out
+        </button>
       </div>
     </aside>
   );
@@ -612,7 +627,15 @@ function SubscriptionsSection() {
 // ── Root ─────────────────────────────────────────────────────────────────────
 
 export default function Admin() {
+  const { session } = useBoAuth();
+  const [, navigate] = useLocation();
   const [section, setSection] = useState<Section>("dashboard");
+
+  useEffect(() => {
+    if (!session) navigate("/bo");
+  }, [session, navigate]);
+
+  if (!session) return null;
 
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans">

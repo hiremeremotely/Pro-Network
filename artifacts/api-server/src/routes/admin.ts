@@ -4,6 +4,20 @@ import { db, profilesTable, jobsTable, applicationsTable, postsTable } from "@wo
 
 const router: IRouter = Router();
 
+// ── Seeded admin credentials ──────────────────────────────────────────────────
+const ADMIN_EMAIL    = "admin@hiremeremotely.com";
+const ADMIN_PASSWORD = "Admin@2026";
+const ADMIN_TOKEN    = "bo_super_admin_token_2026";
+
+router.post("/admin/login", (req, res): void => {
+  const { email, password } = req.body as { email?: string; password?: string };
+  if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+    res.json({ success: true, token: ADMIN_TOKEN, name: "Super Admin", email: ADMIN_EMAIL });
+  } else {
+    res.status(401).json({ success: false, message: "Invalid email or password." });
+  }
+});
+
 router.get("/admin/stats", async (_req, res): Promise<void> => {
   const [
     totalUsersResult,

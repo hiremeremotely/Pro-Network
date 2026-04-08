@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
+import { BoAuthProvider } from "@/contexts/bo-auth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Feed from "@/pages/feed";
@@ -12,6 +13,7 @@ import ProfileEdit from "@/pages/profile-edit";
 import Jobs from "@/pages/jobs";
 import JobDetail from "@/pages/job-detail";
 import Applications from "@/pages/applications";
+import BoLogin from "@/pages/bo-login";
 import Admin from "@/pages/admin";
 
 const queryClient = new QueryClient();
@@ -19,11 +21,14 @@ const queryClient = new QueryClient();
 function Router() {
   return (
     <Switch>
-      {/* Landing page has its own header/footer — no shared Layout */}
+      {/* Public landing */}
       <Route path="/" component={Landing} />
 
-      {/* Admin backoffice — its own layout */}
-      <Route path="/admin" component={Admin} />
+      {/* Backoffice — login page */}
+      <Route path="/bo" component={BoLogin} />
+
+      {/* Backoffice — protected dashboard (auth guard is inside Admin) */}
+      <Route path="/bo/dashboard" component={Admin} />
 
       {/* All app pages use the LinkedIn-style Layout */}
       <Route>
@@ -48,9 +53,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
+        <BoAuthProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+        </BoAuthProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
