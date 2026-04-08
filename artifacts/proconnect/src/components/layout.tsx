@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,9 +16,151 @@ import {
   SearchIcon,
   UserIcon,
   LogOutIcon,
+  XIcon,
+  LoaderIcon,
+  MapPinIcon,
 } from "lucide-react";
 import logo from "@assets/hr_1775483051104.png";
 import { useAppAuth } from "@/contexts/app-auth";
+import { useListProfiles, getListProfilesQueryKey } from "@workspace/api-client-react";
+import { Badge } from "@/components/ui/badge";
+
+// ── Global typeahead search ───────────────────────────────────────────────────
+function GlobalSearch() {
+  const [, navigate] = useLocation();
+  const { user } = useAppAuth();
+  const [value, setValue] = useState("");
+  const [open, setOpen] = useState(false);
+  const [highlighted, setHighlighted] = useState(-1);
+  const [debounced, setDebounced] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), 250);
+    return () => clearTimeout(t);
+  }, [value]);
+
+  const { data, isFetching } = useListProfiles(
+    { search: debounced || undefined, limit: 6, offset: 0 },
+    {
+      query: {
+        enabled: debounced.length >= 1,
+        queryKey: getListProfilesQueryKey({ search: debounced || undefined, limit: 6, offset: 0 }),
+      },
+    }
+  );
+
+  const suggestions = (data?.profiles ?? []).filter(p => p.id !== user?.id);
+
+  useEffect(() => {
+    function onOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, []);
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") { e.preventDefault(); setHighlighted(h => Math.min(h + 1, suggestions.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setHighlighted(h => Math.max(h - 1, -1)); }
+    else if (e.key === "Enter") {
+      e.preventDefault();
+      if (highlighted >= 0 && suggestions[highlighted]) {
+        navigate(`/profiles/${suggestions[highlighted].id}`);
+        setValue(""); setOpen(false);
+      } else if (value.trim()) {
+        navigate(`/profiles?search=${encodeURIComponent(value.trim())}`);
+        setOpen(false);
+      }
+    } else if (e.key === "Escape") { setOpen(false); setHighlighted(-1); inputRef.current?.blur(); }
+  }
+
+  const showDropdown = open && value.length >= 1 && (isFetching || suggestions.length > 0);
+
+  return (
+    <div ref={containerRef} className="relative flex-shrink-0 w-64 hidden sm:block">
+      <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none z-10" />
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        placeholder="Search"
+        autoComplete="off"
+        className="w-full h-9 pl-9 pr-8 bg-[#eef3f8] border-0 rounded-md text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:bg-white transition-colors"
+        onChange={e => { setValue(e.target.value); setOpen(true); setHighlighted(-1); }}
+        onFocus={() => { if (value.length >= 1) setOpen(true); }}
+        onKeyDown={handleKeyDown}
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => { setValue(""); setOpen(false); inputRef.current?.focus(); }}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <XIcon className="w-3 h-3" />
+        </button>
+      )}
+
+      {showDropdown && (
+        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-[200] bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden min-w-[320px]">
+          {isFetching && suggestions.length === 0 ? (
+            <div className="flex items-center gap-2 px-4 py-3 text-sm text-gray-400">
+              <LoaderIcon className="w-3.5 h-3.5 animate-spin" /> Searching...
+            </div>
+          ) : (
+            <>
+              <div className="px-3 py-2 border-b border-gray-100">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">People</p>
+              </div>
+              {suggestions.map((profile, i) => {
+                const initials = profile.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+                return (
+                  <button
+                    key={profile.id}
+                    type="button"
+                    onMouseDown={() => { navigate(`/profiles/${profile.id}`); setValue(""); setOpen(false); }}
+                    onMouseEnter={() => setHighlighted(i)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${highlighted === i ? "bg-primary/5" : "hover:bg-gray-50"}`}
+                  >
+                    <Avatar className="w-8 h-8 border border-gray-100 flex-shrink-0">
+                      <AvatarImage src={profile.avatarUrl || undefined} />
+                      <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">{initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{profile.name}</p>
+                      {profile.headline && <p className="text-xs text-gray-400 truncate">{profile.headline}</p>}
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {profile.location && (
+                        <span className="hidden lg:flex items-center gap-0.5 text-[10px] text-gray-400">
+                          <MapPinIcon className="w-3 h-3" />{profile.location.split(",")[0]}
+                        </span>
+                      )}
+                      {profile.openToWork && (
+                        <Badge className="bg-green-50 text-green-600 border-0 text-[9px] font-semibold px-1.5 rounded-full">Open</Badge>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onMouseDown={() => { navigate(`/profiles`); setOpen(false); }}
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-primary font-semibold border-t border-gray-100 hover:bg-primary/5 transition-colors"
+              >
+                <SearchIcon className="w-3 h-3" />
+                See all results for "{value}"
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -27,7 +168,6 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const [location, navigate] = useLocation();
-  const [search, setSearch] = useState("");
   const { user, logout } = useAppAuth();
 
   const initials = user?.name
@@ -54,15 +194,7 @@ export function Layout({ children }: LayoutProps) {
             <img src={logo} alt="Hire Me Remotely" className="h-8 w-auto" />
           </Link>
 
-          <div className="relative flex-shrink-0 w-64 hidden sm:block">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              className="pl-9 pr-4 h-9 bg-[#eef3f8] border-0 rounded-md text-sm focus-visible:ring-1 focus-visible:ring-primary/50"
-              placeholder="Search"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
+          <GlobalSearch />
 
           <div className="flex-1" />
 
