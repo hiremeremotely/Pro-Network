@@ -50,7 +50,7 @@ export function Layout({ children }: LayoutProps) {
     <div className="min-h-screen flex flex-col bg-[#f3f2ef]">
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
-          <Link href="/" className="flex-shrink-0 flex items-center">
+          <Link href={user ? "/feed" : "/"} className="flex-shrink-0 flex items-center">
             <img src={logo} alt="Hire Me Remotely" className="h-8 w-auto" />
           </Link>
 
