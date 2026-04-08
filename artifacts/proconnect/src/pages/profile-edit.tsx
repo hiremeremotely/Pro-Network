@@ -20,20 +20,25 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { PlusIcon, TrashIcon, SaveIcon, UserIcon, GraduationCapIcon, BriefcaseIcon, FolderIcon, ZapIcon } from "lucide-react";
-
-const CURRENT_PROFILE_ID = 1;
+import { useAppAuth } from "@/contexts/app-auth";
+import { useLocation } from "wouter";
 
 export default function ProfileEdit() {
+  const { user } = useAppAuth();
+  const [, navigate] = useLocation();
+  const profileId = user?.id ?? 0;
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const { data: profile, isLoading, error, refetch } = useGetProfile(CURRENT_PROFILE_ID, {
-    query: { queryKey: getGetProfileQueryKey(CURRENT_PROFILE_ID) }
+  const { data: profile, isLoading, error, refetch } = useGetProfile(profileId, {
+    query: { enabled: profileId > 0, queryKey: getGetProfileQueryKey(profileId) }
   });
-  const { data: education } = useListEducation(CURRENT_PROFILE_ID, { query: { queryKey: getListEducationQueryKey(CURRENT_PROFILE_ID) } });
-  const { data: experience } = useListExperience(CURRENT_PROFILE_ID, { query: { queryKey: getListExperienceQueryKey(CURRENT_PROFILE_ID) } });
-  const { data: portfolio } = useListPortfolio(CURRENT_PROFILE_ID, { query: { queryKey: getListPortfolioQueryKey(CURRENT_PROFILE_ID) } });
-  const { data: skills } = useListProfileSkills(CURRENT_PROFILE_ID, { query: { queryKey: getListProfileSkillsQueryKey(CURRENT_PROFILE_ID) } });
+  const { data: education } = useListEducation(profileId, { query: { enabled: profileId > 0, queryKey: getListEducationQueryKey(profileId) } });
+  const { data: experience } = useListExperience(profileId, { query: { enabled: profileId > 0, queryKey: getListExperienceQueryKey(profileId) } });
+  const { data: portfolio } = useListPortfolio(profileId, { query: { enabled: profileId > 0, queryKey: getListPortfolioQueryKey(profileId) } });
+  const { data: skills } = useListProfileSkills(profileId, { query: { enabled: profileId > 0, queryKey: getListProfileSkillsQueryKey(profileId) } });
+
+  const CURRENT_PROFILE_ID = profileId;
 
   const updateProfile = useUpdateProfile();
   const createEducation = useCreateEducation();
@@ -67,6 +72,7 @@ export default function ProfileEdit() {
   // Skill form
   const [skillForm, setSkillForm] = useState({ name: "", level: "" });
 
+  if (!user) { navigate("/login"); return null; }
   if (isLoading) return <LoadingState message="Loading your profile..." />;
   if (error) return <ErrorState error={error} retry={refetch} />;
 
