@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useParams, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useUpload } from "@workspace/object-storage-web";
 import { useAppAuth } from "@/contexts/app-auth";
 import {
   MapPinIcon, GlobeIcon, GithubIcon, LinkedinIcon, TwitterIcon,
@@ -100,18 +101,6 @@ function EditInfoModal({ profile, profileId, onClose }: { profile: any; profileI
   return (
     <Modal title="Edit intro" onClose={onClose}>
       <div className="space-y-4">
-        <div>
-          <Label className="text-xs font-semibold text-gray-600 mb-1 block">Profile photo URL</Label>
-          <div className="flex gap-2">
-            <Input placeholder="https://..." value={form.avatarUrl} onChange={e => setForm(f => ({ ...f, avatarUrl: e.target.value }))} className="h-9 text-sm" />
-            {form.avatarUrl && (
-              <Avatar className="w-9 h-9 flex-shrink-0">
-                <AvatarImage src={form.avatarUrl} />
-                <AvatarFallback className="text-xs bg-primary/10 text-primary">{form.name.slice(0,2).toUpperCase()}</AvatarFallback>
-              </Avatar>
-            )}
-          </div>
-        </div>
         <div>
           <Label className="text-xs font-semibold text-gray-600 mb-1 block">Name *</Label>
           <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="h-9 text-sm" />
@@ -302,11 +291,48 @@ export default function ProfileDetail() {
   const params = useParams<{ id: string }>();
   const id = parseInt(params.id, 10);
   const qc = useQueryClient();
+  const { toast } = useToast();
   const deleteExperience = useDeleteExperience();
   const deleteEducation = useDeleteEducation();
   const deleteSkill = useDeleteProfileSkill();
+  const updateProfile = useUpdateProfile();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const [modal, setModal] = useState<"info" | "exp" | "edu" | "skill" | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
+  const { uploadFile } = useUpload({
+    onSuccess: async (res) => {
+      const avatarUrl = `/api/storage${res.objectPath}`;
+      updateProfile.mutate(
+        { id, data: { avatarUrl } },
+        {
+          onSuccess: () => {
+            qc.invalidateQueries({ queryKey: getGetProfileQueryKey(id) });
+            const stored = localStorage.getItem("app_user_session");
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              localStorage.setItem("app_user_session", JSON.stringify({ ...parsed, avatarUrl }));
+            }
+            toast({ title: "Profile photo updated!" });
+            setAvatarUploading(false);
+          },
+        }
+      );
+    },
+    onError: () => {
+      toast({ title: "Upload failed", variant: "destructive" });
+      setAvatarUploading(false);
+    },
+  });
+
+  async function handleAvatarFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    await uploadFile(file);
+    e.target.value = "";
+  }
 
   const { data: profile, isLoading, error, refetch } = useGetProfile(id, {
     query: { enabled: !!id, queryKey: getGetProfileQueryKey(id) }
@@ -355,14 +381,31 @@ export default function ProfileDetail() {
             {/* Avatar row */}
             <div className="flex items-end justify-between -mt-12 mb-3">
               <div className="relative">
-                <Avatar className="w-24 h-24 border-4 border-white shadow-md">
+                <Avatar className={`w-24 h-24 border-4 border-white shadow-md transition-opacity ${avatarUploading ? "opacity-50" : ""}`}>
                   <AvatarImage src={profile.avatarUrl ?? undefined} />
                   <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">{initials}</AvatarFallback>
                 </Avatar>
                 {isOwn && (
-                  <button onClick={() => setModal("info")} className="absolute bottom-1 right-1 w-7 h-7 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-50 shadow-sm">
-                    <CameraIcon className="w-3.5 h-3.5" />
-                  </button>
+                  <>
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarFile}
+                    />
+                    <button
+                      onClick={() => avatarInputRef.current?.click()}
+                      disabled={avatarUploading}
+                      title="Upload profile photo"
+                      className="absolute bottom-1 right-1 w-7 h-7 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-50 shadow-sm disabled:opacity-50 transition-colors"
+                    >
+                      {avatarUploading
+                        ? <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        : <CameraIcon className="w-3.5 h-3.5" />
+                      }
+                    </button>
+                  </>
                 )}
               </div>
 

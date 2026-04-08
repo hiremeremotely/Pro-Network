@@ -74,6 +74,9 @@ onlyBuiltDependencies:
   - unrs-resolver
 
 overrides:
+  # Force all packages to use the project's React version (prevents duplicate React with Uppy v5)
+  "react": "19.1.0"
+  "react-dom": "19.1.0"
   # replit uses linux-x64 only, we can exclude all other platforms
   "esbuild>@esbuild/darwin-arm64": "-"
   "esbuild>@esbuild/darwin-x64": "-"

@@ -11,10 +11,12 @@ import feedRouter from "./feed";
 import postsRouter from "./posts";
 import adminRouter from "./admin";
 import authRouter from "./auth";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(storageRouter);
 router.use(profilesRouter);
 router.use(educationRouter);
 router.use(experienceRouter);
