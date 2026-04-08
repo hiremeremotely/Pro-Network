@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { useListProfiles, getListProfilesQueryKey } from "@workspace/api-client-react";
 import { useAppAuth } from "@/contexts/app-auth";
 import { ProfileCard } from "@/components/profile-card";
@@ -87,12 +87,22 @@ function ProfileTableRow({ profile, index }: { profile: Profile; index: number }
 
 export default function Profiles() {
   const { user } = useAppAuth();
-  const [search, setSearch] = useState("");
-  const [query, setQuery] = useState("");
+  const searchString = useSearch();
+  const initialSearch = new URLSearchParams(searchString).get("search") ?? "";
+
+  const [search, setSearch] = useState(initialSearch);
+  const [query, setQuery] = useState(initialSearch);
   const [view, setView] = useState<ViewMode>("grid");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Debounce: update query 300ms after the user stops typing
+  // Sync when URL search param changes (e.g. navigating from global search)
+  useEffect(() => {
+    const term = new URLSearchParams(searchString).get("search") ?? "";
+    setSearch(term);
+    setQuery(term);
+  }, [searchString]);
+
+  // Debounce: update query 300ms after the user manually types
   useEffect(() => {
     const t = setTimeout(() => setQuery(search), 300);
     return () => clearTimeout(t);

@@ -72,7 +72,7 @@ function GlobalSearch() {
         navigate(`/profiles/${suggestions[highlighted].id}`);
         setValue(""); setOpen(false); setFocused(false); inputRef.current?.blur();
       } else if (value.trim()) {
-        navigate(`/profiles`);
+        navigate(`/profiles?search=${encodeURIComponent(value.trim())}`);
         setOpen(false); setFocused(false); inputRef.current?.blur();
       }
     } else if (e.key === "Escape") {
@@ -163,7 +163,7 @@ function GlobalSearch() {
           {suggestions.length > 0 && (
             <button
               type="button"
-              onMouseDown={() => { navigate(`/profiles`); setOpen(false); setFocused(false); inputRef.current?.blur(); }}
+              onMouseDown={() => { navigate(`/profiles?search=${encodeURIComponent(value)}`); setValue(""); setOpen(false); setFocused(false); inputRef.current?.blur(); }}
               onMouseEnter={() => setHighlighted(suggestions.length)}
               onMouseLeave={() => setHighlighted(-1)}
               className={`w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 font-medium border-t border-gray-100 transition-colors ${highlighted === suggestions.length ? "bg-[#f3f2ef]" : ""}`}
