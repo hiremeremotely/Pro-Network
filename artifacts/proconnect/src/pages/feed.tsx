@@ -23,11 +23,7 @@ import {
   MapPinIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-
-const CURRENT_PROFILE_ID = 1;
-const CURRENT_AVATAR = "https://i.pravatar.cc/150?u=1";
-const CURRENT_NAME = "Alex Chen";
-const CURRENT_HEADLINE = "Full-Stack Engineer | React & Node.js";
+import { useAppAuth } from "@/contexts/app-auth";
 
 interface FeedPost {
   id: number;
@@ -128,9 +124,16 @@ function PostCard({ post, onLike }: { post: FeedPost; onLike: (id: number) => vo
 }
 
 export default function Home() {
+  const { user } = useAppAuth();
   const [postContent, setPostContent] = useState("");
   const [postFocused, setPostFocused] = useState(false);
   const queryClient = useQueryClient();
+
+  const currentId       = user?.id ?? 1;
+  const currentName     = user?.name ?? "Guest";
+  const currentHeadline = user?.headline ?? "";
+  const currentAvatar   = user?.avatarUrl ?? undefined;
+  const currentInitials = currentName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
 
   const { data: stats } = useGetFeedStats({ query: { queryKey: getGetFeedStatsQueryKey() } });
   const { data: suggestedProfiles } = useListFeaturedProfiles({ query: { queryKey: getListFeaturedProfilesQueryKey() } });
@@ -156,7 +159,7 @@ export default function Home() {
       const res = await fetch(`${import.meta.env.BASE_URL}api/posts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileId: CURRENT_PROFILE_ID, content }),
+        body: JSON.stringify({ profileId: currentId, content }),
       });
       return res.json();
     },
@@ -179,12 +182,12 @@ export default function Home() {
             <CardContent className="px-4 pb-4">
               <div className="-mt-8 mb-2">
                 <Avatar className="w-16 h-16 border-4 border-white shadow">
-                  <AvatarImage src={CURRENT_AVATAR} />
-                  <AvatarFallback className="font-bold text-lg bg-primary/10 text-primary">AC</AvatarFallback>
+                  <AvatarImage src={currentAvatar} />
+                  <AvatarFallback className="font-bold text-lg bg-primary/10 text-primary">{currentInitials}</AvatarFallback>
                 </Avatar>
               </div>
-              <p className="font-bold text-sm text-gray-900 leading-tight">{CURRENT_NAME}</p>
-              <p className="text-xs text-gray-500 leading-snug mt-0.5 mb-3">{CURRENT_HEADLINE}</p>
+              <p className="font-bold text-sm text-gray-900 leading-tight">{currentName}</p>
+              <p className="text-xs text-gray-500 leading-snug mt-0.5 mb-3">{currentHeadline}</p>
 
               <Separator className="mb-3" />
 
@@ -201,9 +204,9 @@ export default function Home() {
 
               <Separator className="my-3" />
 
-              <Link href="/profile/edit">
+              <Link href={user ? `/profiles/${user.id}` : "/login"}>
                 <Button variant="outline" size="sm" className="w-full text-xs rounded-full border-primary text-primary hover:bg-primary/5">
-                  Edit profile
+                  View profile
                 </Button>
               </Link>
             </CardContent>
@@ -253,8 +256,8 @@ export default function Home() {
             <CardContent className="p-4">
               <div className="flex items-center gap-3 mb-3">
                 <Avatar className="w-10 h-10 border border-gray-200 flex-shrink-0">
-                  <AvatarImage src={CURRENT_AVATAR} />
-                  <AvatarFallback className="text-xs font-semibold">AC</AvatarFallback>
+                  <AvatarImage src={currentAvatar} />
+                  <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">{currentInitials}</AvatarFallback>
                 </Avatar>
                 {!postFocused ? (
                   <button
