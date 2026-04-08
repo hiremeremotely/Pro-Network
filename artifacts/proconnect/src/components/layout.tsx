@@ -15,7 +15,6 @@ import {
   BriefcaseIcon,
   BellIcon,
   SearchIcon,
-  LayoutDashboardIcon,
   UserIcon,
   LogOutIcon,
 } from "lucide-react";
@@ -92,12 +91,6 @@ export function Layout({ children }: LayoutProps) {
               <DropdownMenuItem asChild>
                 <Link href="/profile/edit" className="flex items-center gap-2 cursor-pointer">
                   <UserIcon className="w-4 h-4" /> View Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/bo" className="flex items-center gap-2 cursor-pointer text-primary">
-                  <LayoutDashboardIcon className="w-4 h-4" /> Admin Panel
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
