@@ -68,7 +68,7 @@ export function Layout({ children }: LayoutProps) {
 
           <nav className="hidden md:flex items-stretch h-14">
             {navItems.map((item) => {
-              const isActive = location === item.href || (item.href !== "/feed" && location.startsWith(item.href));
+              const isActive = location === item.href || (item.href !== "/feed" && item.href !== "/profiles" && location.startsWith(item.href));
               return (
                 <Link
                   key={item.href}
@@ -136,7 +136,7 @@ export function Layout({ children }: LayoutProps) {
       <div className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-white shadow-lg">
         <nav className="flex items-stretch h-14">
           {navItems.map((item) => {
-            const isActive = location === item.href || (item.href !== "/feed" && location.startsWith(item.href));
+            const isActive = location === item.href || (item.href !== "/feed" && item.href !== "/profiles" && location.startsWith(item.href));
             return (
               <Link
                 key={item.href}
