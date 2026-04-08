@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -28,6 +28,25 @@ const PREVIEW_JOBS = [
 
 export default function Landing() {
   const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [, navigate] = useLocation();
+
+  function handleContinue(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setEmailError("Please enter your email or phone number to continue.");
+      return;
+    }
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+    const isPhone = /^\+?[\d\s\-().]{7,}$/.test(trimmed);
+    if (!isEmail && !isPhone) {
+      setEmailError("Please enter a valid email address or phone number.");
+      return;
+    }
+    sessionStorage.setItem("signup_prefill_email", trimmed);
+    navigate("/signup");
+  }
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -71,20 +90,26 @@ export default function Landing() {
             </p>
 
             {/* Email input */}
-            <div className="space-y-3 mb-4">
-              <Input
-                type="email"
-                placeholder="Email or phone"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="h-12 rounded-lg border-gray-300 text-sm focus-visible:ring-primary"
-              />
-              <Link href={email ? `/signup` : `/signup`} className="block">
-                <Button className="w-full h-12 rounded-full font-bold text-base" onClick={() => email && sessionStorage.setItem("signup_prefill_email", email)}>
-                  Continue
-                </Button>
-              </Link>
-            </div>
+            <form onSubmit={handleContinue} className="space-y-3 mb-4" noValidate>
+              <div>
+                <Input
+                  type="email"
+                  placeholder="Email or phone"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); setEmailError(""); }}
+                  className={`h-12 rounded-lg text-sm focus-visible:ring-primary ${emailError ? "border-red-400 focus-visible:ring-red-400" : "border-gray-300"}`}
+                />
+                {emailError && (
+                  <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                    {emailError}
+                  </p>
+                )}
+              </div>
+              <Button type="submit" className="w-full h-12 rounded-full font-bold text-base">
+                Continue
+              </Button>
+            </form>
 
             {/* Divider */}
             <div className="flex items-center gap-3 my-5">
