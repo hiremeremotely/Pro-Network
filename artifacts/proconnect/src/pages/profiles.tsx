@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useListProfiles, getListProfilesQueryKey } from "@workspace/api-client-react";
+import { useAppAuth } from "@/contexts/app-auth";
 import { ProfileCard } from "@/components/profile-card";
 import { LoadingState, ErrorState } from "@/components/loading-state";
 import { ViewToggle, type ViewMode } from "@/components/view-toggle";
@@ -86,6 +87,7 @@ function ProfileTableRow({ profile, index }: { profile: Profile; index: number }
 }
 
 export default function Profiles() {
+  const { user } = useAppAuth();
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<ViewMode>("grid");
@@ -94,6 +96,8 @@ export default function Profiles() {
     { search: query || undefined, limit: 20, offset: 0 },
     { query: { queryKey: getListProfilesQueryKey({ search: query || undefined, limit: 20, offset: 0 }) } }
   );
+
+  const profiles = (data?.profiles ?? []).filter(p => p.id !== user?.id);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -130,7 +134,7 @@ export default function Profiles() {
         <LoadingState message="Loading professionals..." />
       ) : error ? (
         <ErrorState error={error} retry={refetch} />
-      ) : !data?.profiles?.length ? (
+      ) : !profiles.length ? (
         <div className="flex flex-col items-center py-24 text-muted-foreground gap-4">
           <UsersIcon className="w-12 h-12 opacity-30" />
           <p className="text-lg font-medium">No professionals found</p>
@@ -138,17 +142,17 @@ export default function Profiles() {
         </div>
       ) : (
         <>
-          <p className="text-sm text-muted-foreground mb-4">{data.total} professional{data.total !== 1 ? "s" : ""} found</p>
+          <p className="text-sm text-muted-foreground mb-4">{profiles.length} professional{profiles.length !== 1 ? "s" : ""} found</p>
 
           {view === "grid" && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {data.profiles.map((profile) => <ProfileCard key={profile.id} profile={profile} />)}
+              {profiles.map((profile) => <ProfileCard key={profile.id} profile={profile} />)}
             </div>
           )}
 
           {view === "list" && (
             <div className="flex flex-col gap-2">
-              {data.profiles.map((profile) => <ProfileRow key={profile.id} profile={profile} />)}
+              {profiles.map((profile) => <ProfileRow key={profile.id} profile={profile} />)}
             </div>
           )}
 
@@ -165,7 +169,7 @@ export default function Profiles() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.profiles.map((profile, i) => <ProfileTableRow key={profile.id} profile={profile} index={i} />)}
+                  {profiles.map((profile, i) => <ProfileTableRow key={profile.id} profile={profile} index={i} />)}
                 </tbody>
               </table>
             </div>
