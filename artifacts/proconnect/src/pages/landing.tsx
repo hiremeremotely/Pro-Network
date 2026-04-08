@@ -94,7 +94,7 @@ export default function Landing() {
               <div>
                 <Input
                   type="email"
-                  placeholder="Email or phone"
+                  placeholder="Email"
                   value={email}
                   onChange={e => { setEmail(e.target.value); setEmailError(""); }}
                   className={`h-12 rounded-lg text-sm focus-visible:ring-primary ${emailError ? "border-red-400 focus-visible:ring-red-400" : "border-gray-300"}`}
