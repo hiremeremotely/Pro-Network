@@ -3,11 +3,21 @@ import { Link, useLocation } from "wouter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   HomeIcon,
   UsersIcon,
   BriefcaseIcon,
   BellIcon,
   SearchIcon,
+  LayoutDashboardIcon,
+  UserIcon,
+  LogOutIcon,
 } from "lucide-react";
 import logo from "@assets/hr_1775483051104.png";
 
@@ -68,13 +78,36 @@ export function Layout({ children }: LayoutProps) {
 
           <div className="hidden md:block h-8 w-px bg-gray-200 mx-1" />
 
-          <Link href="/profile/edit" className="flex-shrink-0 flex flex-col items-center gap-1 px-2 text-xs font-medium text-gray-500 hover:text-gray-900">
-            <Avatar className="w-7 h-7 border border-gray-300">
-              <AvatarImage src="https://i.pravatar.cc/150?u=1" />
-              <AvatarFallback className="text-[10px]">ME</AvatarFallback>
-            </Avatar>
-            <span className="hidden md:block">Me</span>
-          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex-shrink-0 flex flex-col items-center gap-1 px-2 text-xs font-medium text-gray-500 hover:text-gray-900 outline-none">
+                <Avatar className="w-7 h-7 border border-gray-300">
+                  <AvatarImage src="https://i.pravatar.cc/150?u=1" />
+                  <AvatarFallback className="text-[10px]">ME</AvatarFallback>
+                </Avatar>
+                <span className="hidden md:block">Me</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href="/profile/edit" className="flex items-center gap-2 cursor-pointer">
+                  <UserIcon className="w-4 h-4" /> View Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/admin" className="flex items-center gap-2 cursor-pointer text-primary">
+                  <LayoutDashboardIcon className="w-4 h-4" /> Admin Panel
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/" className="flex items-center gap-2 cursor-pointer text-gray-500">
+                  <LogOutIcon className="w-4 h-4" /> Sign out
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
