@@ -12,7 +12,11 @@ export default function Signup() {
   const [step, setStep] = useState<1 | 2>(1);
   const [accountType, setAccountType] = useState<"individual" | "company">("individual");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => {
+    const prefill = sessionStorage.getItem("signup_prefill_email") ?? "";
+    if (prefill) sessionStorage.removeItem("signup_prefill_email");
+    return prefill;
+  });
   const [password, setPassword] = useState("");
   const [headline, setHeadline] = useState("");
   const [location, setLocation] = useState("");
