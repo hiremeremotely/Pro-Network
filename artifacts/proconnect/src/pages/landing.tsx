@@ -45,6 +45,7 @@ export default function Landing() {
       return;
     }
     sessionStorage.setItem("signup_prefill_email", trimmed);
+    sessionStorage.setItem("signup_prefill_type", "individual");
     navigate("/signup");
   }
 
@@ -147,12 +148,17 @@ export default function Landing() {
               <Separator className="flex-1" />
             </div>
 
-            <Link href="/signup" className="block">
-              <Button variant="outline" className="w-full h-12 rounded-full font-semibold text-sm border-primary/40 text-primary hover:bg-primary/5 hover:border-primary flex items-center gap-3">
-                <BuildingIcon className="w-5 h-5" />
-                Continue as a Company
-              </Button>
-            </Link>
+            <Button
+              variant="outline"
+              className="w-full h-12 rounded-full font-semibold text-sm border-primary/40 text-primary hover:bg-primary/5 hover:border-primary flex items-center gap-3"
+              onClick={() => {
+                sessionStorage.setItem("signup_prefill_type", "company");
+                navigate("/signup");
+              }}
+            >
+              <BuildingIcon className="w-5 h-5" />
+              Continue as a Company
+            </Button>
 
             <p className="text-center text-xs text-gray-400 mt-6 leading-relaxed">
               Already on Hire Me Remotely?{" "}
