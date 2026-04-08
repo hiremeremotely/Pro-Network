@@ -175,75 +175,89 @@ export default function Home() {
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] gap-4 items-start">
 
         {/* LEFT: Profile summary card */}
-        <aside className="hidden lg:flex flex-col gap-4 sticky top-20">
+        <aside className="hidden lg:flex flex-col gap-3 sticky top-20">
+
+          {/* ── LinkedIn-style profile card ── */}
           <Card className="rounded-xl overflow-hidden border border-gray-200 shadow-none bg-white">
-            {/* Cover */}
-            <div className="h-14 bg-gradient-to-br from-primary/60 to-primary/30" />
-            <CardContent className="px-4 pb-4">
-              <div className="-mt-8 mb-2">
-                <Avatar className="w-16 h-16 border-4 border-white shadow">
-                  <AvatarImage src={currentAvatar} />
-                  <AvatarFallback className="font-bold text-lg bg-primary/10 text-primary">{currentInitials}</AvatarFallback>
-                </Avatar>
-              </div>
-              <p className="font-bold text-sm text-gray-900 leading-tight">{currentName}</p>
-              <p className="text-xs text-gray-500 leading-snug mt-0.5 mb-3">{currentHeadline}</p>
 
-              <Separator className="mb-3" />
+            {/* Banner */}
+            <div className="h-[54px] bg-gradient-to-r from-primary/70 via-primary/45 to-indigo-300/60" />
 
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-500">Profile views</span>
-                  <span className="font-semibold text-primary">241</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-500">Post impressions</span>
-                  <span className="font-semibold text-primary">1,847</span>
-                </div>
-              </div>
-
-              <Separator className="my-3" />
-
+            {/* Avatar */}
+            <div className="px-3 -mt-[34px] mb-1">
               <Link href={user ? `/profiles/${user.id}` : "/login"}>
-                <Button variant="outline" size="sm" className="w-full text-xs rounded-full border-primary text-primary hover:bg-primary/5">
-                  View profile
-                </Button>
+                <Avatar className="w-[68px] h-[68px] border-[3px] border-white shadow-sm ring-1 ring-gray-100 hover:opacity-90 transition-opacity">
+                  <AvatarImage src={currentAvatar} />
+                  <AvatarFallback className="font-bold text-xl bg-primary/10 text-primary">{currentInitials}</AvatarFallback>
+                </Avatar>
               </Link>
-            </CardContent>
+            </div>
+
+            {/* Name / headline / location */}
+            <div className="px-3 pb-3">
+              <Link href={user ? `/profiles/${user.id}` : "/login"} className="block group">
+                <p className="font-semibold text-sm text-gray-900 leading-snug group-hover:underline">{currentName}</p>
+              </Link>
+              <p className="text-xs text-gray-500 leading-snug mt-0.5 line-clamp-2">{currentHeadline}</p>
+            </div>
+
+            <Separator />
+
+            {/* Analytics stats */}
+            <div className="px-3 py-2.5 space-y-2.5">
+              <div className="flex items-center justify-between cursor-pointer group">
+                <div>
+                  <p className="text-xs text-gray-600 group-hover:underline group-hover:text-primary font-medium">Profile viewers</p>
+                  <p className="text-[11px] text-gray-400">Past 90 days</p>
+                </div>
+                <span className="text-sm font-bold text-primary">{((currentId * 19 + 47) % 251) + 50}</span>
+              </div>
+              <div className="flex items-center justify-between cursor-pointer group">
+                <div>
+                  <p className="text-xs text-gray-600 group-hover:underline group-hover:text-primary font-medium">Post impressions</p>
+                  <p className="text-[11px] text-gray-400">Past 7 days · <span className="text-green-600">↑ {((currentId * 7 + 11) % 30) + 5}%</span></p>
+                </div>
+                <span className="text-sm font-bold text-primary">{(((currentId * 113 + 283) % 1800) + 400).toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div className="px-3 pb-3">
+              <Link href={user ? `/profiles/${user.id}` : "/login"} className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5">
+                View all analytics <ChevronRightIcon className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            <Separator />
+
+            {/* My items */}
+            <div className="px-3 py-2.5">
+              <Link href="/applications" className="flex items-center gap-2.5 group">
+                <BookmarkIcon className="w-4 h-4 text-gray-500 group-hover:text-primary flex-shrink-0" />
+                <span className="text-xs font-semibold text-gray-700 group-hover:text-primary group-hover:underline">My items</span>
+              </Link>
+            </div>
           </Card>
 
-          {/* Stats card */}
+          {/* ── Platform stats card ── */}
           {stats && (
             <Card className="rounded-xl border border-gray-200 shadow-none bg-white">
-              <CardContent className="p-4 space-y-2">
-                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3">Platform Stats</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <UsersIcon className="w-4 h-4 text-primary" />
+              <CardContent className="px-3 py-3 space-y-0">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2.5">Platform</p>
+                {[
+                  { icon: UsersIcon,     color: "bg-primary/10 text-primary",    value: stats.totalProfiles,           label: "Professionals" },
+                  { icon: BriefcaseIcon, color: "bg-green-50 text-green-600",    value: stats.totalJobs,               label: "Active Jobs" },
+                  { icon: TrendingUpIcon,color: "bg-orange-50 text-orange-500",  value: stats.remoteJobsPostedThisWeek, label: "New this week" },
+                ].map(({ icon: Icon, color, value, label }) => (
+                  <div key={label} className="flex items-center gap-2.5 py-1.5 hover:bg-gray-50 -mx-1 px-1 rounded-lg cursor-pointer transition-colors">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
+                      <Icon className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900 leading-tight">{value.toLocaleString()}</p>
+                      <p className="text-[11px] text-gray-400 leading-tight">{label}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">{stats.totalProfiles.toLocaleString()}</p>
-                    <p className="text-xs text-gray-400">Professionals</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
-                    <BriefcaseIcon className="w-4 h-4 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">{stats.totalJobs.toLocaleString()}</p>
-                    <p className="text-xs text-gray-400">Active Jobs</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
-                    <TrendingUpIcon className="w-4 h-4 text-orange-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">{stats.remoteJobsPostedThisWeek.toLocaleString()}</p>
-                    <p className="text-xs text-gray-400">New this week</p>
-                  </div>
-                </div>
+                ))}
               </CardContent>
             </Card>
           )}
