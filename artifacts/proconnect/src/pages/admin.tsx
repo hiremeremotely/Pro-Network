@@ -15,7 +15,7 @@ import {
   UsersIcon, BriefcaseIcon, FileTextIcon, MessageSquareIcon,
   BuildingIcon, TrendingUpIcon, StarIcon, SearchIcon,
   LayoutDashboardIcon, UserCheckIcon, CreditCardIcon,
-  ChevronLeftIcon, XIcon, CheckIcon, ClockIcon,
+  ChevronLeftIcon, XIcon, CheckIcon, ClockIcon, LogOutIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
