@@ -4,8 +4,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
 import { BoAuthProvider } from "@/contexts/bo-auth";
+import { AppAuthProvider } from "@/contexts/app-auth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
+import Login from "@/pages/login";
+import Signup from "@/pages/signup";
 import Feed from "@/pages/feed";
 import Profiles from "@/pages/profiles";
 import ProfileDetail from "@/pages/profile-detail";
@@ -24,10 +27,12 @@ function Router() {
       {/* Public landing */}
       <Route path="/" component={Landing} />
 
-      {/* Backoffice — login page */}
-      <Route path="/bo" component={BoLogin} />
+      {/* Main app auth */}
+      <Route path="/login" component={Login} />
+      <Route path="/signup" component={Signup} />
 
-      {/* Backoffice — protected dashboard (auth guard is inside Admin) */}
+      {/* Backoffice */}
+      <Route path="/bo" component={BoLogin} />
       <Route path="/bo/dashboard" component={Admin} />
 
       {/* All app pages use the LinkedIn-style Layout */}
@@ -53,11 +58,13 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <BoAuthProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-          </WouterRouter>
-        </BoAuthProvider>
+        <AppAuthProvider>
+          <BoAuthProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <Router />
+            </WouterRouter>
+          </BoAuthProvider>
+        </AppAuthProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

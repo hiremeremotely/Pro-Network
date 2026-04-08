@@ -10,6 +10,7 @@ import applicationsRouter from "./applications";
 import feedRouter from "./feed";
 import postsRouter from "./posts";
 import adminRouter from "./admin";
+import authRouter from "./auth";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(applicationsRouter);
 router.use(feedRouter);
 router.use(postsRouter);
 router.use(adminRouter);
+router.use(authRouter);
 
 export default router;

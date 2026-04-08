@@ -37,18 +37,18 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <img src={logo} alt="Hire Me Remotely" className="h-10 w-auto" />
           <div className="flex items-center gap-2">
-            <Link href="/feed">
+            <Link href="/login">
               <Button variant="ghost" size="sm" className="font-semibold text-gray-600 hover:text-gray-900">
                 Sign in
               </Button>
             </Link>
-            <Link href="/profile/edit">
+            <Link href="/signup">
               <Button variant="outline" size="sm" className="font-semibold rounded-full px-4 border-primary/40 text-primary hover:bg-primary/5 hover:border-primary hidden sm:inline-flex items-center gap-1.5">
                 <BuildingIcon className="w-3.5 h-3.5" />
                 For Companies
               </Button>
             </Link>
-            <Link href="/profile/edit">
+            <Link href="/signup">
               <Button size="sm" className="font-semibold rounded-full px-5">
                 Join free
               </Button>
@@ -79,8 +79,8 @@ export default function Landing() {
                 onChange={e => setEmail(e.target.value)}
                 className="h-12 rounded-lg border-gray-300 text-sm focus-visible:ring-primary"
               />
-              <Link href="/profile/edit" className="block">
-                <Button className="w-full h-12 rounded-full font-bold text-base">
+              <Link href={email ? `/signup` : `/signup`} className="block">
+                <Button className="w-full h-12 rounded-full font-bold text-base" onClick={() => email && sessionStorage.setItem("signup_prefill_email", email)}>
                   Continue
                 </Button>
               </Link>
@@ -95,7 +95,7 @@ export default function Landing() {
 
             {/* Social sign-in */}
             <div className="space-y-3">
-              <Link href="/feed" className="block">
+              <Link href="/signup" className="block">
                 <Button variant="outline" className="w-full h-12 rounded-full font-semibold text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 flex items-center gap-3">
                   <svg className="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -106,7 +106,7 @@ export default function Landing() {
                   Continue with Google
                 </Button>
               </Link>
-              <Link href="/feed" className="block">
+              <Link href="/signup" className="block">
                 <Button variant="outline" className="w-full h-12 rounded-full font-semibold text-sm border-gray-300 hover:border-gray-400 hover:bg-gray-50 flex items-center gap-3">
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="black" xmlns="http://www.w3.org/2000/svg">
                     <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701z"/>
@@ -122,7 +122,7 @@ export default function Landing() {
               <Separator className="flex-1" />
             </div>
 
-            <Link href="/profile/edit" className="block">
+            <Link href="/signup" className="block">
               <Button variant="outline" className="w-full h-12 rounded-full font-semibold text-sm border-primary/40 text-primary hover:bg-primary/5 hover:border-primary flex items-center gap-3">
                 <BuildingIcon className="w-5 h-5" />
                 Continue as a Company
@@ -131,7 +131,7 @@ export default function Landing() {
 
             <p className="text-center text-xs text-gray-400 mt-6 leading-relaxed">
               Already on Hire Me Remotely?{" "}
-              <Link href="/feed" className="font-semibold text-primary hover:underline">Sign in</Link>
+              <Link href="/login" className="font-semibold text-primary hover:underline">Sign in</Link>
             </p>
 
             {/* Policies */}

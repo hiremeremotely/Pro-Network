@@ -4,7 +4,8 @@
 
 LinkedIn-style professional networking platform for remote workers. Users and companies can create profiles, browse/post remote jobs, apply, and engage via a social feed.
 
-**Live at:** `/` (landing page) and `/feed` (authenticated app)
+**Live at:** `/` (landing page), `/login` (sign in), `/signup` (register), `/feed` (authenticated app)  
+**Backoffice at:** `/bo` (admin login), `/bo/dashboard` (admin panel — `admin@hiremeremotely.com` / `Admin@2026`)
 
 ---
 

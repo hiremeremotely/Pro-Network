@@ -16,6 +16,7 @@ import {
   BuildingIcon, TrendingUpIcon, StarIcon, SearchIcon,
   LayoutDashboardIcon, UserCheckIcon, CreditCardIcon,
   ChevronLeftIcon, XIcon, CheckIcon, ClockIcon, LogOutIcon,
+  UserPlusIcon, EyeIcon, EyeOffIcon, AlertCircleIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -282,12 +283,120 @@ function DashboardSection() {
   );
 }
 
+// ── Create User Modal ────────────────────────────────────────────────────────
+
+interface CreateUserModalProps { onClose: () => void; onCreated: () => void; }
+
+function CreateUserModal({ onClose, onCreated }: CreateUserModalProps) {
+  const [accountType, setAccountType] = useState<"individual" | "company">("individual");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [headline, setHeadline] = useState("");
+  const [location, setLocation] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (!name || !email || !password) { setError("Name, email and password are required."); return; }
+    if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
+    setLoading(true);
+    try {
+      const res = await fetch(`${BASE}api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, accountType, headline, location }),
+      });
+      const data = await res.json();
+      if (res.ok) { onCreated(); onClose(); }
+      else setError(data.error ?? "Failed to create user.");
+    } catch {
+      setError("Server unreachable.");
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <UserPlusIcon className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-bold text-gray-900">Create User</h2>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
+            <XIcon className="w-4 h-4" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          {/* Account type */}
+          <div className="flex gap-2">
+            {(["individual", "company"] as const).map((t) => (
+              <button key={t} type="button" onClick={() => setAccountType(t)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border text-xs font-semibold transition-all ${accountType === t ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-400 hover:border-gray-300"}`}>
+                {t === "individual" ? <UsersIcon className="w-3.5 h-3.5" /> : <BuildingIcon className="w-3.5 h-3.5" />}
+                {t === "individual" ? "Individual" : "Company"}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">{accountType === "company" ? "Company name" : "Full name"} *</label>
+              <Input placeholder={accountType === "company" ? "Acme Inc." : "Alex Chen"} value={name} onChange={(e) => setName(e.target.value)} className="h-9 text-sm" />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Email *</label>
+              <Input type="email" placeholder="user@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="h-9 text-sm" />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Password *</label>
+              <div className="relative">
+                <Input type={showPass ? "text" : "password"} placeholder="Min. 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} className="h-9 text-sm pr-9" />
+                <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showPass ? <EyeOffIcon className="w-3.5 h-3.5" /> : <EyeIcon className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Headline</label>
+              <Input placeholder="Senior Engineer" value={headline} onChange={(e) => setHeadline(e.target.value)} className="h-9 text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Location</label>
+              <Input placeholder="Remote – US" value={location} onChange={(e) => setLocation(e.target.value)} className="h-9 text-sm" />
+            </div>
+          </div>
+
+          {error && (
+            <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              <AlertCircleIcon className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-red-600">{error}</p>
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1 h-9 text-sm rounded-xl">Cancel</Button>
+            <Button type="submit" disabled={loading} className="flex-1 h-9 text-sm rounded-xl">
+              {loading ? <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />Creating...</span> : "Create User"}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Users section ────────────────────────────────────────────────────────────
 
 function UsersSection() {
   const [search, setSearch] = useState("");
   const [accountFilter, setAccountFilter] = useState("all");
-  const { data, isLoading } = useAdminUsers(accountFilter);
+  const [showCreate, setShowCreate] = useState(false);
+  const { data, isLoading, refetch } = useAdminUsers(accountFilter);
 
   const filtered = (data?.profiles ?? []).filter((p: any) =>
     !search ||
@@ -298,6 +407,7 @@ function UsersSection() {
 
   return (
     <>
+      {showCreate && <CreateUserModal onClose={() => setShowCreate(false)} onCreated={() => refetch()} />}
       <Header title="Users" subtitle="All platform accounts — individuals and companies" />
       <div className="px-8 py-6">
         <div className="bg-white rounded-2xl border border-gray-200">
@@ -313,6 +423,10 @@ function UsersSection() {
                   <button key={f} onClick={() => setAccountFilter(f)} className={`px-3 py-1.5 font-medium capitalize transition-colors ${accountFilter === f ? "bg-primary text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}>{f}</button>
                 ))}
               </div>
+              <Button size="sm" className="h-8 text-xs rounded-lg gap-1.5" onClick={() => setShowCreate(true)}>
+                <UserPlusIcon className="w-3.5 h-3.5" />
+                Create User
+              </Button>
             </div>
           </div>
           {isLoading ? <div className="p-8"><LoadingState message="Loading users..." /></div> : (

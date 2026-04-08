@@ -6,6 +6,8 @@ export const profilesTable = pgTable("profiles", {
   id: serial("id").primaryKey(),
   accountType: text("account_type").notNull().default("individual"),
   name: text("name").notNull(),
+  email: text("email").unique(),
+  passwordHash: text("password_hash"),
   headline: text("headline").notNull(),
   bio: text("bio"),
   location: text("location"),
