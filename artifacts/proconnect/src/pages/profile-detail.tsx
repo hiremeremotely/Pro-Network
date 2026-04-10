@@ -24,8 +24,10 @@ import {
   MapPinIcon, GlobeIcon, GithubIcon, LinkedinIcon, TwitterIcon,
   GraduationCapIcon, BriefcaseIcon, ZapIcon, PencilIcon,
   PlusIcon, TrashIcon, XIcon, CheckIcon, CameraIcon,
-  UserCheckIcon, MessageSquareIcon,
+  UserCheckIcon, MessageSquareIcon, BuildingIcon, UsersIcon,
+  ArrowRightIcon, DollarSignIcon, ClockIcon, StarIcon,
 } from "lucide-react";
+import { useListJobs, getListJobsQueryKey } from "@workspace/api-client-react";
 
 // ── Modal wrapper ─────────────────────────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -260,6 +262,312 @@ function AddSkillModal({ profileId, onClose }: { profileId: number; onClose: () 
   );
 }
 
+// ── Company Profile View ──────────────────────────────────────────────────────
+function CompanyProfileView({ profile, id, isOwn, onEditInfo, avatarInputRef, avatarUploading, handleAvatarFile }: {
+  profile: any; id: number; isOwn: boolean; onEditInfo: () => void;
+  avatarInputRef: React.RefObject<HTMLInputElement>; avatarUploading: boolean;
+  handleAvatarFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  const initials = profile.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().substring(0, 2);
+
+  // Fetch jobs that match this company's name
+  const { data: jobsData } = useListJobs(
+    { search: profile.name, limit: 10, offset: 0 },
+    { query: { queryKey: getListJobsQueryKey({ search: profile.name, limit: 10, offset: 0 }) } }
+  );
+  const jobs = jobsData?.jobs ?? [];
+
+  return (
+    <div className="bg-[#f3f2ef] min-h-screen pb-24">
+      <div className="max-w-4xl mx-auto px-4 pt-6 space-y-4">
+
+        {/* ── Company hero card ── */}
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          {/* Full-width banner */}
+          <div className="relative h-44 bg-gradient-to-br from-primary/80 via-indigo-500/60 to-purple-400/50">
+            {profile.coverUrl && <img src={profile.coverUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+          </div>
+
+          <div className="px-6 pb-6">
+            {/* Logo row */}
+            <div className="flex items-end justify-between -mt-10 mb-4">
+              <div className="relative">
+                <div className={`w-20 h-20 rounded-xl border-4 border-white shadow-lg overflow-hidden bg-white flex items-center justify-center transition-opacity ${avatarUploading ? "opacity-50" : ""}`}>
+                  {profile.avatarUrl
+                    ? <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
+                    : <span className="text-2xl font-bold text-primary">{initials}</span>
+                  }
+                </div>
+                {isOwn && (
+                  <>
+                    <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarFile} />
+                    <button
+                      onClick={() => avatarInputRef.current?.click()}
+                      disabled={avatarUploading}
+                      className="absolute bottom-1 right-1 w-7 h-7 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-50 shadow-sm disabled:opacity-50 transition-colors"
+                    >
+                      {avatarUploading
+                        ? <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        : <CameraIcon className="w-3.5 h-3.5" />
+                      }
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-2 pt-12">
+                {isOwn ? (
+                  <Button variant="outline" size="sm" onClick={onEditInfo} className="rounded-full h-9 px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
+                    <PencilIcon className="w-3.5 h-3.5" /> Edit profile
+                  </Button>
+                ) : (
+                  <>
+                    <Button size="sm" className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5">
+                      <StarIcon className="w-3.5 h-3.5" /> Follow
+                    </Button>
+                    {profile.website && (
+                      <a href={profile.website} target="_blank" rel="noopener noreferrer">
+                        <Button variant="outline" size="sm" className="rounded-full h-9 px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
+                          <GlobeIcon className="w-3.5 h-3.5" /> Visit website
+                        </Button>
+                      </a>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Company name + tagline */}
+            <div>
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <h1 className="text-2xl font-bold text-gray-900 leading-tight">{profile.name}</h1>
+                <Badge className="bg-primary/10 text-primary border-0 text-[10px] font-semibold rounded-full px-2">Company</Badge>
+              </div>
+              {profile.headline && (
+                <p className="text-sm text-gray-600 font-medium mb-2">{profile.headline}</p>
+              )}
+
+              {/* Meta row */}
+              <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400 mt-2">
+                {profile.location && (
+                  <span className="flex items-center gap-1"><MapPinIcon className="w-3.5 h-3.5" />{profile.location}</span>
+                )}
+                {jobs.length > 0 && (
+                  <span className="flex items-center gap-1"><BriefcaseIcon className="w-3.5 h-3.5" />{jobs.length} open position{jobs.length !== 1 ? "s" : ""}</span>
+                )}
+              </div>
+
+              {/* Links */}
+              {(profile.website || profile.linkedinUrl || profile.twitterUrl || profile.githubUrl) && (
+                <div className="flex items-center gap-4 mt-3 flex-wrap">
+                  {profile.website && (
+                    <a href={profile.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-primary hover:underline font-medium">
+                      <GlobeIcon className="w-3.5 h-3.5" />{profile.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                    </a>
+                  )}
+                  {profile.linkedinUrl && (
+                    <a href={profile.linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-primary hover:underline font-medium">
+                      <LinkedinIcon className="w-3.5 h-3.5" />LinkedIn
+                    </a>
+                  )}
+                  {profile.twitterUrl && (
+                    <a href={profile.twitterUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-primary hover:underline font-medium">
+                      <TwitterIcon className="w-3.5 h-3.5" />Twitter
+                    </a>
+                  )}
+                  {profile.githubUrl && (
+                    <a href={profile.githubUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-primary hover:underline font-medium">
+                      <GithubIcon className="w-3.5 h-3.5" />GitHub
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* ── Left: About + Jobs ── */}
+          <div className="lg:col-span-2 space-y-4">
+
+            {/* About */}
+            {(profile.bio || isOwn) && (
+              <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <BuildingIcon className="w-4 h-4 text-primary" /> About
+                  </h2>
+                  {isOwn && (
+                    <button onClick={onEditInfo} className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                      <PencilIcon className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                {profile.bio ? (
+                  <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{profile.bio}</p>
+                ) : (
+                  <p className="text-sm text-gray-400 italic cursor-pointer hover:text-primary" onClick={onEditInfo}>
+                    + Add a company description to help candidates understand your mission and culture.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Open Positions */}
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <BriefcaseIcon className="w-4 h-4 text-primary" /> Open Positions
+                  {jobs.length > 0 && <span className="text-xs font-normal text-gray-400">({jobs.length})</span>}
+                </h2>
+                <Link href="/jobs">
+                  <Button variant="ghost" size="sm" className="text-primary text-xs gap-1 h-7">
+                    All jobs <ArrowRightIcon className="w-3.5 h-3.5" />
+                  </Button>
+                </Link>
+              </div>
+
+              {jobs.length === 0 ? (
+                <div className="flex flex-col items-center py-10 text-gray-400 gap-3">
+                  <BriefcaseIcon className="w-10 h-10 opacity-20" />
+                  <p className="text-sm">No open positions right now</p>
+                  {isOwn && (
+                    <Link href="/jobs">
+                      <Button size="sm" className="rounded-full text-xs">Post a Job</Button>
+                    </Link>
+                  )}
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {jobs.map((job) => {
+                    const salary = job.salaryMin && job.salaryMax
+                      ? `$${(job.salaryMin / 1000).toFixed(0)}k – $${(job.salaryMax / 1000).toFixed(0)}k`
+                      : null;
+                    return (
+                      <Link key={job.id} href={`/jobs/${job.id}`}>
+                        <div className="flex items-start gap-4 px-5 py-4 hover:bg-gray-50 transition-colors cursor-pointer group">
+                          <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {profile.avatarUrl
+                              ? <img src={profile.avatarUrl} alt="" className="w-full h-full object-cover" />
+                              : <BuildingIcon className="w-5 h-5 text-gray-400" />
+                            }
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 group-hover:text-primary transition-colors">{job.title}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">{job.location}</p>
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                              {job.experienceLevel && (
+                                <Badge className="bg-indigo-50 text-indigo-600 border-0 text-[10px] font-medium rounded-full px-2">{job.experienceLevel}</Badge>
+                              )}
+                              {job.category && (
+                                <Badge className="bg-gray-100 text-gray-500 border-0 text-[10px] font-medium rounded-full px-2">{job.category}</Badge>
+                              )}
+                              {salary && (
+                                <span className="flex items-center gap-0.5 text-[10px] text-gray-400 font-medium">
+                                  <DollarSignIcon className="w-3 h-3" />{salary}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0 pt-1">
+                            <Button size="sm" className="rounded-full text-xs h-7 px-3 hidden group-hover:flex">Apply</Button>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Right sidebar ── */}
+          <div className="space-y-4">
+            {/* Company highlights */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-5">
+              <h2 className="font-semibold text-gray-900 text-sm mb-4">Company Highlights</h2>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 text-sm text-gray-600">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                    <BriefcaseIcon className="w-4 h-4 text-indigo-500" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">{jobs.length > 0 ? jobs.length : "—"}</p>
+                    <p className="text-xs text-gray-400">Open positions</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-600">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                    <GlobeIcon className="w-4 h-4 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">Remote-First</p>
+                    <p className="text-xs text-gray-400">Work style</p>
+                  </div>
+                </div>
+                {profile.location && (
+                  <div className="flex items-center gap-3 text-sm text-gray-600">
+                    <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
+                      <MapPinIcon className="w-4 h-4 text-green-500" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">{profile.location.split(",")[0]}</p>
+                      <p className="text-xs text-gray-400">Headquarters</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Why join us */}
+            <div className="bg-gradient-to-br from-primary/5 to-indigo-100/60 rounded-2xl border border-primary/15 p-5">
+              <h2 className="font-semibold text-gray-900 text-sm mb-3">Why join {profile.name.split(" ")[0]}?</h2>
+              <ul className="space-y-2.5">
+                {[
+                  "100% remote-first culture",
+                  "Competitive salary & equity",
+                  "Flexible working hours",
+                  "Growth & learning budget",
+                ].map((perk) => (
+                  <li key={perk} className="flex items-center gap-2 text-sm text-gray-600">
+                    <CheckIcon className="w-4 h-4 text-primary flex-shrink-0" />
+                    {perk}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Share profile */}
+            {!isOwn && (
+              <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                <h2 className="font-semibold text-gray-900 text-sm mb-3">Share this company</h2>
+                <div className="flex gap-2">
+                  {profile.linkedinUrl && (
+                    <a href={profile.linkedinUrl} target="_blank" rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium border border-gray-200 rounded-lg py-2 hover:bg-gray-50 transition-colors text-gray-600">
+                      <LinkedinIcon className="w-3.5 h-3.5" />LinkedIn
+                    </a>
+                  )}
+                  {profile.twitterUrl && (
+                    <a href={profile.twitterUrl} target="_blank" rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium border border-gray-200 rounded-lg py-2 hover:bg-gray-50 transition-colors text-gray-600">
+                      <TwitterIcon className="w-3.5 h-3.5" />Twitter
+                    </a>
+                  )}
+                  {(!profile.linkedinUrl && !profile.twitterUrl) && (
+                    <p className="text-xs text-gray-400">No social links added yet.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Section Header ────────────────────────────────────────────────────────────
 function SectionHeader({ title, icon: Icon, isOwn, onAdd, onEdit }: { title: string; icon: any; isOwn: boolean; onAdd?: () => void; onEdit?: () => void }) {
   return (
@@ -346,6 +654,7 @@ export default function ProfileDetail() {
   if (!profile) return null;
 
   const isOwn = user?.id === id;
+  const isCompany = profile.accountType === "company";
   const initials = profile.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().substring(0, 2);
 
   function fmtDate(d: string) {
@@ -353,6 +662,24 @@ export default function ProfileDetail() {
     const [y, m] = d.split("-");
     const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     return m ? `${months[parseInt(m)-1]} ${y}` : y;
+  }
+
+  // ── Company profile branch ─────────────────────────────────────────────────
+  if (isCompany) {
+    return (
+      <>
+        {modal === "info" && <EditInfoModal profile={profile} profileId={id} onClose={() => setModal(null)} />}
+        <CompanyProfileView
+          profile={profile}
+          id={id}
+          isOwn={isOwn}
+          onEditInfo={() => setModal("info")}
+          avatarInputRef={avatarInputRef}
+          avatarUploading={avatarUploading}
+          handleAvatarFile={handleAvatarFile}
+        />
+      </>
+    );
   }
 
   return (
