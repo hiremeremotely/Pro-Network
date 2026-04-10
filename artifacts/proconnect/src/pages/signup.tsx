@@ -29,7 +29,7 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) navigate("/feed");
+    if (user) navigate(user.accountType === "company" ? "/company-dashboard" : "/feed");
   }, [user, navigate]);
 
   function handleStep1(e: React.FormEvent) {
@@ -46,7 +46,7 @@ export default function Signup() {
     setLoading(true);
     const result = await signup({ name, email, password, accountType, headline, location });
     setLoading(false);
-    if (result.ok) navigate("/feed");
+    if (result.ok) navigate(accountType === "company" ? "/company-dashboard" : "/feed");
     else setError(result.error ?? "Registration failed.");
   }
 

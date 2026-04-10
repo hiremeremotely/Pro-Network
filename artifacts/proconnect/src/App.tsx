@@ -18,6 +18,7 @@ import JobDetail from "@/pages/job-detail";
 import Applications from "@/pages/applications";
 import BoLogin from "@/pages/bo-login";
 import Admin from "@/pages/admin";
+import CompanyDashboard from "@/pages/company-dashboard";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ function Router() {
         <Layout>
           <Switch>
             <Route path="/feed" component={Feed} />
+            <Route path="/company-dashboard" component={CompanyDashboard} />
             <Route path="/profiles" component={Profiles} />
             <Route path="/profiles/:id" component={ProfileDetail} />
             <Route path="/profile/edit" component={ProfileEdit} />

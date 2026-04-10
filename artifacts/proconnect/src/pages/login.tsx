@@ -16,7 +16,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) navigate("/feed");
+    if (user) navigate(user.accountType === "company" ? "/company-dashboard" : "/feed");
   }, [user, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -26,8 +26,11 @@ export default function Login() {
     setLoading(true);
     const result = await login(email, password);
     setLoading(false);
-    if (result.ok) navigate("/feed");
-    else setError(result.error ?? "Login failed.");
+    if (result.ok) {
+      const stored = localStorage.getItem("app_user_session");
+      const u = stored ? JSON.parse(stored) : null;
+      navigate(u?.accountType === "company" ? "/company-dashboard" : "/feed");
+    } else setError(result.error ?? "Login failed.");
   }
 
   return (
