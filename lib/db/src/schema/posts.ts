@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, varchar, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, varchar, unique, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -32,8 +32,21 @@ export const postCommentsTable = pgTable("post_comments", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
+export const notificationsTable = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  recipientProfileId: integer("recipient_profile_id").notNull(),
+  actorProfileId: integer("actor_profile_id").notNull(),
+  type: varchar("type", { length: 20 }).notNull(),
+  postId: integer("post_id"),
+  reactionType: varchar("reaction_type", { length: 20 }),
+  message: text("message").notNull(),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const insertPostSchema = createInsertSchema(postsTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertPost = z.infer<typeof insertPostSchema>;
 export type Post = typeof postsTable.$inferSelect;
 export type PostReaction = typeof postReactionsTable.$inferSelect;
 export type PostComment = typeof postCommentsTable.$inferSelect;
+export type Notification = typeof notificationsTable.$inferSelect;

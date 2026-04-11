@@ -18,10 +18,15 @@ import {
   LogOutIcon,
   XIcon,
   LoaderIcon,
+  ThumbsUpIcon,
+  MessageSquareIcon,
+  ClipboardListIcon,
 } from "lucide-react";
 import logo from "@assets/hr_1775483051104.png";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useListProfiles, getListProfilesQueryKey } from "@workspace/api-client-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { formatDistanceToNow } from "date-fns";
 
 // ── Global typeahead search ───────────────────────────────────────────────────
 function GlobalSearch() {
@@ -180,6 +185,176 @@ function GlobalSearch() {
   );
 }
 
+// ── Notification types ────────────────────────────────────────────────────────
+interface AppNotification {
+  id: number;
+  type: string;
+  postId: number | null;
+  reactionType: string | null;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+  actorProfileId: number;
+  actorName: string;
+  actorAvatarUrl: string | null;
+}
+
+const REACTION_EMOJIS: Record<string, string> = {
+  like: "👍", celebrate: "🎉", support: "🤗", love: "❤️", insightful: "💡", funny: "😄",
+};
+
+// ── Notification Bell ─────────────────────────────────────────────────────────
+function NotificationBell({ profileId }: { profileId: number }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const BASE = import.meta.env.BASE_URL;
+
+  const { data: countData } = useQuery<{ count: number }>({
+    queryKey: ["notif-count", profileId],
+    queryFn: () => fetch(`${BASE}api/notifications/unread-count?profileId=${profileId}`).then(r => r.json()),
+    refetchInterval: 30_000,
+  });
+
+  const { data: notifications = [], isLoading } = useQuery<AppNotification[]>({
+    queryKey: ["notifications", profileId],
+    queryFn: () => fetch(`${BASE}api/notifications?profileId=${profileId}`).then(r => r.json()),
+    enabled: open,
+  });
+
+  const markRead = useMutation({
+    mutationFn: () => fetch(`${BASE}api/notifications/mark-read`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId }),
+    }),
+    onSuccess: () => {
+      qc.setQueryData<{ count: number }>(["notif-count", profileId], { count: 0 });
+      qc.setQueryData<AppNotification[]>(["notifications", profileId], old =>
+        (old ?? []).map(n => ({ ...n, isRead: true }))
+      );
+    },
+  });
+
+  function handleOpen() {
+    const next = !open;
+    setOpen(next);
+    if (next && (countData?.count ?? 0) > 0) {
+      markRead.mutate();
+    }
+  }
+
+  // Close on outside click
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node) &&
+          btnRef.current && !btnRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  const unread = countData?.count ?? 0;
+
+  return (
+    <div className="relative">
+      <button
+        ref={btnRef}
+        onClick={handleOpen}
+        className={`relative flex flex-col items-center justify-center gap-1 px-4 min-w-[72px] h-14 text-xs font-medium border-b-2 transition-colors ${
+          open ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-400"
+        }`}
+      >
+        <div className="relative">
+          <BellIcon className="w-5 h-5" />
+          {unread > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+              {unread > 9 ? "9+" : unread}
+            </span>
+          )}
+        </div>
+        <span>Notifications</span>
+      </button>
+
+      {open && (
+        <div
+          ref={panelRef}
+          className="absolute right-0 top-full mt-1 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-[200] overflow-hidden"
+        >
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <h3 className="font-semibold text-sm text-gray-900">Notifications</h3>
+            <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
+              <XIcon className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="max-h-96 overflow-y-auto divide-y divide-gray-50">
+            {isLoading && (
+              <div className="flex items-center justify-center py-10">
+                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+
+            {!isLoading && notifications.length === 0 && (
+              <div className="py-10 text-center">
+                <BellIcon className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                <p className="text-sm text-gray-400">No notifications yet</p>
+                <p className="text-xs text-gray-300 mt-1">When someone likes or comments on your posts, you'll see it here.</p>
+              </div>
+            )}
+
+            {notifications.map(n => {
+              const initials = n.actorName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
+              const emoji = n.type === "reaction" && n.reactionType
+                ? REACTION_EMOJIS[n.reactionType] ?? "👍"
+                : null;
+              const content = (
+                <div className={`flex gap-3 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer ${!n.isRead ? "bg-blue-50/60" : ""}`}>
+                  <div className="relative flex-shrink-0">
+                    <Avatar className="w-10 h-10 border border-gray-100">
+                      <AvatarImage src={n.actorAvatarUrl || undefined} />
+                      <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">{initials}</AvatarFallback>
+                    </Avatar>
+                    <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-white flex items-center justify-center shadow-sm border border-gray-100 text-xs">
+                      {emoji ?? (n.type === "comment" ? <MessageSquareIcon className="w-2.5 h-2.5 text-primary" /> : <ThumbsUpIcon className="w-2.5 h-2.5 text-primary" />)}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs leading-relaxed text-gray-800 ${!n.isRead ? "font-medium" : ""}`}>{n.message}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}</p>
+                  </div>
+                  {!n.isRead && (
+                    <div className="flex-shrink-0 self-center w-2 h-2 bg-primary rounded-full mt-0.5" />
+                  )}
+                </div>
+              );
+
+              return n.postId ? (
+                <Link key={n.id} href="/feed" onClick={() => setOpen(false)}>
+                  {content}
+                </Link>
+              ) : (
+                <div key={n.id}>{content}</div>
+              );
+            })}
+          </div>
+
+          {notifications.length > 0 && (
+            <div className="border-t border-gray-100 py-2 text-center">
+              <Link href="/feed" onClick={() => setOpen(false)} className="text-xs text-primary font-medium hover:underline">
+                View all activity
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface LayoutProps {
   children: React.ReactNode;
 }
@@ -202,7 +377,7 @@ export function Layout({ children }: LayoutProps) {
     { href: homeHref, label: "Home", icon: HomeIcon },
     { href: "/profiles", label: "Network", icon: UsersIcon },
     { href: "/jobs", label: "Jobs", icon: BriefcaseIcon },
-    { href: "/applications", label: "Applications", icon: BellIcon },
+    { href: "/applications", label: "Applications", icon: ClipboardListIcon },
   ];
 
   return (
@@ -236,6 +411,7 @@ export function Layout({ children }: LayoutProps) {
                 </Link>
               );
             })}
+            {user && <NotificationBell profileId={user.id} />}
           </nav>
 
           <div className="hidden md:block h-8 w-px bg-gray-200 mx-1" />

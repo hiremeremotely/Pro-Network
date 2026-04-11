@@ -1,7 +1,16 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { postsTable, postReactionsTable, postCommentsTable, profilesTable } from "@workspace/db";
+import { postsTable, postReactionsTable, postCommentsTable, profilesTable, notificationsTable } from "@workspace/db";
 import { desc, eq, sql, inArray } from "drizzle-orm";
+
+const REACTION_LABELS: Record<string, string> = {
+  like: "liked",
+  celebrate: "celebrated",
+  support: "supported",
+  love: "loved",
+  insightful: "found insightful",
+  funny: "found funny",
+};
 
 const router = Router();
 
@@ -141,6 +150,17 @@ router.post("/posts/:id/react", async (req, res): Promise<void> => {
       await db.update(postReactionsTable)
         .set({ reactionType })
         .where(eq(postReactionsTable.id, existing.id));
+      // Notify on reaction change
+      const [post] = await db.select({ profileId: postsTable.profileId }).from(postsTable).where(eq(postsTable.id, postId)).limit(1);
+      if (post && post.profileId !== pid) {
+        const [actor] = await db.select({ name: profilesTable.name }).from(profilesTable).where(eq(profilesTable.id, pid)).limit(1);
+        const label = REACTION_LABELS[reactionType] ?? reactionType;
+        await db.insert(notificationsTable).values({
+          recipientProfileId: post.profileId, actorProfileId: pid,
+          type: "reaction", postId, reactionType,
+          message: `${actor?.name ?? "Someone"} ${label} your post`,
+        });
+      }
       res.json({ action: "changed", reactionType });
     }
   } else {
@@ -148,6 +168,17 @@ router.post("/posts/:id/react", async (req, res): Promise<void> => {
     await db.update(postsTable)
       .set({ likesCount: sql`${postsTable.likesCount} + 1` })
       .where(eq(postsTable.id, postId));
+    // Notify on new reaction
+    const [post] = await db.select({ profileId: postsTable.profileId }).from(postsTable).where(eq(postsTable.id, postId)).limit(1);
+    if (post && post.profileId !== pid) {
+      const [actor] = await db.select({ name: profilesTable.name }).from(profilesTable).where(eq(profilesTable.id, pid)).limit(1);
+      const label = REACTION_LABELS[reactionType] ?? reactionType;
+      await db.insert(notificationsTable).values({
+        recipientProfileId: post.profileId, actorProfileId: pid,
+        type: "reaction", postId, reactionType,
+        message: `${actor?.name ?? "Someone"} ${label} your post`,
+      });
+    }
     res.json({ action: "added", reactionType });
   }
 });
@@ -210,6 +241,18 @@ router.post("/posts/:id/comments", async (req, res): Promise<void> => {
     .from(postCommentsTable)
     .innerJoin(profilesTable, eq(postCommentsTable.profileId, profilesTable.id))
     .where(eq(postCommentsTable.id, comment.id));
+
+  // Notify post owner about new comment (skip self-comments)
+  const [post] = await db.select({ profileId: postsTable.profileId }).from(postsTable).where(eq(postsTable.id, postId)).limit(1);
+  if (post && post.profileId !== Number(profileId)) {
+    await db.insert(notificationsTable).values({
+      recipientProfileId: post.profileId,
+      actorProfileId: Number(profileId),
+      type: "comment",
+      postId,
+      message: `${enriched?.profileName ?? "Someone"} commented on your post`,
+    });
+  }
 
   res.status(201).json(enriched);
 });
