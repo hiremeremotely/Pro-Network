@@ -3,7 +3,7 @@ import { Link, useSearch, useLocation } from "wouter";
 import { useListProfiles, getListProfilesQueryKey } from "@workspace/api-client-react";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useConnections } from "@/hooks/use-connections";
-import { useStartChat } from "@/components/messaging-widget";
+import { useStartChat } from "@/hooks/use-start-chat";
 import { ProfileCard } from "@/components/profile-card";
 import { LoadingState, ErrorState } from "@/components/loading-state";
 import { ViewToggle, type ViewMode } from "@/components/view-toggle";

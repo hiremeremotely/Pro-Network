@@ -28,7 +28,7 @@ import {
   ArrowRightIcon, DollarSignIcon, ClockIcon, StarIcon,
 } from "lucide-react";
 import { useListJobs, getListJobsQueryKey } from "@workspace/api-client-react";
-import { useStartChat } from "@/components/messaging-widget";
+import { useStartChat } from "@/hooks/use-start-chat";
 import { useConnections } from "@/hooks/use-connections";
 
 // ── Modal wrapper ─────────────────────────────────────────────────────────────

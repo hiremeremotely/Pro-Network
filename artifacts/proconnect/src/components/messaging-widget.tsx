@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -508,23 +508,3 @@ export function MessagingWidget() {
   );
 }
 
-// ── Hook: open a chat with a specific user ────────────────────────────────────
-export function useStartChat() {
-  const { user } = useAppAuth();
-  const BASE = import.meta.env.BASE_URL;
-
-  return useCallback(async (otherProfileId: number): Promise<number | null> => {
-    if (!user) return null;
-    try {
-      const res = await fetch(`${BASE}api/conversations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ myProfileId: user.id, otherProfileId }),
-      });
-      const conv = await res.json();
-      return conv.id ?? null;
-    } catch {
-      return null;
-    }
-  }, [user, BASE]);
-}

@@ -34,7 +34,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useConnections } from "@/hooks/use-connections";
-import { useStartChat } from "@/components/messaging-widget";
+import { useStartChat } from "@/hooks/use-start-chat";
 
 // ── Reaction definitions ─────────────────────────────────────────────────────
 const REACTIONS = [
