@@ -40,6 +40,30 @@ router.post("/posts", async (req, res): Promise<void> => {
   res.status(201).json(post);
 });
 
+router.put("/posts/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { content, imageUrl } = req.body;
+  if (!content || typeof content !== "string" || content.trim().length === 0) {
+    res.status(400).json({ error: "content is required" });
+    return;
+  }
+  const [updated] = await db
+    .update(postsTable)
+    .set({ content: content.trim(), imageUrl: imageUrl ?? null })
+    .where(eq(postsTable.id, id))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Post not found" }); return; }
+  res.json(updated);
+});
+
+router.delete("/posts/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(postsTable).where(eq(postsTable.id, id));
+  res.json({ success: true });
+});
+
 router.post("/posts/:id/like", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }

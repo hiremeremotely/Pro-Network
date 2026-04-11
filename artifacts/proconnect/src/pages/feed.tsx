@@ -23,6 +23,10 @@ import {
   MapPinIcon,
   PlayCircleIcon,
   XIcon,
+  MoreVerticalIcon,
+  PencilIcon,
+  Trash2Icon,
+  CheckIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useAppAuth } from "@/contexts/app-auth";
@@ -57,21 +61,77 @@ interface FeedPost {
   profileAccountType: string;
 }
 
-function PostCard({ post, onLike }: { post: FeedPost; onLike: (id: number) => void }) {
+function PostCard({ post, onLike, currentUserId }: { post: FeedPost; onLike: (id: number) => void; currentUserId?: number }) {
+  const qc = useQueryClient();
   const [liked, setLiked] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editContent, setEditContent] = useState(post.content);
+  const [editYtId, setEditYtId] = useState<string | null>(null);
+
+  const isOwn = currentUserId === post.profileId;
   const timeAgo = formatDistanceToNow(new Date(post.createdAt), { addSuffix: true });
 
+  useEffect(() => {
+    setEditYtId(extractYouTubeId(editContent));
+  }, [editContent]);
+
+  const editMutation = useMutation({
+    mutationFn: async ({ content, imageUrl }: { content: string; imageUrl?: string }) => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/posts/${post.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, imageUrl }),
+      });
+      if (!res.ok) throw new Error("Failed to update post");
+      return res.json();
+    },
+    onSuccess: () => {
+      setEditing(false);
+      qc.invalidateQueries({ queryKey: ["posts"] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await fetch(`${import.meta.env.BASE_URL}api/posts/${post.id}`, { method: "DELETE" });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["posts"] }),
+  });
+
   function handleLike() {
-    if (!liked) {
-      setLiked(true);
-      onLike(post.id);
-    }
+    if (!liked) { setLiked(true); onLike(post.id); }
+  }
+
+  function startEdit() {
+    setEditContent(post.content);
+    setEditing(true);
+    setMenuOpen(false);
+    setConfirmDelete(false);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+    setEditContent(post.content);
+  }
+
+  function saveEdit() {
+    const trimmed = editContent.trim();
+    if (!trimmed) return;
+    const imageUrl = editYtId ? ytThumb(editYtId) : undefined;
+    editMutation.mutate({ content: trimmed, imageUrl });
+  }
+
+  function removeEditYt() {
+    setEditContent(prev => prev.replace(/https?:\/\/(?:www\.)?(?:youtube\.com\/\S+|youtu\.be\/\S+)/g, "").trim());
   }
 
   return (
     <Card className="rounded-xl overflow-hidden border border-gray-200 shadow-none bg-white">
       <CardContent className="p-4">
-        {/* Author */}
+
+        {/* Author row */}
         <div className="flex items-start gap-3 mb-3">
           <Link href={`/profiles/${post.profileId}`}>
             <Avatar className="w-12 h-12 border border-gray-200 flex-shrink-0">
@@ -88,25 +148,120 @@ function PostCard({ post, onLike }: { post: FeedPost; onLike: (id: number) => vo
             <p className="text-xs text-gray-500 leading-snug line-clamp-1">{post.profileHeadline}</p>
             <p className="text-xs text-gray-400 mt-0.5">{timeAgo}</p>
           </div>
-          {post.profileAccountType === "company" && (
-            <Badge variant="secondary" className="text-[10px] flex-shrink-0">
-              <BuildingIcon className="w-3 h-3 mr-1" />Company
-            </Badge>
-          )}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {post.profileAccountType === "company" && (
+              <Badge variant="secondary" className="text-[10px]">
+                <BuildingIcon className="w-3 h-3 mr-1" />Company
+              </Badge>
+            )}
+            {/* 3-dot menu for own posts */}
+            {isOwn && (
+              <div className="relative">
+                <button
+                  onClick={() => { setMenuOpen(o => !o); setConfirmDelete(false); }}
+                  className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                >
+                  <MoreVerticalIcon className="w-4 h-4" />
+                </button>
+                {menuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                    <div className="absolute right-0 top-9 z-20 w-36 bg-white border border-gray-200 rounded-xl shadow-lg py-1 overflow-hidden">
+                      <button
+                        onClick={startEdit}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <PencilIcon className="w-3.5 h-3.5 text-gray-400" /> Edit post
+                      </button>
+                      <button
+                        onClick={() => { setConfirmDelete(true); setMenuOpen(false); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2Icon className="w-3.5 h-3.5" /> Delete post
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Content */}
-        <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-line mb-3">{post.content}</p>
+        {/* Delete confirmation banner */}
+        {confirmDelete && (
+          <div className="mb-3 flex items-center justify-between bg-red-50 border border-red-100 rounded-xl px-3 py-2.5 gap-2">
+            <p className="text-sm text-red-700 font-medium">Delete this post?</p>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)} className="h-7 rounded-full text-xs px-3">
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => deleteMutation.mutate()}
+                disabled={deleteMutation.isPending}
+                className="h-7 rounded-full text-xs px-3 bg-red-600 hover:bg-red-700 text-white border-0"
+              >
+                {deleteMutation.isPending ? "Deleting…" : "Delete"}
+              </Button>
+            </div>
+          </div>
+        )}
 
-        {/* YouTube / image preview */}
-        {(() => {
+        {/* Content — either editing or display */}
+        {editing ? (
+          <div className="mb-3">
+            <Textarea
+              autoFocus
+              value={editContent}
+              onChange={e => setEditContent(e.target.value)}
+              className="min-h-[80px] text-sm resize-none rounded-xl border-gray-200 focus-visible:ring-1 focus-visible:ring-primary"
+            />
+            {/* YouTube preview while editing */}
+            {editYtId && (
+              <div className="mt-2 rounded-xl overflow-hidden border border-gray-200 relative bg-black">
+                <img src={ytThumb(editYtId)} alt="" className="w-full object-cover max-h-40 opacity-90" />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center shadow-lg">
+                    <PlayCircleIcon className="w-6 h-6 text-white fill-white" />
+                  </div>
+                </div>
+                <button
+                  onClick={removeEditYt}
+                  className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-colors"
+                >
+                  <XIcon className="w-3 h-3 text-white" />
+                </button>
+              </div>
+            )}
+            <div className="flex justify-end gap-2 mt-2">
+              <Button variant="ghost" size="sm" onClick={cancelEdit} className="rounded-full h-8 text-xs px-3">
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={saveEdit}
+                disabled={!editContent.trim() || editMutation.isPending}
+                className="rounded-full h-8 text-xs px-4 gap-1.5"
+              >
+                {editMutation.isPending ? "Saving…" : <><CheckIcon className="w-3.5 h-3.5" /> Save</>}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-line mb-3">{post.content}</p>
+        )}
+
+        {/* YouTube / image preview (display mode only) */}
+        {!editing && (() => {
           const ytId = extractYouTubeId(post.content);
           const hasYt = Boolean(ytId);
           const thumb = hasYt ? ytThumb(ytId!) : post.imageUrl;
           if (!thumb) return null;
           return (
-            <div className="rounded-xl overflow-hidden mb-3 bg-black relative group cursor-pointer"
-              onClick={() => hasYt && window.open(ytUrl(ytId!), "_blank")}>
+            <div
+              className="rounded-xl overflow-hidden mb-3 bg-black relative group cursor-pointer"
+              onClick={() => hasYt && window.open(ytUrl(ytId!), "_blank")}
+            >
               <img
                 src={thumb}
                 alt=""
@@ -147,20 +302,16 @@ function PostCard({ post, onLike }: { post: FeedPost; onLike: (id: number) => vo
               liked ? "text-primary bg-primary/5" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
             }`}
           >
-            <ThumbsUpIcon className="w-4 h-4" />
-            Like
+            <ThumbsUpIcon className="w-4 h-4" />Like
           </button>
           <button className="flex items-center gap-1.5 flex-1 justify-center py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
-            <MessageSquareIcon className="w-4 h-4" />
-            Comment
+            <MessageSquareIcon className="w-4 h-4" />Comment
           </button>
           <button className="flex items-center gap-1.5 flex-1 justify-center py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
-            <Share2Icon className="w-4 h-4" />
-            Share
+            <Share2Icon className="w-4 h-4" />Share
           </button>
           <button className="flex items-center gap-1.5 flex-1 justify-center py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
-            <SendIcon className="w-4 h-4" />
-            Send
+            <SendIcon className="w-4 h-4" />Send
           </button>
         </div>
       </CardContent>
@@ -420,7 +571,7 @@ export default function Home() {
             </Card>
           ) : (
             posts.map(post => (
-              <PostCard key={post.id} post={post} onLike={id => likeMutation.mutate(id)} />
+              <PostCard key={post.id} post={post} onLike={id => likeMutation.mutate(id)} currentUserId={user?.id} />
             ))
           )}
         </div>
