@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useAppAuth } from "@/contexts/app-auth";
+import { useConnections } from "@/hooks/use-connections";
 import { useEffect } from "react";
 import {
   useListJobs, getListJobsQueryKey,
@@ -28,6 +29,7 @@ import {
 export default function CompanyDashboard() {
   const { user } = useAppAuth();
   const [, navigate] = useLocation();
+  const { isConnected, toggleConnect } = useConnections();
 
   // Redirect non-company users
   useEffect(() => {
@@ -263,8 +265,17 @@ export default function CompanyDashboard() {
                           </div>
                         )}
                       </div>
-                      <Button size="sm" variant="outline" className="rounded-full px-2.5 text-[10px] border-primary/30 text-primary hover:bg-primary/5 flex-shrink-0 hidden group-hover:flex">
-                        Connect
+                      <Button
+                        size="sm"
+                        variant={isConnected(profile.id) ? "secondary" : "outline"}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleConnect(profile.id); }}
+                        className={`rounded-full px-2.5 text-[10px] flex-shrink-0 hidden group-hover:flex gap-1 ${
+                          isConnected(profile.id)
+                            ? "bg-primary/10 text-primary border-primary/20"
+                            : "border-primary/30 text-primary hover:bg-primary/5"
+                        }`}
+                      >
+                        {isConnected(profile.id) ? "Following" : "Connect"}
                       </Button>
                     </div>
                   </Link>

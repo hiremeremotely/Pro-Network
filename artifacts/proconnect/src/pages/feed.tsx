@@ -28,9 +28,12 @@ import {
   Trash2Icon,
   CheckIcon,
   SendHorizontalIcon,
+  UserPlusIcon,
+  UserCheckIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useAppAuth } from "@/contexts/app-auth";
+import { useConnections } from "@/hooks/use-connections";
 
 // ── Reaction definitions ─────────────────────────────────────────────────────
 const REACTIONS = [
@@ -657,6 +660,7 @@ export default function Home() {
   const { data: stats } = useGetFeedStats({ query: { queryKey: getGetFeedStatsQueryKey() } });
   const { data: suggestedProfiles } = useListFeaturedProfiles({ query: { queryKey: getListFeaturedProfilesQueryKey() } });
   const { data: featuredJobs } = useListFeaturedJobs({ query: { queryKey: getListFeaturedJobsQueryKey() } });
+  const { isConnected: isFeedConnected, toggleConnect: feedToggleConnect } = useConnections();
 
   const { data: posts = [], isLoading: postsLoading } = useQuery<FeedPost[]>({
     queryKey: ["posts", user?.id],
@@ -920,8 +924,19 @@ export default function Home() {
                         </Link>
                         <p className="text-[11px] text-gray-400 truncate">{profile.headline}</p>
                       </div>
-                      <Button variant="outline" size="sm" className="text-[11px] rounded-full px-2.5 py-1 h-7 border-primary text-primary hover:bg-primary/5 flex-shrink-0">
-                        Connect
+                      <Button
+                        variant={isFeedConnected(profile.id) ? "secondary" : "outline"}
+                        size="sm"
+                        onClick={() => feedToggleConnect(profile.id)}
+                        className={`text-[11px] rounded-full px-2.5 py-1 h-7 flex-shrink-0 gap-1 ${
+                          isFeedConnected(profile.id)
+                            ? "bg-primary/10 text-primary border-primary/20 hover:bg-red-50 hover:text-red-500"
+                            : "border-primary text-primary hover:bg-primary/5"
+                        }`}
+                      >
+                        {isFeedConnected(profile.id)
+                          ? <><UserCheckIcon className="w-2.5 h-2.5" /> Following</>
+                          : <><UserPlusIcon className="w-2.5 h-2.5" /> Connect</>}
                       </Button>
                     </div>
                   ))}

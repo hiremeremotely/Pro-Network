@@ -2,16 +2,44 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useSearch } from "wouter";
 import { useListProfiles, getListProfilesQueryKey } from "@workspace/api-client-react";
 import { useAppAuth } from "@/contexts/app-auth";
+import { useConnections } from "@/hooks/use-connections";
 import { ProfileCard } from "@/components/profile-card";
 import { LoadingState, ErrorState } from "@/components/loading-state";
 import { ViewToggle, type ViewMode } from "@/components/view-toggle";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { SearchIcon, UsersIcon, MapPinIcon, GlobeIcon, GithubIcon, XIcon, LoaderIcon } from "lucide-react";
+import { SearchIcon, UsersIcon, MapPinIcon, GlobeIcon, GithubIcon, XIcon, LoaderIcon, UserCheckIcon, UserPlusIcon } from "lucide-react";
 import type { Profile } from "@workspace/api-client-react";
 
-function ProfileRow({ profile }: { profile: Profile }) {
+interface ConnectBtnProps {
+  profileId: number;
+  isConnected: boolean;
+  onToggle: (id: number) => void;
+  size?: "sm" | "xs";
+  className?: string;
+}
+
+function ConnectButton({ profileId, isConnected, onToggle, className = "" }: ConnectBtnProps) {
+  return (
+    <Button
+      size="sm"
+      variant={isConnected ? "secondary" : "outline"}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggle(profileId); }}
+      className={`rounded-full px-3 text-xs gap-1 transition-all ${
+        isConnected
+          ? "bg-primary/10 text-primary border-primary/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200"
+          : "border-primary/30 text-primary hover:bg-primary/5"
+      } ${className}`}
+    >
+      {isConnected
+        ? <><UserCheckIcon className="w-3 h-3" /> Following</>
+        : <><UserPlusIcon className="w-3 h-3" /> Connect</>}
+    </Button>
+  );
+}
+
+function ProfileRow({ profile, isConnected, onToggle }: { profile: Profile; isConnected: boolean; onToggle: (id: number) => void }) {
   const initials = profile.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   return (
     <Link href={`/profiles/${profile.id}`}>
@@ -37,15 +65,13 @@ function ProfileRow({ profile }: { profile: Profile }) {
         {profile.openToWork && (
           <Badge className="bg-green-50 text-green-600 border-0 text-[10px] font-semibold px-2 rounded-full flex-shrink-0">Open</Badge>
         )}
-        <Button size="sm" variant="outline" className="rounded-full px-3 text-xs border-primary/30 text-primary hover:bg-primary/5 flex-shrink-0 hidden sm:flex">
-          Connect
-        </Button>
+        <ConnectButton profileId={profile.id} isConnected={isConnected} onToggle={onToggle} className="hidden sm:flex" />
       </div>
     </Link>
   );
 }
 
-function ProfileTableRow({ profile, index }: { profile: Profile; index: number }) {
+function ProfileTableRow({ profile, index, isConnected, onToggle }: { profile: Profile; index: number; isConnected: boolean; onToggle: (id: number) => void }) {
   const initials = profile.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   return (
     <tr className={`border-b border-gray-100 hover:bg-primary/5 transition-colors ${index % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}>
@@ -77,9 +103,7 @@ function ProfileTableRow({ profile, index }: { profile: Profile; index: number }
         )}
       </td>
       <td className="px-4 py-3">
-        <Button size="sm" variant="outline" className="rounded-full px-3 text-xs border-primary/30 text-primary hover:bg-primary/5">
-          Connect
-        </Button>
+        <ConnectButton profileId={profile.id} isConnected={isConnected} onToggle={onToggle} />
       </td>
     </tr>
   );
@@ -89,20 +113,19 @@ export default function Profiles() {
   const { user } = useAppAuth();
   const searchString = useSearch();
   const initialSearch = new URLSearchParams(searchString).get("search") ?? "";
+  const { isConnected, toggleConnect } = useConnections();
 
   const [search, setSearch] = useState(initialSearch);
   const [query, setQuery] = useState(initialSearch);
   const [view, setView] = useState<ViewMode>("grid");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Sync when URL search param changes (e.g. navigating from global search)
   useEffect(() => {
     const term = new URLSearchParams(searchString).get("search") ?? "";
     setSearch(term);
     setQuery(term);
   }, [searchString]);
 
-  // Debounce: update query 300ms after the user manually types
   useEffect(() => {
     const t = setTimeout(() => setQuery(search), 300);
     return () => clearTimeout(t);
@@ -125,7 +148,6 @@ export default function Profiles() {
         <p className="text-muted-foreground">Discover and connect with remote professionals worldwide.</p>
       </div>
 
-      {/* Search bar — real-time, no submit button */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -138,7 +160,6 @@ export default function Profiles() {
             className="w-full h-10 pl-9 pr-9 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all shadow-sm"
             onChange={e => setSearch(e.target.value)}
           />
-          {/* Right side: spinner while fetching, or X to clear */}
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
             {isFetching && search ? (
               <LoaderIcon className="w-3.5 h-3.5 text-gray-400 animate-spin" />
@@ -179,13 +200,32 @@ export default function Profiles() {
 
           {view === "grid" && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {profiles.map((profile) => <ProfileCard key={profile.id} profile={profile} />)}
+              {profiles.map((profile) => (
+                <div key={profile.id} className="relative group">
+                  <ProfileCard profile={profile} />
+                  <div className="absolute bottom-4 left-0 right-0 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <ConnectButton
+                      profileId={profile.id}
+                      isConnected={isConnected(profile.id)}
+                      onToggle={toggleConnect}
+                      className="shadow-sm"
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
           {view === "list" && (
             <div className="flex flex-col gap-2">
-              {profiles.map((profile) => <ProfileRow key={profile.id} profile={profile} />)}
+              {profiles.map((profile) => (
+                <ProfileRow
+                  key={profile.id}
+                  profile={profile}
+                  isConnected={isConnected(profile.id)}
+                  onToggle={toggleConnect}
+                />
+              ))}
             </div>
           )}
 
@@ -202,7 +242,15 @@ export default function Profiles() {
                   </tr>
                 </thead>
                 <tbody>
-                  {profiles.map((profile, i) => <ProfileTableRow key={profile.id} profile={profile} index={i} />)}
+                  {profiles.map((profile, i) => (
+                    <ProfileTableRow
+                      key={profile.id}
+                      profile={profile}
+                      index={i}
+                      isConnected={isConnected(profile.id)}
+                      onToggle={toggleConnect}
+                    />
+                  ))}
                 </tbody>
               </table>
             </div>

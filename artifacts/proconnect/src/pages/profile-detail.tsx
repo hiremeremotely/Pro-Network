@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { useListJobs, getListJobsQueryKey } from "@workspace/api-client-react";
 import { useStartChat } from "@/components/messaging-widget";
+import { useConnections } from "@/hooks/use-connections";
 
 // ── Modal wrapper ─────────────────────────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -603,6 +604,7 @@ export default function ProfileDetail() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const startChat = useStartChat();
+  const { isConnected, toggleConnect } = useConnections();
   const deleteExperience = useDeleteExperience();
   const deleteEducation = useDeleteEducation();
   const deleteSkill = useDeleteProfileSkill();
@@ -755,8 +757,19 @@ export default function ProfileDetail() {
                   </Button>
                 ) : (
                   <>
-                    <Button size="sm" className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5">
-                      <UserCheckIcon className="w-3.5 h-3.5" /> Connect
+                    <Button
+                      size="sm"
+                      variant={isConnected(id) ? "secondary" : "default"}
+                      onClick={() => toggleConnect(id)}
+                      className={`rounded-full h-9 px-5 text-sm font-semibold gap-1.5 ${
+                        isConnected(id)
+                          ? "bg-primary/10 text-primary border border-primary/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200"
+                          : ""
+                      }`}
+                    >
+                      {isConnected(id)
+                        ? <><UserCheckIcon className="w-3.5 h-3.5" /> Following</>
+                        : <><UserCheckIcon className="w-3.5 h-3.5" /> Connect</>}
                     </Button>
                     <Button variant="outline" size="sm" onClick={handleMessage} disabled={msgLoading} className="rounded-full h-9 px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
                       <MessageSquareIcon className="w-3.5 h-3.5" /> {msgLoading ? "Opening…" : "Message"}
