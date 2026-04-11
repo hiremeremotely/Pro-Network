@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { Link } from "wouter";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGetFeedStats, getGetFeedStatsQueryKey, useListFeaturedProfiles, getListFeaturedProfilesQueryKey, useListFeaturedJobs, getListFeaturedJobsQueryKey } from "@workspace/api-client-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -34,6 +34,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useConnections } from "@/hooks/use-connections";
+import { useStartChat } from "@/components/messaging-widget";
 
 // ── Reaction definitions ─────────────────────────────────────────────────────
 const REACTIONS = [
@@ -661,6 +662,12 @@ export default function Home() {
   const { data: suggestedProfiles } = useListFeaturedProfiles({ query: { queryKey: getListFeaturedProfilesQueryKey() } });
   const { data: featuredJobs } = useListFeaturedJobs({ query: { queryKey: getListFeaturedJobsQueryKey() } });
   const { isConnected: isFeedConnected, toggleConnect: feedToggleConnect } = useConnections();
+  const startChat = useStartChat();
+  const [, navigate] = useLocation();
+  const handleFeedMessage = useCallback(async (profileId: number) => {
+    await startChat(profileId);
+    navigate("/messaging");
+  }, [startChat, navigate]);
 
   const { data: posts = [], isLoading: postsLoading } = useQuery<FeedPost[]>({
     queryKey: ["posts", user?.id],
@@ -909,9 +916,9 @@ export default function Home() {
                 <p className="text-sm font-semibold text-gray-800 mb-3">People you may know</p>
                 <div className="space-y-3">
                   {suggestedProfiles.slice(0, 4).map(profile => (
-                    <div key={profile.id} className="flex items-center gap-3">
+                    <div key={profile.id} className="flex items-start gap-2.5">
                       <Link href={`/profiles/${profile.id}`}>
-                        <Avatar className="w-10 h-10 border border-gray-200 flex-shrink-0">
+                        <Avatar className="w-9 h-9 border border-gray-200 flex-shrink-0 mt-0.5">
                           <AvatarImage src={profile.avatarUrl || undefined} />
                           <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
                             {profile.name.slice(0, 2).toUpperCase()}
@@ -922,22 +929,32 @@ export default function Home() {
                         <Link href={`/profiles/${profile.id}`} className="text-xs font-semibold text-gray-900 hover:underline block truncate">
                           {profile.name}
                         </Link>
-                        <p className="text-[11px] text-gray-400 truncate">{profile.headline}</p>
+                        <p className="text-[10px] text-gray-400 truncate mb-1.5">{profile.headline}</p>
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleFeedMessage(profile.id)}
+                            className="text-[10px] rounded-full px-2 py-0.5 h-6 flex-shrink-0 gap-1 border-gray-300 text-gray-600 hover:bg-gray-50"
+                          >
+                            <MessageSquareIcon className="w-2.5 h-2.5" /> Message
+                          </Button>
+                          <Button
+                            variant={isFeedConnected(profile.id) ? "secondary" : "outline"}
+                            size="sm"
+                            onClick={() => feedToggleConnect(profile.id)}
+                            className={`text-[10px] rounded-full px-2 py-0.5 h-6 flex-shrink-0 gap-1 ${
+                              isFeedConnected(profile.id)
+                                ? "bg-primary/10 text-primary border-primary/20 hover:bg-red-50 hover:text-red-500"
+                                : "border-primary text-primary hover:bg-primary/5"
+                            }`}
+                          >
+                            {isFeedConnected(profile.id)
+                              ? <><UserCheckIcon className="w-2.5 h-2.5" /> Following</>
+                              : <><UserPlusIcon className="w-2.5 h-2.5" /> Connect</>}
+                          </Button>
+                        </div>
                       </div>
-                      <Button
-                        variant={isFeedConnected(profile.id) ? "secondary" : "outline"}
-                        size="sm"
-                        onClick={() => feedToggleConnect(profile.id)}
-                        className={`text-[11px] rounded-full px-2.5 py-1 h-7 flex-shrink-0 gap-1 ${
-                          isFeedConnected(profile.id)
-                            ? "bg-primary/10 text-primary border-primary/20 hover:bg-red-50 hover:text-red-500"
-                            : "border-primary text-primary hover:bg-primary/5"
-                        }`}
-                      >
-                        {isFeedConnected(profile.id)
-                          ? <><UserCheckIcon className="w-2.5 h-2.5" /> Following</>
-                          : <><UserPlusIcon className="w-2.5 h-2.5" /> Connect</>}
-                      </Button>
                     </div>
                   ))}
                 </div>

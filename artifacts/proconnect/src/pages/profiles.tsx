@@ -1,32 +1,31 @@
-import { useState, useEffect, useRef } from "react";
-import { Link, useSearch } from "wouter";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Link, useSearch, useLocation } from "wouter";
 import { useListProfiles, getListProfilesQueryKey } from "@workspace/api-client-react";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useConnections } from "@/hooks/use-connections";
+import { useStartChat } from "@/components/messaging-widget";
 import { ProfileCard } from "@/components/profile-card";
 import { LoadingState, ErrorState } from "@/components/loading-state";
 import { ViewToggle, type ViewMode } from "@/components/view-toggle";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { SearchIcon, UsersIcon, MapPinIcon, GlobeIcon, GithubIcon, XIcon, LoaderIcon, UserCheckIcon, UserPlusIcon } from "lucide-react";
+import { SearchIcon, UsersIcon, MapPinIcon, GlobeIcon, GithubIcon, XIcon, LoaderIcon, UserCheckIcon, UserPlusIcon, MessageSquareIcon } from "lucide-react";
 import type { Profile } from "@workspace/api-client-react";
 
-interface ConnectBtnProps {
-  profileId: number;
+interface RowActions {
   isConnected: boolean;
   onToggle: (id: number) => void;
-  size?: "sm" | "xs";
-  className?: string;
+  onMessage: (id: number) => void;
 }
 
-function ConnectButton({ profileId, isConnected, onToggle, className = "" }: ConnectBtnProps) {
+function ConnectButton({ profileId, isConnected, onToggle, className = "" }: { profileId: number; isConnected: boolean; onToggle: (id: number) => void; className?: string }) {
   return (
     <Button
       size="sm"
       variant={isConnected ? "secondary" : "outline"}
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggle(profileId); }}
-      className={`rounded-full px-3 text-xs gap-1 transition-all ${
+      className={`rounded-full px-3 text-xs gap-1 transition-all flex-shrink-0 ${
         isConnected
           ? "bg-primary/10 text-primary border-primary/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200"
           : "border-primary/30 text-primary hover:bg-primary/5"
@@ -39,7 +38,20 @@ function ConnectButton({ profileId, isConnected, onToggle, className = "" }: Con
   );
 }
 
-function ProfileRow({ profile, isConnected, onToggle }: { profile: Profile; isConnected: boolean; onToggle: (id: number) => void }) {
+function MessageButton({ profileId, onMessage, className = "" }: { profileId: number; onMessage: (id: number) => void; className?: string }) {
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMessage(profileId); }}
+      className={`rounded-full px-3 text-xs gap-1 flex-shrink-0 border-gray-300 text-gray-600 hover:bg-gray-50 hover:text-gray-900 ${className}`}
+    >
+      <MessageSquareIcon className="w-3 h-3" /> Message
+    </Button>
+  );
+}
+
+function ProfileRow({ profile, isConnected, onToggle, onMessage }: { profile: Profile } & RowActions) {
   const initials = profile.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   return (
     <Link href={`/profiles/${profile.id}`}>
@@ -59,19 +71,22 @@ function ProfileRow({ profile, isConnected, onToggle }: { profile: Profile; isCo
           </div>
         )}
         <div className="hidden md:flex items-center gap-2 flex-shrink-0">
-          {profile.githubUrl && <GithubIcon className="w-3.5 h-3.5 text-gray-300 hover:text-gray-600" />}
-          {profile.website && <GlobeIcon className="w-3.5 h-3.5 text-gray-300 hover:text-gray-600" />}
+          {profile.githubUrl && <GithubIcon className="w-3.5 h-3.5 text-gray-300" />}
+          {profile.website && <GlobeIcon className="w-3.5 h-3.5 text-gray-300" />}
         </div>
         {profile.openToWork && (
           <Badge className="bg-green-50 text-green-600 border-0 text-[10px] font-semibold px-2 rounded-full flex-shrink-0">Open</Badge>
         )}
-        <ConnectButton profileId={profile.id} isConnected={isConnected} onToggle={onToggle} className="hidden sm:flex" />
+        <div className="hidden sm:flex items-center gap-2">
+          <MessageButton profileId={profile.id} onMessage={onMessage} />
+          <ConnectButton profileId={profile.id} isConnected={isConnected} onToggle={onToggle} />
+        </div>
       </div>
     </Link>
   );
 }
 
-function ProfileTableRow({ profile, index, isConnected, onToggle }: { profile: Profile; index: number; isConnected: boolean; onToggle: (id: number) => void }) {
+function ProfileTableRow({ profile, index, isConnected, onToggle, onMessage }: { profile: Profile; index: number } & RowActions) {
   const initials = profile.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   return (
     <tr className={`border-b border-gray-100 hover:bg-primary/5 transition-colors ${index % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}>
@@ -103,7 +118,10 @@ function ProfileTableRow({ profile, index, isConnected, onToggle }: { profile: P
         )}
       </td>
       <td className="px-4 py-3">
-        <ConnectButton profileId={profile.id} isConnected={isConnected} onToggle={onToggle} />
+        <div className="flex items-center gap-2">
+          <MessageButton profileId={profile.id} onMessage={onMessage} />
+          <ConnectButton profileId={profile.id} isConnected={isConnected} onToggle={onToggle} />
+        </div>
       </td>
     </tr>
   );
@@ -114,6 +132,8 @@ export default function Profiles() {
   const searchString = useSearch();
   const initialSearch = new URLSearchParams(searchString).get("search") ?? "";
   const { isConnected, toggleConnect } = useConnections();
+  const startChat = useStartChat();
+  const [, navigate] = useLocation();
 
   const [search, setSearch] = useState(initialSearch);
   const [query, setQuery] = useState(initialSearch);
@@ -130,6 +150,11 @@ export default function Profiles() {
     const t = setTimeout(() => setQuery(search), 300);
     return () => clearTimeout(t);
   }, [search]);
+
+  const handleMessage = useCallback(async (profileId: number) => {
+    await startChat(profileId);
+    navigate("/messaging");
+  }, [startChat, navigate]);
 
   const { data, isLoading, isFetching, error, refetch } = useListProfiles(
     { search: query || undefined, limit: 20, offset: 0 },
@@ -203,7 +228,8 @@ export default function Profiles() {
               {profiles.map((profile) => (
                 <div key={profile.id} className="relative group">
                   <ProfileCard profile={profile} />
-                  <div className="absolute bottom-4 left-0 right-0 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                  <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <MessageButton profileId={profile.id} onMessage={handleMessage} className="shadow-sm" />
                     <ConnectButton
                       profileId={profile.id}
                       isConnected={isConnected(profile.id)}
@@ -224,6 +250,7 @@ export default function Profiles() {
                   profile={profile}
                   isConnected={isConnected(profile.id)}
                   onToggle={toggleConnect}
+                  onMessage={handleMessage}
                 />
               ))}
             </div>
@@ -238,7 +265,7 @@ export default function Profiles() {
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Headline</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Location</th>
                     <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide"></th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -249,6 +276,7 @@ export default function Profiles() {
                       index={i}
                       isConnected={isConnected(profile.id)}
                       onToggle={toggleConnect}
+                      onMessage={handleMessage}
                     />
                   ))}
                 </tbody>
