@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGetFeedStats, getGetFeedStatsQueryKey, useListFeaturedProfiles, getListFeaturedProfilesQueryKey, useListFeaturedJobs, getListFeaturedJobsQueryKey } from "@workspace/api-client-react";
@@ -31,6 +31,21 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { useAppAuth } from "@/contexts/app-auth";
 
+// ── Reaction definitions ─────────────────────────────────────────────────────
+const REACTIONS = [
+  { type: "like",       emoji: "👍", label: "Like",       color: "text-blue-600",   bg: "bg-blue-50" },
+  { type: "celebrate",  emoji: "🎉", label: "Celebrate",  color: "text-green-600",  bg: "bg-green-50" },
+  { type: "support",    emoji: "🤝", label: "Support",    color: "text-amber-600",  bg: "bg-amber-50" },
+  { type: "love",       emoji: "❤️",  label: "Love",       color: "text-red-500",    bg: "bg-red-50" },
+  { type: "insightful", emoji: "💡", label: "Insightful", color: "text-orange-500", bg: "bg-orange-50" },
+  { type: "funny",      emoji: "😄", label: "Funny",      color: "text-yellow-500", bg: "bg-yellow-50" },
+] as const;
+type ReactionType = typeof REACTIONS[number]["type"];
+
+function getReaction(type: string | null) {
+  return REACTIONS.find(r => r.type === type) ?? REACTIONS[0];
+}
+
 // ── YouTube helpers ─────────────────────────────────────────────────────────
 function extractYouTubeId(text: string): string | null {
   const match = text.match(
@@ -59,23 +74,68 @@ interface FeedPost {
   profileHeadline: string;
   profileAvatarUrl: string | null;
   profileAccountType: string;
+  reactionCounts: Record<string, number>;
+  myReaction: string | null;
 }
 
-function PostCard({ post, onLike, currentUserId }: { post: FeedPost; onLike: (id: number) => void; currentUserId?: number }) {
+function PostCard({ post, currentUserId }: { post: FeedPost; currentUserId?: number }) {
   const qc = useQueryClient();
-  const [liked, setLiked] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(post.content);
   const [editYtId, setEditYtId] = useState<string | null>(null);
 
+  // ── Reactions state ──
+  const [myReaction, setMyReaction] = useState<string | null>(post.myReaction);
+  const [reactionCounts, setReactionCounts] = useState<Record<string, number>>(post.reactionCounts ?? {});
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const isOwn = currentUserId === post.profileId;
   const timeAgo = formatDistanceToNow(new Date(post.createdAt), { addSuffix: true });
+  const totalReactions = Object.values(reactionCounts).reduce((a, b) => a + b, 0);
 
   useEffect(() => {
     setEditYtId(extractYouTubeId(editContent));
   }, [editContent]);
+
+  // ── React mutation ──
+  const reactMutation = useMutation({
+    mutationFn: async (reactionType: string) => {
+      if (!currentUserId) return null;
+      const res = await fetch(`${import.meta.env.BASE_URL}api/posts/${post.id}/react`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileId: currentUserId, reactionType }),
+      });
+      return res.json() as Promise<{ action: "added" | "removed" | "changed"; reactionType: string | null }>;
+    },
+    onMutate: (reactionType) => {
+      // Optimistic update
+      setReactionCounts(prev => {
+        const next = { ...prev };
+        if (myReaction) {
+          // Remove old
+          next[myReaction] = Math.max((next[myReaction] ?? 1) - 1, 0);
+          if (next[myReaction] === 0) delete next[myReaction];
+        }
+        if (myReaction !== reactionType) {
+          // Add new
+          next[reactionType] = (next[reactionType] ?? 0) + 1;
+        }
+        return next;
+      });
+      setMyReaction(prev => (prev === reactionType ? null : reactionType));
+      setPickerOpen(false);
+    },
+    onError: () => {
+      // Rollback
+      setMyReaction(post.myReaction);
+      setReactionCounts(post.reactionCounts ?? {});
+      qc.invalidateQueries({ queryKey: ["posts"] });
+    },
+  });
 
   const editMutation = useMutation({
     mutationFn: async ({ content, imageUrl }: { content: string; imageUrl?: string }) => {
@@ -100,8 +160,12 @@ function PostCard({ post, onLike, currentUserId }: { post: FeedPost; onLike: (id
     onSuccess: () => qc.invalidateQueries({ queryKey: ["posts"] }),
   });
 
-  function handleLike() {
-    if (!liked) { setLiked(true); onLike(post.id); }
+  function openPicker() {
+    if (pickerTimeout.current) clearTimeout(pickerTimeout.current);
+    setPickerOpen(true);
+  }
+  function closePicker(delay = 200) {
+    pickerTimeout.current = setTimeout(() => setPickerOpen(false), delay);
   }
 
   function startEdit() {
@@ -286,24 +350,84 @@ function PostCard({ post, onLike, currentUserId }: { post: FeedPost; onLike: (id
           );
         })()}
 
-        {/* Engagement counts */}
-        <div className="flex items-center justify-between text-xs text-gray-400 mb-2 px-1">
-          <span>{(post.likesCount + (liked ? 1 : 0)).toLocaleString()} likes</span>
-          <span>{post.commentsCount} comments</span>
-        </div>
+        {/* Reaction summary row */}
+        {totalReactions > 0 && (
+          <div className="flex items-center justify-between text-xs text-gray-400 mb-2 px-0.5">
+            <div className="flex items-center gap-1">
+              {/* Top 3 reaction emojis */}
+              <div className="flex -space-x-0.5">
+                {REACTIONS.filter(r => reactionCounts[r.type] > 0)
+                  .sort((a, b) => (reactionCounts[b.type] ?? 0) - (reactionCounts[a.type] ?? 0))
+                  .slice(0, 3)
+                  .map(r => (
+                    <span key={r.type} className="text-sm leading-none">{r.emoji}</span>
+                  ))
+                }
+              </div>
+              <span>{totalReactions.toLocaleString()}</span>
+            </div>
+            <span>{post.commentsCount > 0 ? `${post.commentsCount} comments` : ""}</span>
+          </div>
+        )}
 
         <Separator className="mb-2" />
 
         {/* Action buttons */}
         <div className="flex items-center gap-1">
-          <button
-            onClick={handleLike}
-            className={`flex items-center gap-1.5 flex-1 justify-center py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              liked ? "text-primary bg-primary/5" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-            }`}
-          >
-            <ThumbsUpIcon className="w-4 h-4" />Like
-          </button>
+          {/* ── Reaction button with hover picker ── */}
+          <div className="relative flex-1" onMouseLeave={() => closePicker()}>
+            <button
+              onMouseEnter={openPicker}
+              onClick={() => {
+                if (!currentUserId) return;
+                reactMutation.mutate(myReaction ?? "like");
+              }}
+              className={`w-full flex items-center gap-1.5 justify-center py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                myReaction
+                  ? `${getReaction(myReaction).color} bg-opacity-10`
+                  : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              }`}
+            >
+              {myReaction ? (
+                <span className="text-base leading-none">{getReaction(myReaction).emoji}</span>
+              ) : (
+                <ThumbsUpIcon className="w-4 h-4" />
+              )}
+              <span>{myReaction ? getReaction(myReaction).label : "Like"}</span>
+            </button>
+
+            {/* Floating reaction picker */}
+            {pickerOpen && (
+              <div
+                className="absolute bottom-full left-0 mb-1 z-30"
+                onMouseEnter={openPicker}
+                onMouseLeave={() => closePicker()}
+              >
+                <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-full shadow-xl px-2 py-1.5">
+                  {REACTIONS.map(r => (
+                    <button
+                      key={r.type}
+                      onClick={() => { if (currentUserId) reactMutation.mutate(r.type); }}
+                      className="group flex flex-col items-center relative"
+                      title={r.label}
+                    >
+                      <span className={`text-2xl leading-none transition-transform group-hover:scale-125 group-hover:-translate-y-1 ${myReaction === r.type ? "scale-110" : ""}`}>
+                        {r.emoji}
+                      </span>
+                      {/* Tooltip */}
+                      <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                        {r.label}
+                      </span>
+                      {myReaction === r.type && (
+                        <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           <button className="flex items-center gap-1.5 flex-1 justify-center py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
             <MessageSquareIcon className="w-4 h-4" />Comment
           </button>
@@ -342,19 +466,16 @@ export default function Home() {
   const { data: featuredJobs } = useListFeaturedJobs({ query: { queryKey: getListFeaturedJobsQueryKey() } });
 
   const { data: posts = [], isLoading: postsLoading } = useQuery<FeedPost[]>({
-    queryKey: ["posts"],
+    queryKey: ["posts", user?.id],
     queryFn: async () => {
-      const res = await fetch(`${import.meta.env.BASE_URL}api/posts`);
+      const url = user?.id
+        ? `${import.meta.env.BASE_URL}api/posts?profileId=${user.id}`
+        : `${import.meta.env.BASE_URL}api/posts`;
+      const res = await fetch(url);
       return res.json();
     },
   });
 
-  const likeMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await fetch(`${import.meta.env.BASE_URL}api/posts/${id}/like`, { method: "POST" });
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["posts"] }),
-  });
 
   const createPostMutation = useMutation({
     mutationFn: async ({ content, imageUrl }: { content: string; imageUrl?: string }) => {
@@ -571,7 +692,7 @@ export default function Home() {
             </Card>
           ) : (
             posts.map(post => (
-              <PostCard key={post.id} post={post} onLike={id => likeMutation.mutate(id)} currentUserId={user?.id} />
+              <PostCard key={post.id} post={post} currentUserId={user?.id} />
             ))
           )}
         </div>
