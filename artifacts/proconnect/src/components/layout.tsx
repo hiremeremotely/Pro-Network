@@ -203,10 +203,25 @@ const REACTION_EMOJIS: Record<string, string> = {
   like: "👍", celebrate: "🎉", support: "🤗", love: "❤️", insightful: "💡", funny: "😄",
 };
 
+// Render message with bold actor name
+function NotifMessage({ message, actorName }: { message: string; actorName: string }) {
+  const idx = message.indexOf(actorName);
+  if (idx === -1) return <span>{message}</span>;
+  return (
+    <span>
+      {message.slice(0, idx)}
+      <strong className="font-semibold text-gray-900">{actorName}</strong>
+      {message.slice(idx + actorName.length)}
+    </span>
+  );
+}
+
 // ── Notification Bell ─────────────────────────────────────────────────────────
 function NotificationBell({ profileId }: { profileId: number }) {
   const qc = useQueryClient();
+  const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"all" | "posts">("all");
   const panelRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const BASE = import.meta.env.BASE_URL;
@@ -215,12 +230,14 @@ function NotificationBell({ profileId }: { profileId: number }) {
     queryKey: ["notif-count", profileId],
     queryFn: () => fetch(`${BASE}api/notifications/unread-count?profileId=${profileId}`).then(r => r.json()),
     refetchInterval: 30_000,
+    staleTime: 15_000,
   });
 
-  const { data: notifications = [], isLoading } = useQuery<AppNotification[]>({
+  const { data: notifications = [], isLoading, refetch: refetchList } = useQuery<AppNotification[]>({
     queryKey: ["notifications", profileId],
     queryFn: () => fetch(`${BASE}api/notifications?profileId=${profileId}`).then(r => r.json()),
     enabled: open,
+    staleTime: 0,
   });
 
   const markRead = useMutation({
@@ -240,9 +257,15 @@ function NotificationBell({ profileId }: { profileId: number }) {
   function handleOpen() {
     const next = !open;
     setOpen(next);
-    if (next && (countData?.count ?? 0) > 0) {
-      markRead.mutate();
+    if (next) {
+      refetchList();
+      if ((countData?.count ?? 0) > 0) markRead.mutate();
     }
+  }
+
+  function handleSeeAll() {
+    setOpen(false);
+    navigate("/notifications");
   }
 
   // Close on outside click
@@ -258,9 +281,13 @@ function NotificationBell({ profileId }: { profileId: number }) {
   }, []);
 
   const unread = countData?.count ?? 0;
+  const filtered = tab === "posts"
+    ? notifications.filter(n => n.postId !== null)
+    : notifications;
 
   return (
     <div className="relative">
+      {/* Bell button — matches other nav items */}
       <button
         ref={btnRef}
         onClick={handleOpen}
@@ -271,84 +298,142 @@ function NotificationBell({ profileId }: { profileId: number }) {
         <div className="relative">
           <BellIcon className="w-5 h-5" />
           {unread > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
-              {unread > 9 ? "9+" : unread}
+            <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none shadow-sm">
+              {unread > 99 ? "99+" : unread}
             </span>
           )}
         </div>
         <span>Notifications</span>
       </button>
 
+      {/* Dropdown panel */}
       {open && (
         <div
           ref={panelRef}
-          className="absolute right-0 top-full mt-1 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-[200] overflow-hidden"
+          className="absolute right-0 top-[calc(100%+4px)] w-[400px] bg-white rounded-lg shadow-[0_4px_24px_rgba(0,0,0,0.18)] border border-gray-200 z-[400] overflow-hidden"
+          style={{ maxHeight: "calc(100vh - 80px)" }}
         >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <h3 className="font-semibold text-sm text-gray-900">Notifications</h3>
-            <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
-              <XIcon className="w-4 h-4" />
-            </button>
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 pt-4 pb-2">
+            <h2 className="text-xl font-bold text-gray-900">Notifications</h2>
+            {unread === 0 && notifications.some(n => !n.isRead) === false && notifications.length > 0 && (
+              <button
+                onClick={() => markRead.mutate()}
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                Mark all as read
+              </button>
+            )}
+            {notifications.some(n => !n.isRead) && (
+              <button
+                onClick={() => markRead.mutate()}
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                Mark all as read
+              </button>
+            )}
           </div>
 
-          <div className="max-h-96 overflow-y-auto divide-y divide-gray-50">
+          {/* Filter tabs */}
+          <div className="flex gap-1 px-5 border-b border-gray-200 mb-0">
+            {(["all", "posts"] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-3 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                  tab === t
+                    ? "border-primary text-primary"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                {t === "all" ? "All" : "My posts"}
+              </button>
+            ))}
+          </div>
+
+          {/* List */}
+          <div className="overflow-y-auto" style={{ maxHeight: "420px" }}>
             {isLoading && (
-              <div className="flex items-center justify-center py-10">
-                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <div className="flex items-center justify-center py-12">
+                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               </div>
             )}
 
-            {!isLoading && notifications.length === 0 && (
-              <div className="py-10 text-center">
-                <BellIcon className="w-8 h-8 text-gray-200 mx-auto mb-2" />
-                <p className="text-sm text-gray-400">No notifications yet</p>
-                <p className="text-xs text-gray-300 mt-1">When someone likes or comments on your posts, you'll see it here.</p>
+            {!isLoading && filtered.length === 0 && (
+              <div className="py-14 flex flex-col items-center text-center px-8">
+                <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                  <BellIcon className="w-8 h-8 text-gray-300" />
+                </div>
+                <p className="text-sm font-semibold text-gray-700 mb-1">No notifications yet</p>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  When someone likes or comments on your posts, you'll see it here.
+                </p>
               </div>
             )}
 
-            {notifications.map(n => {
+            {filtered.map(n => {
               const initials = n.actorName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
               const emoji = n.type === "reaction" && n.reactionType
                 ? REACTION_EMOJIS[n.reactionType] ?? "👍"
                 : null;
-              const content = (
-                <div className={`flex gap-3 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer ${!n.isRead ? "bg-blue-50/60" : ""}`}>
-                  <div className="relative flex-shrink-0">
-                    <Avatar className="w-10 h-10 border border-gray-100">
+
+              const badgeContent = emoji
+                ? <span className="text-sm leading-none">{emoji}</span>
+                : n.type === "comment"
+                  ? <MessageSquareIcon className="w-3 h-3 text-white" />
+                  : <ThumbsUpIcon className="w-3 h-3 text-white" />;
+
+              const badgeBg = n.type === "comment" ? "bg-green-500" : "bg-[#0a66c2]";
+
+              const row = (
+                <div
+                  className={`relative flex items-start gap-3 px-5 py-3.5 cursor-pointer transition-colors hover:bg-[#f3f2ef] ${
+                    !n.isRead ? "bg-[#eef3fb]" : "bg-white"
+                  }`}
+                >
+                  {/* Unread dot on left edge */}
+                  <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-2 h-2">
+                    {!n.isRead && <div className="w-2 h-2 rounded-full bg-[#0a66c2]" />}
+                  </div>
+
+                  {/* Avatar + type badge */}
+                  <div className="relative flex-shrink-0 ml-2">
+                    <Avatar className="w-12 h-12 border border-gray-200">
                       <AvatarImage src={n.actorAvatarUrl || undefined} />
-                      <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">{initials}</AvatarFallback>
+                      <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">{initials}</AvatarFallback>
                     </Avatar>
-                    <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-white flex items-center justify-center shadow-sm border border-gray-100 text-xs">
-                      {emoji ?? (n.type === "comment" ? <MessageSquareIcon className="w-2.5 h-2.5 text-primary" /> : <ThumbsUpIcon className="w-2.5 h-2.5 text-primary" />)}
+                    <span className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center shadow border-2 border-white ${badgeBg}`}>
+                      {badgeContent}
                     </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-xs leading-relaxed text-gray-800 ${!n.isRead ? "font-medium" : ""}`}>{n.message}</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">{formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}</p>
+
+                  {/* Text */}
+                  <div className="flex-1 min-w-0 pt-0.5">
+                    <p className="text-sm text-gray-600 leading-snug">
+                      <NotifMessage message={n.message} actorName={n.actorName} />
+                    </p>
+                    <p className={`text-xs mt-1 font-medium ${!n.isRead ? "text-[#0a66c2]" : "text-gray-400"}`}>
+                      {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+                    </p>
                   </div>
-                  {!n.isRead && (
-                    <div className="flex-shrink-0 self-center w-2 h-2 bg-primary rounded-full mt-0.5" />
-                  )}
                 </div>
               );
 
               return n.postId ? (
-                <Link key={n.id} href="/feed" onClick={() => setOpen(false)}>
-                  {content}
-                </Link>
+                <Link key={n.id} href="/feed" onClick={() => setOpen(false)}>{row}</Link>
               ) : (
-                <div key={n.id}>{content}</div>
+                <div key={n.id}>{row}</div>
               );
             })}
           </div>
 
-          {notifications.length > 0 && (
-            <div className="border-t border-gray-100 py-2 text-center">
-              <Link href="/feed" onClick={() => setOpen(false)} className="text-xs text-primary font-medium hover:underline">
-                View all activity
-              </Link>
-            </div>
-          )}
+          {/* Footer */}
+          <button
+            onClick={handleSeeAll}
+            className="w-full py-3 text-sm font-semibold text-gray-600 border-t border-gray-200 hover:bg-[#f3f2ef] transition-colors"
+          >
+            View all notifications
+          </button>
         </div>
       )}
     </div>
@@ -362,6 +447,17 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const [location, navigate] = useLocation();
   const { user, logout } = useAppAuth();
+  const BASE = import.meta.env.BASE_URL;
+
+  // Shared unread count for mobile badge
+  const { data: mobileCountData } = useQuery<{ count: number }>({
+    queryKey: ["notif-count", user?.id],
+    queryFn: () => fetch(`${BASE}api/notifications/unread-count?profileId=${user?.id}`).then(r => r.json()),
+    enabled: !!user?.id,
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  });
+  const mobileUnread = mobileCountData?.count ?? 0;
 
   const initials = user?.name
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
@@ -463,7 +559,7 @@ export function Layout({ children }: LayoutProps) {
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-white shadow-lg">
         <nav className="flex items-stretch h-14">
-          {navItems.map((item) => {
+          {navItems.slice(0, 3).map((item) => {
             const exactMatch = ["/feed", "/profiles", "/company-dashboard"];
             const isActive = location === item.href || (!exactMatch.includes(item.href) && location.startsWith(item.href));
             return (
@@ -479,6 +575,23 @@ export function Layout({ children }: LayoutProps) {
               </Link>
             );
           })}
+          {/* Notification bell — mobile */}
+          <Link
+            href="/notifications"
+            className={`relative flex flex-col items-center justify-center gap-1 flex-1 text-xs font-medium border-b-2 transition-colors ${
+              location === "/notifications" ? "border-primary text-primary" : "border-transparent text-gray-400"
+            }`}
+          >
+            <div className="relative">
+              <BellIcon className="w-5 h-5" />
+              {mobileUnread > 0 && (
+                <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+                  {mobileUnread > 9 ? "9+" : mobileUnread}
+                </span>
+              )}
+            </div>
+            Notifs
+          </Link>
           <Link
             href={user ? `/profiles/${user.id}` : "/login"}
             className={`flex flex-col items-center justify-center gap-1 flex-1 text-xs font-medium border-b-2 transition-colors ${

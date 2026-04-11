@@ -19,6 +19,7 @@ import Applications from "@/pages/applications";
 import BoLogin from "@/pages/bo-login";
 import Admin from "@/pages/admin";
 import CompanyDashboard from "@/pages/company-dashboard";
+import Notifications from "@/pages/notifications";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +49,7 @@ function Router() {
             <Route path="/jobs" component={Jobs} />
             <Route path="/jobs/:id" component={JobDetail} />
             <Route path="/applications" component={Applications} />
+            <Route path="/notifications" component={Notifications} />
             <Route component={NotFound} />
           </Switch>
         </Layout>
