@@ -4,10 +4,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format, isToday, isYesterday, formatDistanceToNow } from "date-fns";
 import {
-  SendHorizontalIcon, PencilIcon, ChevronDownIcon,
-  ExpandIcon, XIcon, MinusIcon, MoreHorizontalIcon,
+  SendHorizontalIcon, PencilIcon,
+  ExpandIcon, XIcon, MinusIcon,
+  UserPlusIcon, LockIcon,
 } from "lucide-react";
 import { useAppAuth } from "@/contexts/app-auth";
+import { useConnections } from "@/hooks/use-connections";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface OtherParticipant {
@@ -24,6 +26,7 @@ interface Conversation {
   lastMessagePreview: string | null;
   otherParticipant: OtherParticipant | null;
   unreadCount: number;
+  isConnected: boolean;
 }
 interface Message {
   id: number;
@@ -65,6 +68,7 @@ function ChatWindow({
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const other = conv.otherParticipant;
+  const { isConnected: checkConnected, toggleConnect } = useConnections();
 
   const { data: messages = [] } = useQuery<Message[]>({
     queryKey: ["messages", conv.id],
@@ -199,26 +203,63 @@ function ChatWindow({
             <div ref={bottomRef} />
           </div>
 
-          {/* Input */}
-          <div className="px-3 py-2 border-t border-gray-200">
-            <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-full px-3 py-1.5 focus-within:border-[#0a66c2] transition-colors">
-              <input
-                type="text"
-                placeholder="Write a message…"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleSend(); } }}
-                className="flex-1 bg-transparent text-xs text-gray-900 placeholder:text-gray-400 outline-none"
-              />
-              <button
-                onClick={handleSend}
-                disabled={!input.trim() || sendMsg.isPending}
-                className="w-6 h-6 rounded-full bg-[#0a66c2] flex items-center justify-center text-white disabled:opacity-30 hover:bg-[#004182] transition-colors"
-              >
-                <SendHorizontalIcon className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
+          {/* Input — connection-aware */}
+          {(() => {
+            const otherId = other?.id;
+            const connected = conv.isConnected || (otherId ? checkConnected(otherId) : false);
+            const myMsgCount = messages.filter(m => m.senderProfileId === myId).length;
+            const firstName = other?.name?.split(" ")[0] ?? "";
+
+            if (!connected && myMsgCount >= 1) {
+              return (
+                <div className="px-3 py-3 border-t border-gray-200 bg-gray-50 flex flex-col items-center gap-2">
+                  <div className="flex items-center gap-1.5 text-gray-500">
+                    <LockIcon className="w-3 h-3 flex-shrink-0" />
+                    <span className="text-[11px] text-center text-gray-600">
+                      Connect with <strong>{firstName}</strong> to keep chatting.
+                    </span>
+                  </div>
+                  {otherId && (
+                    <button
+                      onClick={() => toggleConnect(otherId)}
+                      className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-white text-xs font-semibold rounded-full hover:bg-primary/90 transition-colors"
+                    >
+                      <UserPlusIcon className="w-3 h-3" />
+                      Connect with {firstName}
+                    </button>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <div className="px-3 py-2 border-t border-gray-200">
+                {!connected && myMsgCount === 0 && (
+                  <p className="text-[10px] text-amber-600 mb-1.5 flex items-center gap-1">
+                    <LockIcon className="w-2.5 h-2.5 flex-shrink-0" />
+                    1 intro message allowed before connecting.
+                  </p>
+                )}
+                <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-full px-3 py-1.5 focus-within:border-[#0a66c2] transition-colors">
+                  <input
+                    type="text"
+                    placeholder={connected ? "Write a message…" : `Intro to ${firstName}…`}
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleSend(); } }}
+                    className="flex-1 bg-transparent text-xs text-gray-900 placeholder:text-gray-400 outline-none"
+                  />
+                  <button
+                    onClick={handleSend}
+                    disabled={!input.trim() || sendMsg.isPending}
+                    className="w-6 h-6 rounded-full bg-[#0a66c2] flex items-center justify-center text-white disabled:opacity-30 hover:bg-[#004182] transition-colors"
+                  >
+                    <SendHorizontalIcon className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </>
       )}
     </div>

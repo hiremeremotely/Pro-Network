@@ -1,13 +1,28 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { conversationsTable, messagesTable, profilesTable } from "@workspace/db";
-import { desc, eq, sql, and, or, ne } from "drizzle-orm";
+import { conversationsTable, messagesTable, profilesTable, connectionsTable } from "@workspace/db";
+import { desc, eq, sql, and, or, count } from "drizzle-orm";
 
 const router = Router();
 
 // ── Helper: ensure participant1_id < participant2_id ─────────────────────────
 function orderedPair(a: number, b: number): [number, number] {
   return a < b ? [a, b] : [b, a];
+}
+
+// ── Helper: check if two users are connected (either direction) ───────────────
+async function areConnected(a: number, b: number): Promise<boolean> {
+  const rows = await db
+    .select({ id: connectionsTable.id })
+    .from(connectionsTable)
+    .where(
+      or(
+        and(eq(connectionsTable.followerId, a), eq(connectionsTable.followingId, b)),
+        and(eq(connectionsTable.followerId, b), eq(connectionsTable.followingId, a)),
+      )
+    )
+    .limit(1);
+  return rows.length > 0;
 }
 
 // ── POST /conversations ───────────────────────────────────────────────────────
@@ -105,7 +120,8 @@ router.get("/conversations", async (req, res): Promise<void> => {
           AND ${messagesTable.isRead} = false`
       );
 
-    return { ...c, otherParticipant: other ?? null, unreadCount: unread.length };
+    const connected = await areConnected(profileId, otherProfileId);
+    return { ...c, otherParticipant: other ?? null, unreadCount: unread.length, isConnected: connected };
   }));
 
   res.json(enriched);
@@ -145,6 +161,38 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
     res.status(400).json({ error: "senderProfileId and content required" });
     return;
   }
+
+  // ── Enforce connection-based messaging rule ───────────────────────────────
+  const [conv] = await db
+    .select()
+    .from(conversationsTable)
+    .where(eq(conversationsTable.id, convId))
+    .limit(1);
+
+  if (!conv) { res.status(404).json({ error: "Conversation not found" }); return; }
+
+  const otherProfileId = conv.participant1Id === Number(senderProfileId)
+    ? conv.participant2Id
+    : conv.participant1Id;
+
+  const connected = await areConnected(Number(senderProfileId), otherProfileId);
+
+  if (!connected) {
+    // Count how many messages this sender has already sent in this conversation
+    const [{ senderMsgCount }] = await db
+      .select({ senderMsgCount: count() })
+      .from(messagesTable)
+      .where(and(
+        eq(messagesTable.conversationId, convId),
+        eq(messagesTable.senderProfileId, Number(senderProfileId)),
+      ));
+
+    if (senderMsgCount >= 1) {
+      res.status(403).json({ error: "not_connected", message: "Connect with this person to continue the conversation." });
+      return;
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   const [msg] = await db
     .insert(messagesTable)

@@ -4,9 +4,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDistanceToNow, format, isToday, isYesterday } from "date-fns";
 import { useAppAuth } from "@/contexts/app-auth";
+import { useConnections } from "@/hooks/use-connections";
 import {
-  SearchIcon, SendHorizontalIcon, PencilIcon, ChevronDownIcon,
-  MoreHorizontalIcon, VideoIcon, PhoneIcon, InfoIcon,
+  SearchIcon, SendHorizontalIcon, PencilIcon,
+  MoreHorizontalIcon, VideoIcon, InfoIcon,
+  UserPlusIcon, LockIcon,
 } from "lucide-react";
 
 interface OtherParticipant {
@@ -24,6 +26,7 @@ interface Conversation {
   lastMessagePreview: string | null;
   otherParticipant: OtherParticipant | null;
   unreadCount: number;
+  isConnected: boolean;
 }
 
 interface Message {
@@ -61,6 +64,8 @@ export default function Messaging() {
   const [search, setSearch] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const { isConnected: checkConnected, toggleConnect } = useConnections();
 
   const { data: conversations = [], isLoading: convsLoading } = useQuery<Conversation[]>({
     queryKey: ["conversations", user?.id],
@@ -364,37 +369,75 @@ export default function Messaging() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input bar */}
-            <div className="px-4 py-3 border-t border-gray-200">
-              <div className="flex items-end gap-2 bg-white border border-gray-300 rounded-2xl px-4 py-2 focus-within:border-[#0a66c2] transition-colors">
-                <textarea
-                  ref={inputRef}
-                  rows={1}
-                  placeholder={`Message ${activeConv.otherParticipant?.name?.split(" ")[0] ?? ""}…`}
-                  value={input}
-                  onChange={e => {
-                    setInput(e.target.value);
-                    const el = e.target;
-                    el.style.height = "auto";
-                    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-                  }}
-                  onKeyDown={e => {
-                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
-                  }}
-                  className="flex-1 resize-none bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none leading-relaxed min-h-[24px] max-h-[120px]"
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim() || sendMsg.isPending}
-                  className="flex-shrink-0 w-9 h-9 rounded-full bg-[#0a66c2] flex items-center justify-center text-white disabled:opacity-30 hover:bg-[#004182] transition-colors"
-                >
-                  {sendMsg.isPending
-                    ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    : <SendHorizontalIcon className="w-4 h-4" />
-                  }
-                </button>
-              </div>
-            </div>
+            {/* Input bar — connection-aware */}
+            {(() => {
+              const otherId = activeConv.otherParticipant?.id;
+              const connected = activeConv.isConnected || (otherId ? checkConnected(otherId) : false);
+              const myMsgCount = messages.filter(m => m.senderProfileId === user?.id).length;
+              const firstName = activeConv.otherParticipant?.name?.split(" ")[0] ?? "";
+
+              if (!connected && myMsgCount >= 1) {
+                // Locked — already sent 1 intro, must connect to continue
+                return (
+                  <div className="px-4 py-4 border-t border-gray-200 flex flex-col items-center gap-3 bg-gray-50">
+                    <div className="flex items-center gap-2 text-gray-500">
+                      <LockIcon className="w-4 h-4" />
+                      <span className="text-sm text-center text-gray-600">
+                        Connect with <strong>{firstName}</strong> to continue the conversation.
+                      </span>
+                    </div>
+                    {otherId && (
+                      <button
+                        onClick={() => toggleConnect(otherId)}
+                        className="flex items-center gap-2 px-5 py-2 bg-primary text-white text-sm font-semibold rounded-full hover:bg-primary/90 transition-colors"
+                      >
+                        <UserPlusIcon className="w-4 h-4" />
+                        Connect with {firstName}
+                      </button>
+                    )}
+                  </div>
+                );
+              }
+
+              return (
+                <div className="px-4 py-3 border-t border-gray-200">
+                  {!connected && myMsgCount === 0 && (
+                    <p className="text-xs text-amber-600 mb-2 flex items-center gap-1.5">
+                      <LockIcon className="w-3 h-3 flex-shrink-0" />
+                      You can send 1 intro message. Connect with {firstName} to unlock full chat.
+                    </p>
+                  )}
+                  <div className="flex items-end gap-2 bg-white border border-gray-300 rounded-2xl px-4 py-2 focus-within:border-[#0a66c2] transition-colors">
+                    <textarea
+                      ref={inputRef}
+                      rows={1}
+                      placeholder={connected ? `Message ${firstName}…` : `Send an intro to ${firstName}…`}
+                      value={input}
+                      onChange={e => {
+                        setInput(e.target.value);
+                        const el = e.target;
+                        el.style.height = "auto";
+                        el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+                      }}
+                      className="flex-1 resize-none bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none leading-relaxed min-h-[24px] max-h-[120px]"
+                    />
+                    <button
+                      onClick={handleSend}
+                      disabled={!input.trim() || sendMsg.isPending}
+                      className="flex-shrink-0 w-9 h-9 rounded-full bg-[#0a66c2] flex items-center justify-center text-white disabled:opacity-30 hover:bg-[#004182] transition-colors"
+                    >
+                      {sendMsg.isPending
+                        ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        : <SendHorizontalIcon className="w-4 h-4" />
+                      }
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </>
         )}
       </main>
