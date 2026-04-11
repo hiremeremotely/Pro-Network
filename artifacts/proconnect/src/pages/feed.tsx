@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGetFeedStats, getGetFeedStatsQueryKey, useListFeaturedProfiles, getListFeaturedProfilesQueryKey, useListFeaturedJobs, getListFeaturedJobsQueryKey } from "@workspace/api-client-react";
@@ -21,9 +21,27 @@ import {
   BuildingIcon,
   ChevronRightIcon,
   MapPinIcon,
+  PlayCircleIcon,
+  XIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useAppAuth } from "@/contexts/app-auth";
+
+// ── YouTube helpers ─────────────────────────────────────────────────────────
+function extractYouTubeId(text: string): string | null {
+  const match = text.match(
+    /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
+  );
+  return match ? match[1] : null;
+}
+
+function ytThumb(id: string) {
+  return `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
+}
+
+function ytUrl(id: string) {
+  return `https://www.youtube.com/watch?v=${id}`;
+}
 
 interface FeedPost {
   id: number;
@@ -80,11 +98,38 @@ function PostCard({ post, onLike }: { post: FeedPost; onLike: (id: number) => vo
         {/* Content */}
         <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-line mb-3">{post.content}</p>
 
-        {post.imageUrl && (
-          <div className="rounded-lg overflow-hidden mb-3 bg-gray-100">
-            <img src={post.imageUrl} alt="" className="w-full object-cover max-h-80" />
-          </div>
-        )}
+        {/* YouTube / image preview */}
+        {(() => {
+          const ytId = extractYouTubeId(post.content);
+          const hasYt = Boolean(ytId);
+          const thumb = hasYt ? ytThumb(ytId!) : post.imageUrl;
+          if (!thumb) return null;
+          return (
+            <div className="rounded-xl overflow-hidden mb-3 bg-black relative group cursor-pointer"
+              onClick={() => hasYt && window.open(ytUrl(ytId!), "_blank")}>
+              <img
+                src={thumb}
+                alt=""
+                className={`w-full object-cover max-h-72 ${hasYt ? "opacity-85 group-hover:opacity-75 transition-opacity" : ""}`}
+              />
+              {hasYt && (
+                <>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-14 h-14 bg-red-600 rounded-full flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
+                      <PlayCircleIcon className="w-8 h-8 text-white fill-white" />
+                    </div>
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-4 py-2">
+                    <span className="text-white text-xs font-medium flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5 fill-white" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                      Watch on YouTube
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Engagement counts */}
         <div className="flex items-center justify-between text-xs text-gray-400 mb-2 px-1">
@@ -127,6 +172,12 @@ export default function Home() {
   const { user } = useAppAuth();
   const [postContent, setPostContent] = useState("");
   const [postFocused, setPostFocused] = useState(false);
+  const [ytId, setYtId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setYtId(extractYouTubeId(postContent));
+  }, [postContent]);
+
   const queryClient = useQueryClient();
 
   const currentId       = user?.id ?? 1;
@@ -155,17 +206,18 @@ export default function Home() {
   });
 
   const createPostMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, imageUrl }: { content: string; imageUrl?: string }) => {
       const res = await fetch(`${import.meta.env.BASE_URL}api/posts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileId: currentId, content }),
+        body: JSON.stringify({ profileId: currentId, content, imageUrl }),
       });
       return res.json();
     },
     onSuccess: () => {
       setPostContent("");
       setPostFocused(false);
+      setYtId(null);
       queryClient.invalidateQueries({ queryKey: ["posts"] });
     },
   });
@@ -289,6 +341,30 @@ export default function Home() {
                       onChange={e => setPostContent(e.target.value)}
                       className="border-0 focus-visible:ring-0 p-0 min-h-[80px] resize-none text-sm"
                     />
+                    {ytId && (
+                      <div className="mt-3 rounded-xl overflow-hidden border border-gray-200 relative group bg-black">
+                        <img
+                          src={ytThumb(ytId)}
+                          alt="YouTube thumbnail"
+                          className="w-full object-cover max-h-48 opacity-90"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center shadow-lg">
+                            <PlayCircleIcon className="w-7 h-7 text-white fill-white" />
+                          </div>
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2">
+                          <span className="text-white text-xs font-medium">YouTube video detected</span>
+                        </div>
+                        <button
+                          onClick={() => { setPostContent(postContent.replace(/https?:\/\/(?:www\.)?(?:youtube\.com\/\S+|youtu\.be\/\S+)/g, "").trim()); }}
+                          className="absolute top-2 right-2 w-7 h-7 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-colors"
+                          title="Remove YouTube link"
+                        >
+                          <XIcon className="w-3.5 h-3.5 text-white" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -306,7 +382,7 @@ export default function Home() {
                   <Button
                     size="sm"
                     disabled={!postContent.trim() || createPostMutation.isPending}
-                    onClick={() => createPostMutation.mutate(postContent.trim())}
+                    onClick={() => createPostMutation.mutate({ content: postContent.trim(), imageUrl: ytId ? ytThumb(ytId) : undefined })}
                     className="rounded-full text-xs px-5"
                   >
                     Post
