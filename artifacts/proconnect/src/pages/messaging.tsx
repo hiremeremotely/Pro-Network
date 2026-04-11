@@ -8,7 +8,7 @@ import { useConnections } from "@/hooks/use-connections";
 import {
   SearchIcon, SendHorizontalIcon, PencilIcon,
   MoreHorizontalIcon, VideoIcon, InfoIcon,
-  UserPlusIcon, LockIcon,
+  UserPlusIcon, CheckCircle2Icon,
 } from "lucide-react";
 
 interface OtherParticipant {
@@ -66,6 +66,7 @@ export default function Messaging() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const { isConnected: checkConnected, toggleConnect } = useConnections();
+  const [noteInput, setNoteInput] = useState(""); // for connection request note
 
   const { data: conversations = [], isLoading: convsLoading } = useQuery<Conversation[]>({
     queryKey: ["conversations", user?.id],
@@ -127,6 +128,7 @@ export default function Messaging() {
   function handleSelectConv(conv: Conversation) {
     setActiveConvId(conv.id);
     setInput("");
+    setNoteInput("");
   }
 
   function handleSend() {
@@ -307,21 +309,25 @@ export default function Messaging() {
                 </div>
               )}
 
-              {messages.length === 0 && !msgsLoading && (
-                <div className="flex flex-col items-center text-center py-10">
-                  <Avatar className="w-16 h-16 border-2 border-gray-200 mb-3">
-                    <AvatarImage src={activeConv.otherParticipant?.avatarUrl || undefined} />
-                    <AvatarFallback className="text-lg font-bold bg-primary/10 text-primary">
-                      {otherInitials(activeConv.otherParticipant?.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <p className="text-sm font-semibold text-gray-800">{activeConv.otherParticipant?.name}</p>
-                  {activeConv.otherParticipant?.headline && (
-                    <p className="text-xs text-gray-500 mt-0.5">{activeConv.otherParticipant.headline}</p>
-                  )}
-                  <p className="text-xs text-gray-400 mt-3">Say hello! This is the start of your conversation.</p>
-                </div>
-              )}
+              {messages.length === 0 && !msgsLoading && (() => {
+                const otherId = activeConv.otherParticipant?.id;
+                const connected = activeConv.isConnected || (otherId ? checkConnected(otherId) : false);
+                return connected ? (
+                  <div className="flex flex-col items-center text-center py-10">
+                    <Avatar className="w-16 h-16 border-2 border-gray-200 mb-3">
+                      <AvatarImage src={activeConv.otherParticipant?.avatarUrl || undefined} />
+                      <AvatarFallback className="text-lg font-bold bg-primary/10 text-primary">
+                        {otherInitials(activeConv.otherParticipant?.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <p className="text-sm font-semibold text-gray-800">{activeConv.otherParticipant?.name}</p>
+                    {activeConv.otherParticipant?.headline && (
+                      <p className="text-xs text-gray-500 mt-0.5">{activeConv.otherParticipant.headline}</p>
+                    )}
+                    <p className="text-xs text-gray-400 mt-3">Say hello! This is the start of your conversation.</p>
+                  </div>
+                ) : null;
+              })()}
 
               {messages.map((msg, i) => {
                 const isMine = msg.senderProfileId === user?.id;
@@ -329,6 +335,10 @@ export default function Messaging() {
                 const showAvatar = !isMine && (!prev || prev.senderProfileId !== msg.senderProfileId);
                 const showDate =
                   !prev || new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() > 5 * 60 * 1000;
+                const isFirstMsg = i === 0;
+                const otherId = activeConv.otherParticipant?.id;
+                const connected = activeConv.isConnected || (otherId ? checkConnected(otherId) : false);
+                const isIntroMsg = !connected && isFirstMsg && isMine;
 
                 return (
                   <div key={msg.id}>
@@ -339,8 +349,14 @@ export default function Messaging() {
                         </span>
                       </div>
                     )}
+                    {isIntroMsg && (
+                      <div className="flex justify-end mb-1">
+                        <span className="text-[11px] text-gray-400 flex items-center gap-1">
+                          <UserPlusIcon className="w-3 h-3" /> Sent with connection request
+                        </span>
+                      </div>
+                    )}
                     <div className={`flex items-end gap-2 ${isMine ? "flex-row-reverse" : "flex-row"}`}>
-                      {/* Avatar placeholder to maintain alignment */}
                       {!isMine && (
                         <div className="w-8 flex-shrink-0 self-end mb-0.5">
                           {showAvatar && (
@@ -369,49 +385,107 @@ export default function Messaging() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input bar — connection-aware */}
+            {/* Bottom panel — connection-aware */}
             {(() => {
               const otherId = activeConv.otherParticipant?.id;
               const connected = activeConv.isConnected || (otherId ? checkConnected(otherId) : false);
               const myMsgCount = messages.filter(m => m.senderProfileId === user?.id).length;
               const firstName = activeConv.otherParticipant?.name?.split(" ")[0] ?? "";
+              const fullName = activeConv.otherParticipant?.name ?? "";
 
+              // ── State 1: Locked (intro sent, not connected) ──────────────────
               if (!connected && myMsgCount >= 1) {
-                // Locked — already sent 1 intro, must connect to continue
                 return (
-                  <div className="px-4 py-4 border-t border-gray-200 flex flex-col items-center gap-3 bg-gray-50">
-                    <div className="flex items-center gap-2 text-gray-500">
-                      <LockIcon className="w-4 h-4" />
-                      <span className="text-sm text-center text-gray-600">
-                        Connect with <strong>{firstName}</strong> to continue the conversation.
-                      </span>
+                  <div className="border-t border-gray-200 px-6 py-5 bg-[#f3f2ef]">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                        <CheckCircle2Icon className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">Connection request sent</p>
+                        <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                          Your note was sent to <strong>{firstName}</strong>. Once they accept, you can message freely.
+                        </p>
+                      </div>
                     </div>
-                    {otherId && (
-                      <button
-                        onClick={() => toggleConnect(otherId)}
-                        className="flex items-center gap-2 px-5 py-2 bg-primary text-white text-sm font-semibold rounded-full hover:bg-primary/90 transition-colors"
-                      >
-                        <UserPlusIcon className="w-4 h-4" />
-                        Connect with {firstName}
-                      </button>
-                    )}
                   </div>
                 );
               }
 
+              // ── State 2: Not connected, no messages yet — LinkedIn request panel ──
+              if (!connected && myMsgCount === 0) {
+                return (
+                  <div className="border-t border-gray-200 bg-[#f3f2ef] px-6 py-4">
+                    <div className="flex items-center gap-2.5 mb-3">
+                      <Avatar className="w-8 h-8 border border-gray-200 flex-shrink-0">
+                        <AvatarImage src={activeConv.otherParticipant?.avatarUrl || undefined} />
+                        <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
+                          {otherInitials(fullName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900 leading-tight">Connect with {fullName}</p>
+                        <p className="text-xs text-gray-500">Add a note to personalize your request</p>
+                      </div>
+                    </div>
+                    <div className="bg-white border border-gray-300 rounded-lg overflow-hidden focus-within:border-[#0a66c2] transition-colors mb-2">
+                      <textarea
+                        rows={3}
+                        maxLength={300}
+                        placeholder={`Hi ${firstName}, I'd like to connect with you on Hire Me Remotely.`}
+                        value={noteInput}
+                        onChange={e => setNoteInput(e.target.value)}
+                        className="w-full resize-none px-3 pt-2.5 pb-1 text-sm text-gray-900 placeholder:text-gray-400 outline-none leading-relaxed"
+                      />
+                      <div className="flex justify-end px-3 pb-1.5">
+                        <span className="text-[11px] text-gray-400">{noteInput.length}/300</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-end gap-2">
+                      {otherId && (
+                        <button
+                          onClick={() => toggleConnect(otherId)}
+                          className="px-4 py-1.5 rounded-full border border-gray-400 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
+                          Skip
+                        </button>
+                      )}
+                      <button
+                        disabled={sendMsg.isPending}
+                        onClick={() => {
+                          const note = noteInput.trim();
+                          if (note) {
+                            sendMsg.mutate(note, {
+                              onSuccess: () => {
+                                setNoteInput("");
+                                if (otherId) toggleConnect(otherId);
+                              }
+                            });
+                          } else if (otherId) {
+                            toggleConnect(otherId);
+                          }
+                        }}
+                        className="px-5 py-1.5 rounded-full bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {sendMsg.isPending
+                          ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          : <UserPlusIcon className="w-3.5 h-3.5" />
+                        }
+                        Send request
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
+              // ── State 3: Connected — full chat input ─────────────────────────
               return (
                 <div className="px-4 py-3 border-t border-gray-200">
-                  {!connected && myMsgCount === 0 && (
-                    <p className="text-xs text-amber-600 mb-2 flex items-center gap-1.5">
-                      <LockIcon className="w-3 h-3 flex-shrink-0" />
-                      You can send 1 intro message. Connect with {firstName} to unlock full chat.
-                    </p>
-                  )}
                   <div className="flex items-end gap-2 bg-white border border-gray-300 rounded-2xl px-4 py-2 focus-within:border-[#0a66c2] transition-colors">
                     <textarea
                       ref={inputRef}
                       rows={1}
-                      placeholder={connected ? `Message ${firstName}…` : `Send an intro to ${firstName}…`}
+                      placeholder={`Message ${firstName}…`}
                       value={input}
                       onChange={e => {
                         setInput(e.target.value);

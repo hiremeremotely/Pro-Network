@@ -4,9 +4,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format, isToday, isYesterday, formatDistanceToNow } from "date-fns";
 import {
-  SendHorizontalIcon, PencilIcon,
+  SendHorizontalIcon, PencilIcon, ChevronDownIcon,
   ExpandIcon, XIcon, MinusIcon,
-  UserPlusIcon, LockIcon,
+  UserPlusIcon, CheckCircle2Icon,
 } from "lucide-react";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useConnections } from "@/hooks/use-connections";
@@ -66,6 +66,7 @@ function ChatWindow({
   const qc = useQueryClient();
   const BASE = import.meta.env.BASE_URL;
   const [input, setInput] = useState("");
+  const [noteInput, setNoteInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const other = conv.otherParticipant;
   const { isConnected: checkConnected, toggleConnect } = useConnections();
@@ -162,88 +163,147 @@ function ChatWindow({
       {!minimized && (
         <>
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1" style={{ height: 300 }}>
-            {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <Avatar className="w-14 h-14 mb-2 border border-gray-200">
-                  <AvatarImage src={other?.avatarUrl || undefined} />
-                  <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">{initials(other?.name)}</AvatarFallback>
-                </Avatar>
-                <p className="text-xs font-semibold text-gray-700">{other?.name}</p>
-                <p className="text-[11px] text-gray-400 mt-1">Say hi!</p>
-              </div>
-            )}
-            {messages.map((msg, i) => {
-              const isMine = msg.senderProfileId === myId;
-              const prev = messages[i - 1];
-              const showTime =
-                !prev || new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() > 5 * 60 * 1000;
-
-              return (
-                <div key={msg.id}>
-                  {showTime && (
-                    <div className="text-center my-1.5">
-                      <span className="text-[10px] text-gray-400">{formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}</span>
-                    </div>
-                  )}
-                  <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-                    <div
-                      className={`max-w-[75%] px-3 py-1.5 rounded-2xl text-xs leading-relaxed break-words ${
-                        isMine
-                          ? "bg-[#0a66c2] text-white rounded-br-sm"
-                          : "bg-[#f3f2ef] text-gray-900 rounded-bl-sm"
-                      }`}
-                    >
-                      {msg.content}
-                    </div>
+          {(() => {
+            const otherId = other?.id;
+            const connected = conv.isConnected || (otherId ? checkConnected(otherId) : false);
+            return (
+              <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1" style={{ height: connected ? 300 : 180 }}>
+                {messages.length === 0 && connected && (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                    <Avatar className="w-14 h-14 mb-2 border border-gray-200">
+                      <AvatarImage src={other?.avatarUrl || undefined} />
+                      <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">{initials(other?.name)}</AvatarFallback>
+                    </Avatar>
+                    <p className="text-xs font-semibold text-gray-700">{other?.name}</p>
+                    <p className="text-[11px] text-gray-400 mt-1">Say hi!</p>
                   </div>
-                </div>
-              );
-            })}
-            <div ref={bottomRef} />
-          </div>
+                )}
+                {messages.map((msg, i) => {
+                  const isMine = msg.senderProfileId === myId;
+                  const prev = messages[i - 1];
+                  const showTime =
+                    !prev || new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() > 5 * 60 * 1000;
+                  const isIntroMsg = !connected && i === 0 && isMine;
 
-          {/* Input — connection-aware */}
+                  return (
+                    <div key={msg.id}>
+                      {showTime && (
+                        <div className="text-center my-1.5">
+                          <span className="text-[10px] text-gray-400">{formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}</span>
+                        </div>
+                      )}
+                      {isIntroMsg && (
+                        <div className="flex justify-end mb-0.5">
+                          <span className="text-[9px] text-gray-400 flex items-center gap-0.5">
+                            <UserPlusIcon className="w-2.5 h-2.5" /> Sent with connection request
+                          </span>
+                        </div>
+                      )}
+                      <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+                        <div
+                          className={`max-w-[75%] px-3 py-1.5 rounded-2xl text-xs leading-relaxed break-words ${
+                            isMine
+                              ? "bg-[#0a66c2] text-white rounded-br-sm"
+                              : "bg-[#f3f2ef] text-gray-900 rounded-bl-sm"
+                          }`}
+                        >
+                          {msg.content}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={bottomRef} />
+              </div>
+            );
+          })()}
+
+          {/* Bottom panel — connection-aware */}
           {(() => {
             const otherId = other?.id;
             const connected = conv.isConnected || (otherId ? checkConnected(otherId) : false);
             const myMsgCount = messages.filter(m => m.senderProfileId === myId).length;
             const firstName = other?.name?.split(" ")[0] ?? "";
 
+            // ── Locked: request sent ─────────────────────────────────────────
             if (!connected && myMsgCount >= 1) {
               return (
-                <div className="px-3 py-3 border-t border-gray-200 bg-gray-50 flex flex-col items-center gap-2">
-                  <div className="flex items-center gap-1.5 text-gray-500">
-                    <LockIcon className="w-3 h-3 flex-shrink-0" />
-                    <span className="text-[11px] text-center text-gray-600">
-                      Connect with <strong>{firstName}</strong> to keep chatting.
-                    </span>
+                <div className="border-t border-gray-200 px-3 py-3 bg-[#f3f2ef] flex items-start gap-2">
+                  <CheckCircle2Icon className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-semibold text-gray-800">Connection request sent</p>
+                    <p className="text-[11px] text-gray-500 leading-tight mt-0.5">
+                      Once {firstName} accepts, you can message freely.
+                    </p>
                   </div>
-                  {otherId && (
-                    <button
-                      onClick={() => toggleConnect(otherId)}
-                      className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-white text-xs font-semibold rounded-full hover:bg-primary/90 transition-colors"
-                    >
-                      <UserPlusIcon className="w-3 h-3" />
-                      Connect with {firstName}
-                    </button>
-                  )}
                 </div>
               );
             }
 
+            // ── Not connected, no messages — request panel ───────────────────
+            if (!connected && myMsgCount === 0) {
+              return (
+                <div className="border-t border-gray-200 bg-[#f3f2ef] px-3 py-3">
+                  <p className="text-[11px] font-semibold text-gray-700 mb-1.5">
+                    Connect with {other?.name}
+                  </p>
+                  <div className="bg-white border border-gray-300 rounded-lg overflow-hidden focus-within:border-[#0a66c2] transition-colors mb-2">
+                    <textarea
+                      rows={2}
+                      maxLength={300}
+                      placeholder={`Hi ${firstName}, I'd like to connect…`}
+                      value={noteInput}
+                      onChange={e => setNoteInput(e.target.value)}
+                      className="w-full resize-none px-2.5 pt-2 pb-1 text-xs text-gray-900 placeholder:text-gray-400 outline-none leading-relaxed"
+                    />
+                    <div className="flex justify-end px-2 pb-1">
+                      <span className="text-[10px] text-gray-400">{noteInput.length}/300</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-1.5">
+                    {otherId && (
+                      <button
+                        onClick={() => toggleConnect(otherId)}
+                        className="px-3 py-1 rounded-full border border-gray-400 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
+                      >
+                        Skip
+                      </button>
+                    )}
+                    <button
+                      disabled={sendMsg.isPending}
+                      onClick={() => {
+                        const note = noteInput.trim();
+                        if (note) {
+                          sendMsg.mutate(note, {
+                            onSuccess: () => {
+                              setNoteInput("");
+                              if (otherId) toggleConnect(otherId);
+                            }
+                          });
+                        } else if (otherId) {
+                          toggleConnect(otherId);
+                        }
+                      }}
+                      className="px-3 py-1 rounded-full bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1"
+                    >
+                      {sendMsg.isPending
+                        ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        : <UserPlusIcon className="w-3 h-3" />
+                      }
+                      Send request
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            // ── Connected — full chat input ──────────────────────────────────
             return (
               <div className="px-3 py-2 border-t border-gray-200">
-                {!connected && myMsgCount === 0 && (
-                  <p className="text-[10px] text-amber-600 mb-1.5 flex items-center gap-1">
-                    <LockIcon className="w-2.5 h-2.5 flex-shrink-0" />
-                    1 intro message allowed before connecting.
-                  </p>
-                )}
                 <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-full px-3 py-1.5 focus-within:border-[#0a66c2] transition-colors">
                   <input
                     type="text"
-                    placeholder={connected ? "Write a message…" : `Intro to ${firstName}…`}
+                    placeholder="Write a message…"
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleSend(); } }}
