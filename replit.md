@@ -50,7 +50,7 @@ LinkedIn-style professional networking platform for remote workers. Users and co
 
 ---
 
-## Database Schema (8 tables)
+## Database Schema (13 tables)
 
 | Table | Purpose |
 |---|---|
@@ -62,6 +62,11 @@ LinkedIn-style professional networking platform for remote workers. Users and co
 | `jobs` | Remote job postings (linked to company profiles) |
 | `applications` | Job applications (profile → job) |
 | `posts` | Social feed posts |
+| `post_reactions` | Reactions on posts (like, celebrate, etc.) |
+| `post_comments` | Comments on posts |
+| `notifications` | LinkedIn-style notifications (reactions, comments, etc.) |
+| `conversations` | Direct messaging conversations (participant1_id < participant2_id enforced) |
+| `messages` | Individual messages within conversations |
 
 ### Seeded Data
 - 3 individual profiles: Alex Chen, Maria Santos, James Okafor
@@ -81,8 +86,13 @@ LinkedIn-style professional networking platform for remote workers. Users and co
 | `/jobs` | Jobs | Grid/List/Table view toggle |
 | `/jobs/:id` | Job Detail | Full job page with apply |
 | `/applications` | Applications | List/Grid/Table view toggle |
-| `/profiles/:id` | Profile | Public profile view |
+| `/profiles/:id` | Profile | Public profile view with inline editing |
 | `/profile/edit` | Edit Profile | Edit current user profile |
+| `/notifications` | Notifications | LinkedIn-style notifications with filter tabs |
+| `/messaging` | Messaging | Full-page inbox with conversation list + chat |
+| `/bo` | Backoffice Login | Admin login |
+| `/bo/dashboard` | Backoffice | Admin panel with stats, user/job management |
+| `/company-dashboard` | Company Dashboard | Company-specific home page |
 
 ---
 
@@ -107,21 +117,39 @@ LinkedIn-style professional networking platform for remote workers. Users and co
 
 ---
 
+## Key Components
+
+- `components/layout.tsx` — App shell with top nav, notification bell, messaging widget mount
+- `components/messaging-widget.tsx` — Floating chat widget (bottom-right), exports `MessagingWidget` + `useStartChat`
+- `components/notification-bell.tsx` — Bell dropdown with filter tabs, unread badges
+
+## Auth Details
+
+- **App Auth**: session in `localStorage` key `app_user_session`; `AppAuthProvider` → `useAppAuth()`; SHA-256 + `hmr_salt_2026`; `AppUser` has `accountType` (`"individual"` | `"company"`)
+- **Backoffice Auth**: `sessionStorage` key `bo_admin_session`; credentials: `admin@hiremeremotely.com` / `Admin@2026`
+
+## Messaging System
+
+- `conversationsTable` enforces `participant1_id < participant2_id` via UNIQUE constraint + `orderedPair()` helper
+- Polling: conversations list refetches every 5s (widget: 10s), messages refetch every 3s when chat open
+- React Query keys: `["conversations", userId]`, `["messages", convId]`, `["msg-unread", userId]`
+- `useStartChat(otherProfileId)` hook creates a conversation and returns the conversation ID
+- `MessagingWidget` is hidden on `/messaging` page to avoid duplication
+
 ## What's Done ✅
 
 - Full PostgreSQL schema + seeded data
 - Complete REST API (profiles, education, experience, portfolio, skills, jobs, applications, posts)
-- LinkedIn-style social feed at `/feed` with Like/Comment/Share wired to real API
-- Marketing landing page at `/` with sign-in options (Google, Apple, Company)
-- "For Companies" button in landing navbar
-- Branding: "Hire Me Remotely" logo throughout
-- View toggle (grid/list/table) on Network, Jobs, and Applications pages
-
-## What's Next (Potential)
-
-- Real authentication (Replit Auth or Clerk)
-- Job application flow (cover letter modal, confirmation)
-- Notifications page
-- Company dashboard for managing job postings
-- Profile completion progress indicator
-- Direct messaging
+- LinkedIn-style social feed at `/feed` with reactions (6 types) + comments + share
+- Marketing landing page at `/` with sign-in options
+- Auth (login/signup/logout) with session persistence
+- Inline profile editing with avatar upload (object storage)
+- Network page with Grid/List/Table view toggle
+- Jobs page with Grid/List/Table view, detail page, apply modal
+- Applications tracking page
+- Company dashboard at `/company-dashboard`
+- Full backoffice at `/bo/dashboard` (admin@hiremeremotely.com / Admin@2026)
+- LinkedIn-style notifications (DB + API + bell dropdown + `/notifications` page)
+- Full messaging system: DB + API + `/messaging` full-page inbox + floating `MessagingWidget`
+- "Message" button on profile pages navigates to messaging with auto-created conversation
+- Unread badge on Messaging nav item (desktop) and messaging widget button

@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetProfile, getGetProfileQueryKey,
@@ -28,6 +28,7 @@ import {
   ArrowRightIcon, DollarSignIcon, ClockIcon, StarIcon,
 } from "lucide-react";
 import { useListJobs, getListJobsQueryKey } from "@workspace/api-client-react";
+import { useStartChat } from "@/components/messaging-widget";
 
 // ── Modal wrapper ─────────────────────────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -600,6 +601,8 @@ export default function ProfileDetail() {
   const id = parseInt(params.id, 10);
   const qc = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
+  const startChat = useStartChat();
   const deleteExperience = useDeleteExperience();
   const deleteEducation = useDeleteEducation();
   const deleteSkill = useDeleteProfileSkill();
@@ -608,6 +611,14 @@ export default function ProfileDetail() {
 
   const [modal, setModal] = useState<"info" | "exp" | "edu" | "skill" | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [msgLoading, setMsgLoading] = useState(false);
+
+  async function handleMessage() {
+    setMsgLoading(true);
+    await startChat(id);
+    setMsgLoading(false);
+    navigate("/messaging");
+  }
 
   const { uploadFile } = useUpload({
     onSuccess: async (res) => {
@@ -747,8 +758,8 @@ export default function ProfileDetail() {
                     <Button size="sm" className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5">
                       <UserCheckIcon className="w-3.5 h-3.5" /> Connect
                     </Button>
-                    <Button variant="outline" size="sm" className="rounded-full h-9 px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
-                      <MessageSquareIcon className="w-3.5 h-3.5" /> Message
+                    <Button variant="outline" size="sm" onClick={handleMessage} disabled={msgLoading} className="rounded-full h-9 px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
+                      <MessageSquareIcon className="w-3.5 h-3.5" /> {msgLoading ? "Opening…" : "Message"}
                     </Button>
                   </>
                 )}

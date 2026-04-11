@@ -27,6 +27,7 @@ import { useAppAuth } from "@/contexts/app-auth";
 import { useListProfiles, getListProfilesQueryKey } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
+import { MessagingWidget } from "@/components/messaging-widget";
 
 // ── Global typeahead search ───────────────────────────────────────────────────
 function GlobalSearch() {
@@ -459,6 +460,16 @@ export function Layout({ children }: LayoutProps) {
   });
   const mobileUnread = mobileCountData?.count ?? 0;
 
+  // Unread messaging count for nav badge
+  const { data: msgUnreadData } = useQuery<{ count: number }>({
+    queryKey: ["msg-unread", user?.id],
+    queryFn: () => fetch(`${BASE}api/conversations/unread-count?profileId=${user?.id}`).then(r => r.json()),
+    enabled: !!user?.id,
+    refetchInterval: 10_000,
+    staleTime: 5_000,
+  });
+  const msgUnread = msgUnreadData?.count ?? 0;
+
   const initials = user?.name
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : "ME";
@@ -474,6 +485,7 @@ export function Layout({ children }: LayoutProps) {
     { href: "/profiles", label: "Network", icon: UsersIcon },
     { href: "/jobs", label: "Jobs", icon: BriefcaseIcon },
     { href: "/applications", label: "Applications", icon: ClipboardListIcon },
+    { href: "/messaging", label: "Messaging", icon: MessageSquareIcon },
   ];
 
   return (
@@ -492,6 +504,7 @@ export function Layout({ children }: LayoutProps) {
             {navItems.map((item) => {
               const exactMatch = ["/feed", "/profiles", "/company-dashboard"];
               const isActive = location === item.href || (!exactMatch.includes(item.href) && location.startsWith(item.href));
+              const isMsgItem = item.href === "/messaging";
               return (
                 <Link
                   key={item.href}
@@ -502,7 +515,14 @@ export function Layout({ children }: LayoutProps) {
                       : "border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-400"
                   }`}
                 >
-                  <item.icon className="w-5 h-5" />
+                  <span className="relative">
+                    <item.icon className="w-5 h-5" />
+                    {isMsgItem && msgUnread > 0 && (
+                      <span className="absolute -top-1 -right-1.5 min-w-[14px] h-3.5 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold px-0.5 leading-none">
+                        {msgUnread > 9 ? "9+" : msgUnread}
+                      </span>
+                    )}
+                  </span>
                   {item.label}
                 </Link>
               );
@@ -556,6 +576,9 @@ export function Layout({ children }: LayoutProps) {
       <main className="flex-1 flex flex-col">
         {children}
       </main>
+
+      {/* Floating messaging widget — hidden on /messaging page */}
+      {location !== "/messaging" && <MessagingWidget />}
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-white shadow-lg">
         <nav className="flex items-stretch h-14">

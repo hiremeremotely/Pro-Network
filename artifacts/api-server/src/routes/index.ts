@@ -13,12 +13,14 @@ import adminRouter from "./admin";
 import authRouter from "./auth";
 import storageRouter from "./storage";
 import notificationsRouter from "./notifications";
+import messagingRouter from "./messaging";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(storageRouter);
 router.use(notificationsRouter);
+router.use(messagingRouter);
 router.use(profilesRouter);
 router.use(educationRouter);
 router.use(experienceRouter);

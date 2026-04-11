@@ -32,6 +32,24 @@ export const postCommentsTable = pgTable("post_comments", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
+export const conversationsTable = pgTable("conversations", {
+  id: serial("id").primaryKey(),
+  participant1Id: integer("participant1_id").notNull(),
+  participant2Id: integer("participant2_id").notNull(),
+  lastMessageAt: timestamp("last_message_at", { withTimezone: true }).defaultNow(),
+  lastMessagePreview: text("last_message_preview"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const messagesTable = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").notNull(),
+  senderProfileId: integer("sender_profile_id").notNull(),
+  content: text("content").notNull(),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const notificationsTable = pgTable("notifications", {
   id: serial("id").primaryKey(),
   recipientProfileId: integer("recipient_profile_id").notNull(),
