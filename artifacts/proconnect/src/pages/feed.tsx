@@ -27,6 +27,7 @@ import {
   PencilIcon,
   Trash2Icon,
   CheckIcon,
+  SendHorizontalIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useAppAuth } from "@/contexts/app-auth";
@@ -62,6 +63,16 @@ function ytUrl(id: string) {
   return `https://www.youtube.com/watch?v=${id}`;
 }
 
+interface PostComment {
+  id: number;
+  content: string;
+  createdAt: string;
+  profileId: number;
+  profileName: string;
+  profileHeadline: string;
+  profileAvatarUrl: string | null;
+}
+
 interface FeedPost {
   id: number;
   content: string;
@@ -78,13 +89,175 @@ interface FeedPost {
   myReaction: string | null;
 }
 
-function PostCard({ post, currentUserId }: { post: FeedPost; currentUserId?: number }) {
+// ── Comments Section ─────────────────────────────────────────────────────────
+function CommentsSection({ postId, currentUserId, currentUserAvatar, currentUserName, onCountChange }: {
+  postId: number;
+  currentUserId?: number;
+  currentUserAvatar?: string;
+  currentUserName?: string;
+  onCountChange: (delta: number) => void;
+}) {
+  const qc = useQueryClient();
+  const [newComment, setNewComment] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const currentInitials = (currentUserName ?? "?").split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+
+  const { data: comments = [], isLoading } = useQuery<PostComment[]>({
+    queryKey: ["comments", postId],
+    queryFn: async () => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/posts/${postId}/comments`);
+      return res.json();
+    },
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/posts/${postId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileId: currentUserId, content }),
+      });
+      return res.json() as Promise<PostComment>;
+    },
+    onSuccess: (created) => {
+      setNewComment("");
+      qc.setQueryData<PostComment[]>(["comments", postId], old => [...(old ?? []), created]);
+      onCountChange(1);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (commentId: number) => {
+      await fetch(`${import.meta.env.BASE_URL}api/posts/${postId}/comments/${commentId}`, { method: "DELETE" });
+      return commentId;
+    },
+    onSuccess: (commentId) => {
+      qc.setQueryData<PostComment[]>(["comments", postId], old => (old ?? []).filter(c => c.id !== commentId));
+      onCountChange(-1);
+    },
+  });
+
+  function submit() {
+    const trimmed = newComment.trim();
+    if (!trimmed || !currentUserId || addMutation.isPending) return;
+    addMutation.mutate(trimmed);
+  }
+
+  return (
+    <div className="mt-1 pt-3 border-t border-gray-100">
+      {/* Comment list */}
+      {isLoading && (
+        <div className="flex justify-center py-3">
+          <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+
+      {!isLoading && comments.length === 0 && (
+        <p className="text-xs text-gray-400 text-center py-2">No comments yet. Be the first!</p>
+      )}
+
+      <div className="space-y-2.5 mb-3">
+        {comments.map(comment => {
+          const initials = comment.profileName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+          const isOwn = comment.profileId === currentUserId;
+          return (
+            <div key={comment.id} className="flex gap-2.5">
+              <Link href={`/profiles/${comment.profileId}`} className="flex-shrink-0 mt-0.5">
+                <Avatar className="w-8 h-8 border border-gray-100">
+                  <AvatarImage src={comment.profileAvatarUrl || undefined} />
+                  <AvatarFallback className="text-[10px] font-semibold bg-primary/10 text-primary">{initials}</AvatarFallback>
+                </Avatar>
+              </Link>
+              <div className="flex-1 min-w-0">
+                <div className="bg-gray-50 rounded-2xl px-3 py-2 relative group">
+                  <div className="flex items-start justify-between gap-1">
+                    <div className="min-w-0">
+                      <Link href={`/profiles/${comment.profileId}`}>
+                        <span className="text-xs font-semibold text-gray-900 hover:underline leading-tight">{comment.profileName}</span>
+                      </Link>
+                      {comment.profileHeadline && (
+                        <p className="text-[10px] text-gray-400 leading-tight truncate">{comment.profileHeadline}</p>
+                      )}
+                    </div>
+                    {isOwn && (
+                      <button
+                        onClick={() => deleteMutation.mutate(comment.id)}
+                        disabled={deleteMutation.isPending}
+                        className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-gray-300 hover:text-red-400 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all mt-0.5"
+                        title="Delete comment"
+                      >
+                        <Trash2Icon className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-700 mt-1 leading-relaxed whitespace-pre-line">{comment.content}</p>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-0.5 ml-3">
+                  {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* New comment input */}
+      {currentUserId ? (
+        <div className="flex gap-2 items-end">
+          <Avatar className="w-8 h-8 flex-shrink-0 border border-gray-100">
+            <AvatarImage src={currentUserAvatar} />
+            <AvatarFallback className="text-[10px] font-semibold bg-primary/10 text-primary">{currentInitials}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 flex items-end gap-1 bg-gray-50 rounded-2xl border border-gray-200 focus-within:border-primary/50 focus-within:bg-white transition-colors px-3 py-2">
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              placeholder="Add a comment…"
+              value={newComment}
+              onChange={e => {
+                setNewComment(e.target.value);
+                const el = e.target;
+                el.style.height = "auto";
+                el.style.height = `${el.scrollHeight}px`;
+              }}
+              onKeyDown={e => {
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
+              }}
+              className="flex-1 bg-transparent text-xs resize-none outline-none min-h-[20px] max-h-28 leading-relaxed"
+            />
+            <button
+              onClick={submit}
+              disabled={!newComment.trim() || addMutation.isPending}
+              className="flex-shrink-0 w-7 h-7 rounded-full bg-primary flex items-center justify-center text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors mb-px"
+            >
+              {addMutation.isPending
+                ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                : <SendHorizontalIcon className="w-3.5 h-3.5" />
+              }
+            </button>
+          </div>
+        </div>
+      ) : (
+        <Link href="/login">
+          <p className="text-xs text-primary hover:underline text-center py-1">Log in to comment</p>
+        </Link>
+      )}
+    </div>
+  );
+}
+
+function PostCard({ post, currentUserId, currentUserAvatar, currentUserName }: {
+  post: FeedPost; currentUserId?: number; currentUserAvatar?: string; currentUserName?: string;
+}) {
   const qc = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editContent, setEditContent] = useState(post.content);
   const [editYtId, setEditYtId] = useState<string | null>(null);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentsCount, setCommentsCount] = useState(post.commentsCount);
 
   // ── Reactions state ──
   const [myReaction, setMyReaction] = useState<string | null>(post.myReaction);
@@ -366,7 +539,11 @@ function PostCard({ post, currentUserId }: { post: FeedPost; currentUserId?: num
               </div>
               <span>{totalReactions.toLocaleString()}</span>
             </div>
-            <span>{post.commentsCount > 0 ? `${post.commentsCount} comments` : ""}</span>
+            {commentsCount > 0 && (
+              <button onClick={() => setCommentsOpen(o => !o)} className="hover:underline">
+                {commentsCount} comment{commentsCount !== 1 ? "s" : ""}
+              </button>
+            )}
           </div>
         )}
 
@@ -428,7 +605,12 @@ function PostCard({ post, currentUserId }: { post: FeedPost; currentUserId?: num
             )}
           </div>
 
-          <button className="flex items-center gap-1.5 flex-1 justify-center py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+          <button
+            onClick={() => setCommentsOpen(o => !o)}
+            className={`flex items-center gap-1.5 flex-1 justify-center py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              commentsOpen ? "text-primary bg-primary/5" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            }`}
+          >
             <MessageSquareIcon className="w-4 h-4" />Comment
           </button>
           <button className="flex items-center gap-1.5 flex-1 justify-center py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
@@ -438,6 +620,17 @@ function PostCard({ post, currentUserId }: { post: FeedPost; currentUserId?: num
             <SendIcon className="w-4 h-4" />Send
           </button>
         </div>
+
+        {/* Comments section */}
+        {commentsOpen && (
+          <CommentsSection
+            postId={post.id}
+            currentUserId={currentUserId}
+            currentUserAvatar={currentUserAvatar}
+            currentUserName={currentUserName}
+            onCountChange={delta => setCommentsCount(c => Math.max(0, c + delta))}
+          />
+        )}
       </CardContent>
     </Card>
   );
@@ -692,7 +885,13 @@ export default function Home() {
             </Card>
           ) : (
             posts.map(post => (
-              <PostCard key={post.id} post={post} currentUserId={user?.id} />
+              <PostCard
+                key={post.id}
+                post={post}
+                currentUserId={user?.id}
+                currentUserAvatar={user?.avatarUrl ?? undefined}
+                currentUserName={user?.name ?? undefined}
+              />
             ))
           )}
         </div>

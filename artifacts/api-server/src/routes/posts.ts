@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { postsTable, postReactionsTable, profilesTable } from "@workspace/db";
+import { postsTable, postReactionsTable, postCommentsTable, profilesTable } from "@workspace/db";
 import { desc, eq, sql, inArray } from "drizzle-orm";
 
 const router = Router();
@@ -44,15 +44,6 @@ router.get("/posts", async (req, res): Promise<void> => {
     .groupBy(postReactionsTable.postId, postReactionsTable.reactionType);
 
   // My reactions
-  const myReactionRows = myProfileId
-    ? await db
-        .select({ postId: postReactionsTable.postId, reactionType: postReactionsTable.reactionType })
-        .from(postReactionsTable)
-        .where(inArray(postReactionsTable.postId, postIds))
-        .then(rows => rows.filter(r => r.postId !== null))
-    : [];
-
-  // But we need to filter by profile_id — redo with AND condition
   const myReactions: Record<number, string> = {};
   if (myProfileId) {
     const myRows = await db
@@ -64,7 +55,7 @@ router.get("/posts", async (req, res): Promise<void> => {
     myRows.forEach(r => { myReactions[r.postId] = r.reactionType; });
   }
 
-  // Build reactionCounts map: postId → { like: 3, celebrate: 1, ... }
+  // Build reactionCounts map
   const reactionCounts: Record<number, Record<string, number>> = {};
   postIds.forEach(id => { reactionCounts[id] = {}; });
   reactionRows.forEach(r => {
@@ -122,8 +113,6 @@ router.delete("/posts/:id", async (req, res): Promise<void> => {
 });
 
 // ── POST /posts/:id/react ────────────────────────────────────────────────────
-// Body: { profileId, reactionType }
-// Upserts the reaction; if same type already exists → removes it (toggle)
 router.post("/posts/:id/react", async (req, res): Promise<void> => {
   const postId = Number(req.params.id);
   if (isNaN(postId)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -135,8 +124,6 @@ router.post("/posts/:id/react", async (req, res): Promise<void> => {
   }
 
   const pid = Number(profileId);
-
-  // Check existing reaction for this user on this post
   const [existing] = await db
     .select()
     .from(postReactionsTable)
@@ -145,28 +132,102 @@ router.post("/posts/:id/react", async (req, res): Promise<void> => {
 
   if (existing) {
     if (existing.reactionType === reactionType) {
-      // Same reaction → toggle off (remove)
       await db.delete(postReactionsTable).where(eq(postReactionsTable.id, existing.id));
-      // Decrement likesCount
       await db.update(postsTable)
         .set({ likesCount: sql`GREATEST(${postsTable.likesCount} - 1, 0)` })
         .where(eq(postsTable.id, postId));
       res.json({ action: "removed", reactionType: null });
     } else {
-      // Different reaction → update type (no count change)
       await db.update(postReactionsTable)
         .set({ reactionType })
         .where(eq(postReactionsTable.id, existing.id));
       res.json({ action: "changed", reactionType });
     }
   } else {
-    // No existing reaction → insert
     await db.insert(postReactionsTable).values({ postId, profileId: pid, reactionType });
     await db.update(postsTable)
       .set({ likesCount: sql`${postsTable.likesCount} + 1` })
       .where(eq(postsTable.id, postId));
     res.json({ action: "added", reactionType });
   }
+});
+
+// ── GET /posts/:id/comments ──────────────────────────────────────────────────
+router.get("/posts/:id/comments", async (req, res): Promise<void> => {
+  const postId = Number(req.params.id);
+  if (isNaN(postId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const comments = await db
+    .select({
+      id: postCommentsTable.id,
+      content: postCommentsTable.content,
+      createdAt: postCommentsTable.createdAt,
+      profileId: profilesTable.id,
+      profileName: profilesTable.name,
+      profileHeadline: profilesTable.headline,
+      profileAvatarUrl: profilesTable.avatarUrl,
+    })
+    .from(postCommentsTable)
+    .innerJoin(profilesTable, eq(postCommentsTable.profileId, profilesTable.id))
+    .where(eq(postCommentsTable.postId, postId))
+    .orderBy(postCommentsTable.createdAt);
+
+  res.json(comments);
+});
+
+// ── POST /posts/:id/comments ─────────────────────────────────────────────────
+router.post("/posts/:id/comments", async (req, res): Promise<void> => {
+  const postId = Number(req.params.id);
+  if (isNaN(postId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const { profileId, content } = req.body;
+  if (!profileId || !content || typeof content !== "string" || content.trim().length === 0) {
+    res.status(400).json({ error: "profileId and content are required" });
+    return;
+  }
+
+  const [comment] = await db
+    .insert(postCommentsTable)
+    .values({ postId, profileId: Number(profileId), content: content.trim() })
+    .returning();
+
+  // Increment commentsCount
+  await db.update(postsTable)
+    .set({ commentsCount: sql`${postsTable.commentsCount} + 1` })
+    .where(eq(postsTable.id, postId));
+
+  // Return with profile info
+  const [enriched] = await db
+    .select({
+      id: postCommentsTable.id,
+      content: postCommentsTable.content,
+      createdAt: postCommentsTable.createdAt,
+      profileId: profilesTable.id,
+      profileName: profilesTable.name,
+      profileHeadline: profilesTable.headline,
+      profileAvatarUrl: profilesTable.avatarUrl,
+    })
+    .from(postCommentsTable)
+    .innerJoin(profilesTable, eq(postCommentsTable.profileId, profilesTable.id))
+    .where(eq(postCommentsTable.id, comment.id));
+
+  res.status(201).json(enriched);
+});
+
+// ── DELETE /posts/:id/comments/:commentId ────────────────────────────────────
+router.delete("/posts/:id/comments/:commentId", async (req, res): Promise<void> => {
+  const postId = Number(req.params.id);
+  const commentId = Number(req.params.commentId);
+  if (isNaN(postId) || isNaN(commentId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  await db.delete(postCommentsTable).where(eq(postCommentsTable.id, commentId));
+
+  // Decrement commentsCount
+  await db.update(postsTable)
+    .set({ commentsCount: sql`GREATEST(${postsTable.commentsCount} - 1, 0)` })
+    .where(eq(postsTable.id, postId));
+
+  res.json({ success: true });
 });
 
 // ── Keep old /like route as alias ────────────────────────────────────────────
