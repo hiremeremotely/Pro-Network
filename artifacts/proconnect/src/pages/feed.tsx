@@ -37,6 +37,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useConnections } from "@/hooks/use-connections";
 import { useStartChat } from "@/hooks/use-start-chat";
+import { useBookmarks } from "@/hooks/use-bookmarks";
 import { useToast } from "@/hooks/use-toast";
 
 // ── Reaction definitions ─────────────────────────────────────────────────────
@@ -361,6 +362,7 @@ function PostCard({ post, currentUserId, currentUserAvatar, currentUserName }: {
 
   const { toast } = useToast();
   const [sendOpen, setSendOpen] = useState(false);
+  const { isBookmarked, toggleBookmark } = useBookmarks();
 
   const isOwn = currentUserId === post.profileId;
   const timeAgo = formatDistanceToNow(new Date(post.createdAt), { addSuffix: true });
@@ -509,6 +511,20 @@ function PostCard({ post, currentUserId, currentUserAvatar, currentUserName }: {
               <Badge variant="secondary" className="text-[10px]">
                 <BuildingIcon className="w-3 h-3 mr-1" />Company
               </Badge>
+            )}
+            {/* Bookmark button */}
+            {currentUserId && (
+              <button
+                onClick={() => toggleBookmark("post", post.id)}
+                title={isBookmarked("post", post.id) ? "Remove bookmark" : "Save post"}
+                className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${
+                  isBookmarked("post", post.id)
+                    ? "text-primary bg-primary/10"
+                    : "text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                }`}
+              >
+                <BookmarkIcon className={`w-4 h-4 ${isBookmarked("post", post.id) ? "fill-primary" : ""}`} />
+              </button>
             )}
             {/* 3-dot menu for own posts */}
             {isOwn && (
@@ -881,7 +897,7 @@ export default function Home() {
 
             {/* My items */}
             <div className="px-3 py-2.5">
-              <Link href="/applications" className="flex items-center gap-2.5 group">
+              <Link href="/my-items" className="flex items-center gap-2.5 group">
                 <BookmarkIcon className="w-4 h-4 text-gray-500 group-hover:text-primary flex-shrink-0" />
                 <span className="text-xs font-semibold text-gray-700 group-hover:text-primary group-hover:underline">My items</span>
               </Link>

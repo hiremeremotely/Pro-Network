@@ -7,3 +7,4 @@ export * from "./jobs";
 export * from "./applications";
 export * from "./posts";
 export * from "./connections";
+export * from "./bookmarks";

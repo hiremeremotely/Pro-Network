@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SearchIcon, BriefcaseIcon, XIcon, MapPinIcon, ClockIcon, DollarSignIcon } from "lucide-react";
+import { SearchIcon, BriefcaseIcon, XIcon, MapPinIcon, ClockIcon, DollarSignIcon, BookmarkIcon } from "lucide-react";
 import type { Job } from "@workspace/api-client-react";
+import { useBookmarks } from "@/hooks/use-bookmarks";
+import { useAppAuth } from "@/contexts/app-auth";
 
 const CATEGORIES = ["Engineering", "Design", "Product", "Data", "Marketing", "Sales"];
 const LEVELS = ["Entry", "Mid-level", "Senior", "Staff", "Manager"];
@@ -22,7 +24,11 @@ const LEVEL_COLORS: Record<string, string> = {
   Manager: "bg-orange-50 text-orange-700",
 };
 
-function JobRow({ job }: { job: Job & { applicationCount?: number } }) {
+function JobRow({ job, bookmarked, onBookmark }: {
+  job: Job & { applicationCount?: number };
+  bookmarked?: boolean;
+  onBookmark?: (e: React.MouseEvent) => void;
+}) {
   const salary = job.salaryMin && job.salaryMax
     ? `$${(job.salaryMin / 1000).toFixed(0)}k – $${(job.salaryMax / 1000).toFixed(0)}k`
     : null;
@@ -52,13 +58,31 @@ function JobRow({ job }: { job: Job & { applicationCount?: number } }) {
         <Badge className={`text-[10px] font-semibold px-2 rounded-full border-0 flex-shrink-0 hidden sm:inline-flex ${LEVEL_COLORS[job.experienceLevel] || "bg-gray-100 text-gray-500"}`}>
           {job.experienceLevel}
         </Badge>
+        {onBookmark && (
+          <button
+            onClick={onBookmark}
+            title={bookmarked ? "Remove bookmark" : "Save job"}
+            className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors flex-shrink-0 ${
+              bookmarked
+                ? "text-primary bg-primary/10 hover:bg-red-50 hover:text-red-500"
+                : "text-gray-400 hover:bg-gray-100 hover:text-primary"
+            }`}
+          >
+            <BookmarkIcon className={`w-4 h-4 ${bookmarked ? "fill-current" : ""}`} />
+          </button>
+        )}
         <Button size="sm" className="rounded-full px-4 text-xs flex-shrink-0 hidden sm:flex">Apply</Button>
       </div>
     </Link>
   );
 }
 
-function JobTableRow({ job, index }: { job: Job & { applicationCount?: number }; index: number }) {
+function JobTableRow({ job, index, bookmarked, onBookmark }: {
+  job: Job & { applicationCount?: number };
+  index: number;
+  bookmarked?: boolean;
+  onBookmark?: (e: React.MouseEvent) => void;
+}) {
   const salary = job.salaryMin && job.salaryMax
     ? `$${(job.salaryMin / 1000).toFixed(0)}k – $${(job.salaryMax / 1000).toFixed(0)}k`
     : "—";
@@ -79,9 +103,24 @@ function JobTableRow({ job, index }: { job: Job & { applicationCount?: number };
       </td>
       <td className="px-4 py-3 text-sm text-gray-500">{salary}</td>
       <td className="px-4 py-3">
-        <Link href={`/jobs/${job.id}`}>
-          <Button size="sm" className="rounded-full px-3 text-xs">Apply</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {onBookmark && (
+            <button
+              onClick={onBookmark}
+              title={bookmarked ? "Remove bookmark" : "Save job"}
+              className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors ${
+                bookmarked
+                  ? "text-primary bg-primary/10 hover:bg-red-50 hover:text-red-500"
+                  : "text-gray-400 hover:bg-gray-100 hover:text-primary"
+              }`}
+            >
+              <BookmarkIcon className={`w-3.5 h-3.5 ${bookmarked ? "fill-current" : ""}`} />
+            </button>
+          )}
+          <Link href={`/jobs/${job.id}`}>
+            <Button size="sm" className="rounded-full px-3 text-xs">Apply</Button>
+          </Link>
+        </div>
       </td>
     </tr>
   );
@@ -93,6 +132,9 @@ export default function Jobs() {
   const [category, setCategory] = useState<string>("");
   const [level, setLevel] = useState<string>("");
   const [view, setView] = useState<ViewMode>("grid");
+
+  const { user } = useAppAuth();
+  const { isBookmarked, toggleBookmark } = useBookmarks();
 
   const params = {
     search: query || undefined,
@@ -116,6 +158,14 @@ export default function Jobs() {
   }
 
   const hasFilters = query || category || level;
+
+  function handleBookmark(jobId: number) {
+    return (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleBookmark("job", jobId);
+    };
+  }
 
   return (
     <div className="container mx-auto px-4 py-10 pb-24">
@@ -183,13 +233,28 @@ export default function Jobs() {
 
           {view === "grid" && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {data.jobs.map((job) => <JobCard key={job.id} job={job} featured={job.featured} />)}
+              {data.jobs.map((job) => (
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  featured={job.featured}
+                  isBookmarked={user ? isBookmarked("job", job.id) : undefined}
+                  onBookmark={user ? handleBookmark(job.id) : undefined}
+                />
+              ))}
             </div>
           )}
 
           {view === "list" && (
             <div className="flex flex-col gap-2">
-              {data.jobs.map((job) => <JobRow key={job.id} job={job} />)}
+              {data.jobs.map((job) => (
+                <JobRow
+                  key={job.id}
+                  job={job}
+                  bookmarked={user ? isBookmarked("job", job.id) : undefined}
+                  onBookmark={user ? handleBookmark(job.id) : undefined}
+                />
+              ))}
             </div>
           )}
 
@@ -207,7 +272,15 @@ export default function Jobs() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.jobs.map((job, i) => <JobTableRow key={job.id} job={job} index={i} />)}
+                  {data.jobs.map((job, i) => (
+                    <JobTableRow
+                      key={job.id}
+                      job={job}
+                      index={i}
+                      bookmarked={user ? isBookmarked("job", job.id) : undefined}
+                      onBookmark={user ? handleBookmark(job.id) : undefined}
+                    />
+                  ))}
                 </tbody>
               </table>
             </div>

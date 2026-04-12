@@ -21,6 +21,7 @@ import Admin from "@/pages/admin";
 import CompanyDashboard from "@/pages/company-dashboard";
 import Notifications from "@/pages/notifications";
 import Messaging from "@/pages/messaging";
+import MyItems from "@/pages/my-items";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,7 @@ function Router() {
             <Route path="/applications" component={Applications} />
             <Route path="/notifications" component={Notifications} />
             <Route path="/messaging" component={Messaging} />
+            <Route path="/my-items" component={MyItems} />
             <Route component={NotFound} />
           </Switch>
         </Layout>
