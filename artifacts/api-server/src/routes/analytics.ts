@@ -1,144 +1,219 @@
 import { Router } from "express";
-import { db, postsTable, postReactionsTable, postCommentsTable, connectionsTable } from "@workspace/db";
-import { eq, and, gte, desc, sql, count, inArray } from "drizzle-orm";
+import {
+  db, postsTable, postReactionsTable, postCommentsTable,
+  connectionsTable, jobsTable, applicationsTable,
+} from "@workspace/db";
+import { eq, inArray, sql, desc } from "drizzle-orm";
 
 const router = Router();
 
-const REACTION_LABELS: Record<string, string> = {
-  like: "Like",
-  celebrate: "Celebrate",
-  support: "Support",
-  love: "Love",
-  insightful: "Insightful",
-  funny: "Funny",
+const STATUS_LABELS: Record<string, string> = {
+  pending:    "Pending review",
+  reviewing:  "Under review",
+  interviewed:"Interviewing",
+  accepted:   "Accepted",
+  rejected:   "Rejected",
+  withdrawn:  "Withdrawn",
 };
 
-const REACTION_EMOJIS: Record<string, string> = {
-  like: "👍",
-  celebrate: "🎉",
-  support: "🤝",
-  love: "❤️",
-  insightful: "💡",
-  funny: "😄",
+const STATUS_COLORS: Record<string, string> = {
+  pending:    "#94a3b8",
+  reviewing:  "#60a5fa",
+  interviewed:"#a78bfa",
+  accepted:   "#34d399",
+  rejected:   "#f87171",
+  withdrawn:  "#d1d5db",
 };
 
 router.get("/analytics", async (req, res): Promise<void> => {
-  const profileId = Number(req.query.profileId);
+  const profileId  = Number(req.query.profileId);
+  const accountType = String(req.query.accountType ?? "individual");
   if (!profileId) { res.status(400).json({ error: "profileId required" }); return; }
 
-  const now = new Date();
-  const day30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const day7  = new Date(now.getTime() -  7 * 24 * 60 * 60 * 1000);
+  const seed = profileId;
 
-  // ── All posts by this profile ──────────────────────────────────────────────
+  // ─── JOBS (company) ────────────────────────────────────────────────────────
+  let jobStats: object = {};
+  if (accountType === "company") {
+    const jobs = await db
+      .select({ id: jobsTable.id, title: jobsTable.title, createdAt: jobsTable.createdAt })
+      .from(jobsTable)
+      .where(eq(jobsTable.companyProfileId, profileId))
+      .orderBy(desc(jobsTable.createdAt));
+
+    const jobIds = jobs.map(j => j.id);
+    const totalJobsPosted = jobs.length;
+
+    // Applications received across all jobs
+    const appsByJob: { jobId: number; status: string; cnt: number }[] = jobIds.length > 0
+      ? await db
+          .select({ jobId: applicationsTable.jobId, status: applicationsTable.status, cnt: sql<number>`count(*)::int` })
+          .from(applicationsTable)
+          .where(inArray(applicationsTable.jobId, jobIds))
+          .groupBy(applicationsTable.jobId, applicationsTable.status) as any
+      : [];
+
+    const totalApplicationsReceived = appsByJob.reduce((s, r) => s + r.cnt, 0);
+
+    // Status breakdown across all jobs
+    const statusMap: Record<string, number> = {};
+    for (const r of appsByJob) {
+      statusMap[r.status] = (statusMap[r.status] ?? 0) + r.cnt;
+    }
+    const statusBreakdown = Object.entries(statusMap)
+      .sort((a, b) => b[1] - a[1])
+      .map(([status, count]) => ({
+        status, count,
+        label: STATUS_LABELS[status] ?? status,
+        color: STATUS_COLORS[status] ?? "#94a3b8",
+        pct: totalApplicationsReceived > 0 ? Math.round((count / totalApplicationsReceived) * 100) : 0,
+      }));
+
+    // Per-job application counts
+    const appsPerJob: Record<number, number> = {};
+    for (const r of appsByJob) {
+      appsPerJob[r.jobId] = (appsPerJob[r.jobId] ?? 0) + r.cnt;
+    }
+    const topJobs = jobs
+      .map(j => ({ ...j, applications: appsPerJob[j.id] ?? 0 }))
+      .sort((a, b) => b.applications - a.applications)
+      .slice(0, 5);
+
+    // Monthly new apps (last 6 months) - simulated per job count
+    const avgAppsPerJob = totalJobsPosted > 0 ? Math.round(totalApplicationsReceived / totalJobsPosted) : 0;
+
+    jobStats = {
+      totalJobsPosted,
+      totalApplicationsReceived,
+      avgAppsPerJob,
+      statusBreakdown,
+      topJobs,
+      recentJobs: jobs.slice(0, 3),
+    };
+  }
+
+  // ─── APPLICATIONS (individual) ─────────────────────────────────────────────
+  let appStats: object = {};
+  if (accountType === "individual") {
+    const myApps = await db
+      .select({
+        id:        applicationsTable.id,
+        jobId:     applicationsTable.jobId,
+        status:    applicationsTable.status,
+        appliedAt: applicationsTable.appliedAt,
+      })
+      .from(applicationsTable)
+      .where(eq(applicationsTable.profileId, profileId))
+      .orderBy(desc(applicationsTable.appliedAt));
+
+    const totalApplied = myApps.length;
+
+    const statusMap: Record<string, number> = {};
+    for (const a of myApps) {
+      statusMap[a.status] = (statusMap[a.status] ?? 0) + 1;
+    }
+    const statusBreakdown = Object.entries(statusMap)
+      .sort((a, b) => b[1] - a[1])
+      .map(([status, count]) => ({
+        status, count,
+        label: STATUS_LABELS[status] ?? status,
+        color: STATUS_COLORS[status] ?? "#94a3b8",
+        pct: totalApplied > 0 ? Math.round((count / totalApplied) * 100) : 0,
+      }));
+
+    const accepted   = statusMap["accepted"]   ?? 0;
+    const interviews = statusMap["interviewed"] ?? 0;
+    const successRate = totalApplied > 0 ? Math.round((accepted / totalApplied) * 100) : 0;
+    const interviewRate = totalApplied > 0 ? Math.round(((interviews + accepted) / totalApplied) * 100) : 0;
+
+    // Jobs applied with details
+    const jobIds = [...new Set(myApps.map(a => a.jobId))];
+    const jobDetails = jobIds.length > 0
+      ? await db
+          .select({ id: jobsTable.id, title: jobsTable.title, company: jobsTable.company, category: jobsTable.category })
+          .from(jobsTable)
+          .where(inArray(jobsTable.id, jobIds))
+      : [];
+
+    const jobMap = Object.fromEntries(jobDetails.map(j => [j.id, j]));
+
+    // Category breakdown
+    const catMap: Record<string, number> = {};
+    for (const a of myApps) {
+      const cat = jobMap[a.jobId]?.category ?? "Other";
+      catMap[cat] = (catMap[cat] ?? 0) + 1;
+    }
+    const categoryBreakdown = Object.entries(catMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([category, count]) => ({ category, count, pct: totalApplied > 0 ? Math.round((count / totalApplied) * 100) : 0 }));
+
+    // Recent 5 applications with job info
+    const recentApplications = myApps.slice(0, 5).map(a => ({
+      id:        a.id,
+      jobId:     a.jobId,
+      status:    a.status,
+      statusLabel: STATUS_LABELS[a.status] ?? a.status,
+      statusColor: STATUS_COLORS[a.status] ?? "#94a3b8",
+      appliedAt: a.appliedAt,
+      jobTitle:  jobMap[a.jobId]?.title   ?? "Unknown position",
+      company:   jobMap[a.jobId]?.company ?? "Unknown company",
+    }));
+
+    // Last 30 / 7 days
+    const now = Date.now();
+    const appliedLast30 = myApps.filter(a => now - new Date(a.appliedAt).getTime() < 30 * 86400_000).length;
+    const appliedLast7  = myApps.filter(a => now - new Date(a.appliedAt).getTime() <  7 * 86400_000).length;
+
+    appStats = {
+      totalApplied,
+      appliedLast30,
+      appliedLast7,
+      accepted,
+      interviews,
+      successRate,
+      interviewRate,
+      statusBreakdown,
+      categoryBreakdown,
+      recentApplications,
+    };
+  }
+
+  // ─── SAVED JOBS (bookmarks — individual) ────────────────────────────────────
+  // Count from bookmarks table where item_type = 'job'
+  const savedJobsResult = await db.execute(
+    sql`SELECT count(*)::int as cnt FROM bookmarks WHERE profile_id = ${profileId} AND item_type = 'job'`
+  ) as any;
+  const savedJobs = Number(savedJobsResult.rows?.[0]?.cnt ?? 0);
+
+  // ─── SOCIAL (light section) ─────────────────────────────────────────────────
   const posts = await db
-    .select({ id: postsTable.id, content: postsTable.content, likesCount: postsTable.likesCount, commentsCount: postsTable.commentsCount, createdAt: postsTable.createdAt })
+    .select({ id: postsTable.id, likesCount: postsTable.likesCount, commentsCount: postsTable.commentsCount })
     .from(postsTable)
-    .where(eq(postsTable.profileId, profileId))
-    .orderBy(desc(postsTable.createdAt));
+    .where(eq(postsTable.profileId, profileId));
 
   const postIds = posts.map(p => p.id);
   const totalPosts = posts.length;
+  const totalReactions = posts.reduce((s, p) => s + p.likesCount, 0);
+  const totalComments  = posts.reduce((s, p) => s + p.commentsCount, 0);
 
-  // ── Reactions received ─────────────────────────────────────────────────────
-  const reactionRows = postIds.length > 0
-    ? await db
-        .select({ reactionType: postReactionsTable.reactionType, cnt: sql<number>`count(*)::int` })
-        .from(postReactionsTable)
-        .where(inArray(postReactionsTable.postId, postIds))
-        .groupBy(postReactionsTable.reactionType)
-    : [];
+  const followerResult = await db.execute(
+    sql`SELECT count(*)::int as cnt FROM connections WHERE following_id = ${profileId}`
+  ) as any;
+  const totalFollowers = Number(followerResult.rows?.[0]?.cnt ?? 0);
 
-  const totalReactions = reactionRows.reduce((s, r) => s + r.cnt, 0);
-  const reactionBreakdown = reactionRows
-    .sort((a, b) => b.cnt - a.cnt)
-    .map(r => ({
-      type: r.reactionType,
-      label: REACTION_LABELS[r.reactionType] ?? r.reactionType,
-      emoji: REACTION_EMOJIS[r.reactionType] ?? "👍",
-      count: r.cnt,
-      pct: totalReactions > 0 ? Math.round((r.cnt / totalReactions) * 100) : 0,
-    }));
-
-  // ── Comments received ──────────────────────────────────────────────────────
-  const commentResult = postIds.length > 0
-    ? await db
-        .select({ cnt: sql<number>`count(*)::int` })
-        .from(postCommentsTable)
-        .where(inArray(postCommentsTable.postId, postIds))
-    : [{ cnt: 0 }];
-  const totalComments = Number(commentResult[0]?.cnt ?? 0);
-
-  // ── Followers ─────────────────────────────────────────────────────────────
-  const followerResult = await db
-    .select({ cnt: sql<number>`count(*)::int` })
-    .from(connectionsTable)
-    .where(eq(connectionsTable.followingId, profileId));
-  const totalFollowers = Number(followerResult[0]?.cnt ?? 0);
-
-  // ── Following ─────────────────────────────────────────────────────────────
-  const followingResult = await db
-    .select({ cnt: sql<number>`count(*)::int` })
-    .from(connectionsTable)
-    .where(eq(connectionsTable.followerId, profileId));
-  const totalFollowing = Number(followingResult[0]?.cnt ?? 0);
-
-  // ── Top posts by engagement ────────────────────────────────────────────────
-  const topPosts = posts
-    .map(p => ({ ...p, engagement: p.likesCount + p.commentsCount }))
-    .sort((a, b) => b.engagement - a.engagement)
-    .slice(0, 5)
-    .map(p => ({
-      id: p.id,
-      snippet: p.content.slice(0, 120) + (p.content.length > 120 ? "…" : ""),
-      reactions: p.likesCount,
-      comments: p.commentsCount,
-      engagement: p.engagement,
-      createdAt: p.createdAt,
-    }));
-
-  // ── Weekly post activity — last 8 weeks ───────────────────────────────────
-  const weeks: { label: string; count: number }[] = [];
-  for (let i = 7; i >= 0; i--) {
-    const start = new Date(now.getTime() - (i + 1) * 7 * 24 * 60 * 60 * 1000);
-    const end   = new Date(now.getTime() - i       * 7 * 24 * 60 * 60 * 1000);
-    const inRange = posts.filter(p => {
-      const d = new Date(p.createdAt);
-      return d >= start && d < end;
-    }).length;
-    const label = `W${8 - i}`;
-    weeks.push({ label, count: inRange });
-  }
-
-  // ── Recent activity (last 30 days) ────────────────────────────────────────
-  const postsLast30 = posts.filter(p => new Date(p.createdAt) >= day30).length;
-  const postsLast7  = posts.filter(p => new Date(p.createdAt) >= day7).length;
-
-  // ── Simulated profile views (deterministic seed) ─────────────────────────
-  const seed = profileId;
-  const profileViews90 = ((seed * 19 + 47) % 251) + 50;
-  const profileViews30 = Math.round(profileViews90 * 0.38);
-  const profileViews7  = Math.round(profileViews30 * 0.27);
+  // Simulated profile views
+  const profileViews30 = ((seed * 19 + 47) % 251) + 50;
+  const profileViews7  = Math.round(profileViews30 * 0.28);
   const viewsTrend     = ((seed * 7 + 11) % 30) + 5;
 
-  // ── Simulated impressions ─────────────────────────────────────────────────
-  const impressions7  = (((seed * 113 + 283) % 1800) + 400);
-  const impressions30 = impressions7 * 4 + ((seed * 31) % 500);
-  const impressionsTrend = ((seed * 3 + 7) % 20) + 2;
-
   res.json({
-    totalPosts,
-    totalReactions,
-    totalComments,
-    totalFollowers,
-    totalFollowing,
-    postsLast30,
-    postsLast7,
-    reactionBreakdown,
-    topPosts,
-    weeklyActivity: weeks,
-    profileViews: { last7: profileViews7, last30: profileViews30, last90: profileViews90, trend: viewsTrend },
-    impressions: { last7: impressions7, last30: impressions30, trend: impressionsTrend },
+    accountType,
+    ...(accountType === "company"    ? jobStats  : {}),
+    ...(accountType === "individual" ? appStats  : {}),
+    savedJobs,
+    social: { totalPosts, totalReactions, totalComments, totalFollowers },
+    profileViews: { last7: profileViews7, last30: profileViews30, trend: viewsTrend },
   });
 });
 

@@ -3,85 +3,71 @@ import { Link } from "wouter";
 import { useAppAuth } from "@/contexts/app-auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { LoadingState } from "@/components/loading-state";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { formatDistanceToNow } from "date-fns";
 import {
-  TrendingUpIcon,
+  BriefcaseIcon,
+  SendIcon,
+  BookmarkIcon,
   UsersIcon,
-  FileTextIcon,
+  TrendingUpIcon,
+  CheckCircle2Icon,
+  ClockIcon,
   MessageSquareIcon,
+  FileTextIcon,
   EyeIcon,
-  ZapIcon,
-  StarIcon,
   BarChart2Icon,
   ArrowUpIcon,
   ChevronRightIcon,
+  StarIcon,
+  CircleHelpIcon,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 
 const BASE = import.meta.env.BASE_URL;
 
-const REACTION_EMOJIS: Record<string, string> = {
-  like: "👍", celebrate: "🎉", support: "🤝", love: "❤️", insightful: "💡", funny: "😄",
-};
-const REACTION_COLORS: Record<string, string> = {
-  like: "bg-blue-400", celebrate: "bg-green-400", support: "bg-amber-400",
-  love: "bg-red-400", insightful: "bg-orange-400", funny: "bg-yellow-400",
-};
+interface StatusRow  { status: string; label: string; count: number; pct: number; color: string }
+interface CategoryRow { category: string; count: number; pct: number }
+
+interface RecentApp {
+  id: number; jobId: number; status: string; statusLabel: string; statusColor: string;
+  appliedAt: string; jobTitle: string; company: string;
+}
+
+interface TopJob { id: number; title: string; applications: number; createdAt: string }
 
 interface AnalyticsData {
-  totalPosts: number;
-  totalReactions: number;
-  totalComments: number;
-  totalFollowers: number;
-  totalFollowing: number;
-  postsLast30: number;
-  postsLast7: number;
-  reactionBreakdown: { type: string; label: string; emoji: string; count: number; pct: number }[];
-  topPosts: { id: number; snippet: string; reactions: number; comments: number; engagement: number; createdAt: string }[];
-  weeklyActivity: { label: string; count: number }[];
-  profileViews: { last7: number; last30: number; last90: number; trend: number };
-  impressions: { last7: number; last30: number; trend: number };
+  accountType: "individual" | "company";
+  savedJobs: number;
+  social: { totalPosts: number; totalReactions: number; totalComments: number; totalFollowers: number };
+  profileViews: { last7: number; last30: number; trend: number };
+  // individual
+  totalApplied?: number;
+  appliedLast30?: number;
+  appliedLast7?: number;
+  accepted?: number;
+  interviews?: number;
+  successRate?: number;
+  interviewRate?: number;
+  statusBreakdown?: StatusRow[];
+  categoryBreakdown?: CategoryRow[];
+  recentApplications?: RecentApp[];
+  // company
+  totalJobsPosted?: number;
+  totalApplicationsReceived?: number;
+  avgAppsPerJob?: number;
+  topJobs?: TopJob[];
+  recentJobs?: { id: number; title: string; createdAt: string }[];
 }
 
-function Sparkline({ values }: { values: number[] }) {
-  const max = Math.max(...values, 1);
-  const w = 180;
-  const h = 36;
-  const pts = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * w;
-    const y = h - (v / max) * (h - 4);
-    return `${x},${y}`;
-  });
-  const area = `M${pts[0]} L${pts.join(" L")} L${w},${h} L0,${h} Z`;
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-9 overflow-visible" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="spark-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgb(99 102 241)" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="rgb(99 102 241)" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={area} fill="url(#spark-grad)" />
-      <polyline points={pts.join(" ")} fill="none" stroke="rgb(99 102 241)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-  );
-}
+// ── Small helpers ────────────────────────────────────────────────────────────
 
-function StatCard({ icon: Icon, label, value, sub, trend, color }: {
-  icon: React.ElementType; label: string; value: string | number; sub?: string; trend?: number; color: string;
+function BigStat({ icon: Icon, value, label, sub, iconBg }: {
+  icon: React.ElementType; value: string | number; label: string; sub?: string; iconBg: string;
 }) {
   return (
-    <Card className="rounded-2xl border border-gray-200 shadow-none bg-white">
+    <Card className="rounded-2xl border-gray-200 shadow-none bg-white">
       <CardContent className="p-5">
-        <div className="flex items-start justify-between mb-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
-            <Icon className="w-5 h-5 text-white" />
-          </div>
-          {trend !== undefined && (
-            <span className="flex items-center gap-0.5 text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-              <ArrowUpIcon className="w-3 h-3" />+{trend}%
-            </span>
-          )}
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${iconBg}`}>
+          <Icon className="w-5 h-5 text-white" />
         </div>
         <p className="text-2xl font-bold text-gray-900">{typeof value === "number" ? value.toLocaleString() : value}</p>
         <p className="text-sm font-medium text-gray-600 mt-0.5">{label}</p>
@@ -91,12 +77,241 @@ function StatCard({ icon: Icon, label, value, sub, trend, color }: {
   );
 }
 
+function StatusBadge({ label, color }: { label: string; color: string }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-white"
+      style={{ backgroundColor: color }}
+    >
+      {label}
+    </span>
+  );
+}
+
+// ── Individual view ─────────────────────────────────────────────────────────
+
+function IndividualAnalytics({ data }: { data: AnalyticsData }) {
+  const totalApplied    = data.totalApplied ?? 0;
+  const successRate     = data.successRate ?? 0;
+  const interviewRate   = data.interviewRate ?? 0;
+  const statusRows      = data.statusBreakdown ?? [];
+  const categoryRows    = data.categoryBreakdown ?? [];
+  const recentApps      = data.recentApplications ?? [];
+
+  return (
+    <>
+      {/* Hero stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <BigStat icon={SendIcon}        value={totalApplied}          label="Applications sent"    sub={`${data.appliedLast30 ?? 0} this month`} iconBg="bg-primary" />
+        <BigStat icon={BookmarkIcon}    value={data.savedJobs}        label="Saved jobs"           sub="in My Items"           iconBg="bg-violet-500" />
+        <BigStat icon={StarIcon}        value={`${successRate}%`}     label="Offer rate"           sub={`${data.accepted ?? 0} offer${data.accepted !== 1 ? "s" : ""} received`} iconBg="bg-emerald-500" />
+        <BigStat icon={TrendingUpIcon}  value={`${interviewRate}%`}   label="Interview rate"       sub={`${data.interviews ?? 0} interview${data.interviews !== 1 ? "s" : ""}`} iconBg="bg-amber-500" />
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-6 mb-6">
+        {/* Application status funnel */}
+        <Card className="rounded-2xl border-gray-200 shadow-none bg-white">
+          <CardContent className="p-5">
+            <p className="font-semibold text-gray-900 mb-0.5">Application pipeline</p>
+            <p className="text-xs text-gray-400 mb-5">Status breakdown across all applications</p>
+            {statusRows.length === 0 ? (
+              <div className="text-center py-8">
+                <SendIcon className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                <p className="text-sm text-gray-400">No applications yet</p>
+                <Link href="/jobs" className="text-xs text-primary font-semibold mt-2 inline-block hover:underline">Browse jobs →</Link>
+              </div>
+            ) : (
+              <div className="space-y-3.5">
+                {statusRows.map(row => (
+                  <div key={row.status}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm text-gray-700 font-medium">{row.label}</span>
+                      <span className="text-sm font-bold text-gray-900">
+                        {row.count} <span className="text-gray-400 font-normal text-xs">({row.pct}%)</span>
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${row.pct}%`, backgroundColor: row.color }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* By category */}
+        <Card className="rounded-2xl border-gray-200 shadow-none bg-white">
+          <CardContent className="p-5">
+            <p className="font-semibold text-gray-900 mb-0.5">By job category</p>
+            <p className="text-xs text-gray-400 mb-5">Where you're focusing your search</p>
+            {categoryRows.length === 0 ? (
+              <div className="text-center py-8">
+                <BriefcaseIcon className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                <p className="text-sm text-gray-400">Apply to jobs to see category data</p>
+              </div>
+            ) : (
+              <div className="space-y-3.5">
+                {categoryRows.map(row => (
+                  <div key={row.category}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm text-gray-700 font-medium">{row.category}</span>
+                      <span className="text-sm font-bold text-gray-900">
+                        {row.count} <span className="text-gray-400 font-normal text-xs">({row.pct}%)</span>
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-full rounded-full bg-primary/70 transition-all" style={{ width: `${row.pct}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent applications */}
+      <Card className="rounded-2xl border-gray-200 shadow-none bg-white mb-6">
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="font-semibold text-gray-900">Recent applications</p>
+              <p className="text-xs text-gray-400 mt-0.5">Your 5 most recent job applications</p>
+            </div>
+            <Link href="/applications" className="text-xs text-primary font-semibold hover:underline flex items-center gap-0.5">
+              View all <ChevronRightIcon className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          {recentApps.length === 0 ? (
+            <div className="text-center py-8">
+              <CircleHelpIcon className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+              <p className="text-sm text-gray-400 mb-2">No applications yet</p>
+              <Link href="/jobs" className="text-xs text-primary font-semibold hover:underline">Find remote jobs →</Link>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {recentApps.map(app => (
+                <div key={app.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                  <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <BriefcaseIcon className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{app.jobTitle}</p>
+                    <p className="text-xs text-gray-500">{app.company}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    <StatusBadge label={app.statusLabel} color={app.statusColor} />
+                    <span className="text-[11px] text-gray-400">
+                      {formatDistanceToNow(new Date(app.appliedAt), { addSuffix: true })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
+// ── Company view ─────────────────────────────────────────────────────────────
+
+function CompanyAnalytics({ data }: { data: AnalyticsData }) {
+  const totalJobs    = data.totalJobsPosted ?? 0;
+  const totalApps    = data.totalApplicationsReceived ?? 0;
+  const topJobs      = data.topJobs ?? [];
+  const statusRows   = (data.statusBreakdown as StatusRow[] | undefined) ?? [];
+
+  return (
+    <>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <BigStat icon={BriefcaseIcon}   value={totalJobs}               label="Jobs posted"        sub="total openings"                          iconBg="bg-primary" />
+        <BigStat icon={SendIcon}        value={totalApps}               label="Applications received" sub="across all jobs"                      iconBg="bg-violet-500" />
+        <BigStat icon={TrendingUpIcon}  value={data.avgAppsPerJob ?? 0} label="Avg. per listing"   sub="applications per job"                    iconBg="bg-amber-500" />
+        <BigStat icon={BookmarkIcon}    value={data.savedJobs}          label="Profile saves"      sub="candidates bookmarked you"               iconBg="bg-emerald-500" />
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-6 mb-6">
+        {/* Top jobs */}
+        <Card className="rounded-2xl border-gray-200 shadow-none bg-white">
+          <CardContent className="p-5">
+            <p className="font-semibold text-gray-900 mb-0.5">Top job listings</p>
+            <p className="text-xs text-gray-400 mb-5">Ranked by applications received</p>
+            {topJobs.length === 0 ? (
+              <div className="text-center py-8">
+                <BriefcaseIcon className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                <p className="text-sm text-gray-400">No jobs posted yet</p>
+                <Link href="/company-dashboard" className="text-xs text-primary font-semibold mt-2 inline-block hover:underline">Post a job →</Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {topJobs.map((job, i) => (
+                  <Link href={`/jobs/${job.id}`} key={job.id}>
+                    <div className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors group cursor-pointer">
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold text-white ${
+                        i === 0 ? "bg-amber-400" : i === 1 ? "bg-gray-400" : i === 2 ? "bg-orange-300" : "bg-gray-200 text-gray-500"
+                      }`}>{i + 1}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-primary">{job.title}</p>
+                        <p className="text-xs text-gray-400">{formatDistanceToNow(new Date(job.createdAt), { addSuffix: true })}</p>
+                      </div>
+                      <span className="flex-shrink-0 flex items-center gap-1 text-sm font-bold text-gray-700">
+                        <SendIcon className="w-3.5 h-3.5 text-gray-400" />{job.applications}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Applications by status */}
+        <Card className="rounded-2xl border-gray-200 shadow-none bg-white">
+          <CardContent className="p-5">
+            <p className="font-semibold text-gray-900 mb-0.5">Hiring funnel</p>
+            <p className="text-xs text-gray-400 mb-5">Applications by current status</p>
+            {statusRows.length === 0 ? (
+              <div className="text-center py-8">
+                <ClockIcon className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                <p className="text-sm text-gray-400">No applications received yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3.5">
+                {statusRows.map(row => (
+                  <div key={row.status}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm text-gray-700 font-medium">{row.label}</span>
+                      <span className="text-sm font-bold text-gray-900">
+                        {row.count} <span className="text-xs text-gray-400 font-normal">({row.pct}%)</span>
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${row.pct}%`, backgroundColor: row.color }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
 export default function Analytics() {
   const { user } = useAppAuth();
 
   const { data, isLoading } = useQuery<AnalyticsData>({
-    queryKey: ["analytics", user?.id],
-    queryFn: () => fetch(`${BASE}api/analytics?profileId=${user!.id}`).then(r => r.json()),
+    queryKey: ["analytics", user?.id, user?.accountType],
+    queryFn: () =>
+      fetch(`${BASE}api/analytics?profileId=${user!.id}&accountType=${user!.accountType}`)
+        .then(r => r.json()),
     enabled: !!user?.id,
     staleTime: 60_000,
   });
@@ -113,220 +328,69 @@ export default function Analytics() {
 
   if (isLoading || !data) return <LoadingState message="Loading your analytics…" />;
 
-  const weekMax = Math.max(...data.weeklyActivity.map(w => w.count), 1);
-  const sparkValues = data.weeklyActivity.map(w => w.count);
+  const isCompany = data.accountType === "company";
 
   return (
     <div className="container mx-auto px-4 py-10 pb-24 max-w-5xl">
-      {/* Header */}
+      {/* Page header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-1">
-          <BarChart2Icon className="w-7 h-7 text-primary" />
-          <h1 className="text-3xl font-bold">Analytics</h1>
+          <BarChart2Icon className="w-6 h-6 text-primary" />
+          <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
         </div>
-        <p className="text-muted-foreground">Your profile and content performance at a glance.</p>
+        <p className="text-sm text-muted-foreground">
+          {isCompany
+            ? "Track your job postings and hiring activity."
+            : "Track your job search progress and application activity."}
+        </p>
       </div>
 
-      {/* Overview stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={EyeIcon}         label="Profile views"     value={data.profileViews.last90} sub="Past 90 days"  trend={data.profileViews.trend}   color="bg-primary" />
-        <StatCard icon={ZapIcon}         label="Post impressions"  value={data.impressions.last30}  sub="Past 30 days"  trend={data.impressions.trend}    color="bg-indigo-400" />
-        <StatCard icon={UsersIcon}       label="Followers"         value={data.totalFollowers}      sub={`Following ${data.totalFollowing}`}                color="bg-violet-500" />
-        <StatCard icon={TrendingUpIcon}  label="Total reactions"   value={data.totalReactions}      sub={`${data.totalComments} comments`}                  color="bg-fuchsia-500" />
-      </div>
+      {/* Job-focused main section */}
+      {isCompany
+        ? <CompanyAnalytics data={data} />
+        : <IndividualAnalytics data={data} />}
 
-      <div className="grid md:grid-cols-3 gap-6 mb-6">
-        {/* Weekly activity */}
-        <Card className="md:col-span-2 rounded-2xl border border-gray-200 shadow-none bg-white">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between mb-1">
+      {/* ── Profile & social — small secondary section ───────────────────── */}
+      <div className="mt-2">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Profile &amp; network</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card className="rounded-xl border-gray-200 shadow-none bg-white">
+            <CardContent className="p-4 flex items-center gap-3">
+              <EyeIcon className="w-5 h-5 text-indigo-400 flex-shrink-0" />
               <div>
-                <p className="font-semibold text-gray-900">Posting activity</p>
-                <p className="text-xs text-gray-400 mt-0.5">Posts per week — last 8 weeks</p>
+                <p className="text-lg font-bold text-gray-900">{data.profileViews.last30.toLocaleString()}</p>
+                <p className="text-xs text-gray-400">Profile views <span className="text-gray-300">(30d)</span></p>
               </div>
-              <div className="text-right">
-                <p className="text-xl font-bold text-primary">{data.totalPosts}</p>
-                <p className="text-[11px] text-gray-400">total posts</p>
-              </div>
-            </div>
-
-            {/* Sparkline */}
-            <div className="mt-3 mb-4">
-              <Sparkline values={sparkValues} />
-            </div>
-
-            {/* Bar chart */}
-            <div className="flex items-end gap-1.5 h-16">
-              {data.weeklyActivity.map((w, i) => {
-                const h = weekMax > 0 ? Math.round((w.count / weekMax) * 100) : 0;
-                return (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                    <div className="w-full flex items-end justify-center" style={{ height: "44px" }}>
-                      <div
-                        className="w-full rounded-t-sm bg-primary/80 transition-all"
-                        style={{ height: h > 0 ? `${Math.max(h, 8)}%` : "2px", backgroundColor: h > 0 ? undefined : "#e5e7eb" }}
-                      />
-                    </div>
-                    <span className="text-[9px] text-gray-400">{w.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="flex gap-6 mt-4 pt-4 border-t border-gray-100">
+            </CardContent>
+          </Card>
+          <Card className="rounded-xl border-gray-200 shadow-none bg-white">
+            <CardContent className="p-4 flex items-center gap-3">
+              <UsersIcon className="w-5 h-5 text-violet-400 flex-shrink-0" />
               <div>
-                <p className="text-sm font-bold text-gray-900">{data.postsLast7}</p>
-                <p className="text-xs text-gray-400">This week</p>
+                <p className="text-lg font-bold text-gray-900">{data.social.totalFollowers.toLocaleString()}</p>
+                <p className="text-xs text-gray-400">Followers</p>
               </div>
+            </CardContent>
+          </Card>
+          <Card className="rounded-xl border-gray-200 shadow-none bg-white">
+            <CardContent className="p-4 flex items-center gap-3">
+              <FileTextIcon className="w-5 h-5 text-blue-400 flex-shrink-0" />
               <div>
-                <p className="text-sm font-bold text-gray-900">{data.postsLast30}</p>
-                <p className="text-xs text-gray-400">This month</p>
+                <p className="text-lg font-bold text-gray-900">{data.social.totalPosts.toLocaleString()}</p>
+                <p className="text-xs text-gray-400">Posts published</p>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Profile views breakdown */}
-        <Card className="rounded-2xl border border-gray-200 shadow-none bg-white">
-          <CardContent className="p-5">
-            <p className="font-semibold text-gray-900 mb-0.5">Profile views</p>
-            <p className="text-xs text-gray-400 mb-4">Who's been looking at your profile</p>
-            <div className="space-y-4">
-              {[
-                { label: "Past 7 days",  value: data.profileViews.last7 },
-                { label: "Past 30 days", value: data.profileViews.last30 },
-                { label: "Past 90 days", value: data.profileViews.last90 },
-              ].map(({ label, value }) => (
-                <div key={label}>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs text-gray-500">{label}</span>
-                    <span className="text-sm font-bold text-gray-900">{value.toLocaleString()}</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${Math.round((value / data.profileViews.last90) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-5 pt-4 border-t border-gray-100 flex items-center gap-1.5 text-green-600">
-              <ArrowUpIcon className="w-3.5 h-3.5" />
-              <span className="text-xs font-semibold">+{data.profileViews.trend}% vs last period</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6 mb-6">
-        {/* Reaction breakdown */}
-        <Card className="rounded-2xl border border-gray-200 shadow-none bg-white">
-          <CardContent className="p-5">
-            <p className="font-semibold text-gray-900 mb-0.5">Reaction breakdown</p>
-            <p className="text-xs text-gray-400 mb-4">How people react to your posts</p>
-            {data.reactionBreakdown.length === 0 ? (
-              <div className="text-center py-6">
-                <p className="text-gray-400 text-sm">No reactions yet — start posting!</p>
-                <Link href="/feed" className="text-xs text-primary font-semibold mt-2 inline-block hover:underline">Go to feed →</Link>
+            </CardContent>
+          </Card>
+          <Card className="rounded-xl border-gray-200 shadow-none bg-white">
+            <CardContent className="p-4 flex items-center gap-3">
+              <TrendingUpIcon className="w-5 h-5 text-fuchsia-400 flex-shrink-0" />
+              <div>
+                <p className="text-lg font-bold text-gray-900">{data.social.totalReactions.toLocaleString()}</p>
+                <p className="text-xs text-gray-400">Post reactions</p>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {data.reactionBreakdown.map(r => (
-                  <div key={r.type}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="flex items-center gap-1.5 text-sm text-gray-700">
-                        <span>{r.emoji}</span>
-                        <span className="font-medium">{r.label}</span>
-                      </span>
-                      <span className="text-sm font-bold text-gray-900">{r.count.toLocaleString()} <span className="text-gray-400 font-normal text-xs">({r.pct}%)</span></span>
-                    </div>
-                    <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${REACTION_COLORS[r.type] ?? "bg-gray-400"}`}
-                        style={{ width: `${r.pct}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-xs text-gray-400">Total reactions received</p>
-              <p className="text-2xl font-bold text-gray-900">{data.totalReactions.toLocaleString()}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Top posts */}
-        <Card className="rounded-2xl border border-gray-200 shadow-none bg-white">
-          <CardContent className="p-5">
-            <p className="font-semibold text-gray-900 mb-0.5">Top performing posts</p>
-            <p className="text-xs text-gray-400 mb-4">Ranked by total engagement</p>
-            {data.topPosts.length === 0 ? (
-              <div className="text-center py-6">
-                <FileTextIcon className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-                <p className="text-gray-400 text-sm">No posts yet</p>
-                <Link href="/feed" className="text-xs text-primary font-semibold mt-2 inline-block hover:underline">Create your first post →</Link>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {data.topPosts.map((post, i) => (
-                  <Link href="/feed" key={post.id}>
-                    <div className="flex gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer group">
-                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold text-white ${
-                        i === 0 ? "bg-amber-400" : i === 1 ? "bg-gray-400" : i === 2 ? "bg-orange-300" : "bg-gray-200 text-gray-500"
-                      }`}>
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-gray-700 line-clamp-2 group-hover:text-primary transition-colors">{post.snippet}</p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-[11px] text-gray-400">👍 {post.reactions}</span>
-                          <span className="text-[11px] text-gray-400">💬 {post.comments}</span>
-                          <span className="text-[11px] text-gray-400">{formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}</span>
-                        </div>
-                      </div>
-                      <ChevronRightIcon className="w-4 h-4 text-gray-300 group-hover:text-primary flex-shrink-0 self-center" />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Network & engagement row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="rounded-2xl border border-gray-200 shadow-none bg-white">
-          <CardContent className="p-5 text-center">
-            <UsersIcon className="w-6 h-6 text-violet-500 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-gray-900">{data.totalFollowers.toLocaleString()}</p>
-            <p className="text-xs text-gray-500 mt-0.5">Followers</p>
-          </CardContent>
-        </Card>
-        <Card className="rounded-2xl border border-gray-200 shadow-none bg-white">
-          <CardContent className="p-5 text-center">
-            <UsersIcon className="w-6 h-6 text-blue-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-gray-900">{data.totalFollowing.toLocaleString()}</p>
-            <p className="text-xs text-gray-500 mt-0.5">Following</p>
-          </CardContent>
-        </Card>
-        <Card className="rounded-2xl border border-gray-200 shadow-none bg-white">
-          <CardContent className="p-5 text-center">
-            <MessageSquareIcon className="w-6 h-6 text-fuchsia-500 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-gray-900">{data.totalComments.toLocaleString()}</p>
-            <p className="text-xs text-gray-500 mt-0.5">Comments received</p>
-          </CardContent>
-        </Card>
-        <Card className="rounded-2xl border border-gray-200 shadow-none bg-white">
-          <CardContent className="p-5 text-center">
-            <FileTextIcon className="w-6 h-6 text-indigo-400 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-gray-900">{data.totalPosts.toLocaleString()}</p>
-            <p className="text-xs text-gray-500 mt-0.5">Total posts</p>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
