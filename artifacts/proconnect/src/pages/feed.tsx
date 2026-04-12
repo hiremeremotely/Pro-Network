@@ -888,7 +888,7 @@ export default function Home() {
             </div>
 
             <div className="px-3 pb-3">
-              <Link href={user ? `/profiles/${user.id}` : "/login"} className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5">
+              <Link href="/analytics" className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5">
                 View all analytics <ChevronRightIcon className="w-3.5 h-3.5" />
               </Link>
             </div>

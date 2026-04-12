@@ -16,6 +16,7 @@ import notificationsRouter from "./notifications";
 import messagingRouter from "./messaging";
 import connectionsRouter from "./connections";
 import bookmarksRouter from "./bookmarks";
+import analyticsRouter from "./analytics";
 
 const router: IRouter = Router();
 
@@ -25,6 +26,7 @@ router.use(notificationsRouter);
 router.use(messagingRouter);
 router.use(connectionsRouter);
 router.use(bookmarksRouter);
+router.use(analyticsRouter);
 router.use(profilesRouter);
 router.use(educationRouter);
 router.use(experienceRouter);
