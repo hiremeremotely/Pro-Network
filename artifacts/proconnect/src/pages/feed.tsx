@@ -512,22 +512,8 @@ function PostCard({ post, currentUserId, currentUserAvatar, currentUserName }: {
                 <BuildingIcon className="w-3 h-3 mr-1" />Company
               </Badge>
             )}
-            {/* Bookmark button */}
+            {/* 3-dot menu — shown for all posts when logged in */}
             {currentUserId && (
-              <button
-                onClick={() => toggleBookmark("post", post.id)}
-                title={isBookmarked("post", post.id) ? "Remove bookmark" : "Save post"}
-                className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${
-                  isBookmarked("post", post.id)
-                    ? "text-primary bg-primary/10"
-                    : "text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                }`}
-              >
-                <BookmarkIcon className={`w-4 h-4 ${isBookmarked("post", post.id) ? "fill-primary" : ""}`} />
-              </button>
-            )}
-            {/* 3-dot menu for own posts */}
-            {isOwn && (
               <div className="relative">
                 <button
                   onClick={() => { setMenuOpen(o => !o); setConfirmDelete(false); }}
@@ -538,19 +524,33 @@ function PostCard({ post, currentUserId, currentUserAvatar, currentUserName }: {
                 {menuOpen && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                    <div className="absolute right-0 top-9 z-20 w-36 bg-white border border-gray-200 rounded-xl shadow-lg py-1 overflow-hidden">
+                    <div className="absolute right-0 top-9 z-20 w-44 bg-white border border-gray-200 rounded-xl shadow-lg py-1 overflow-hidden">
+                      {/* Save / Unsave — for all posts */}
                       <button
-                        onClick={startEdit}
+                        onClick={() => { toggleBookmark("post", post.id); setMenuOpen(false); }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
-                        <PencilIcon className="w-3.5 h-3.5 text-gray-400" /> Edit post
+                        <BookmarkIcon className={`w-3.5 h-3.5 ${isBookmarked("post", post.id) ? "fill-primary text-primary" : "text-gray-400"}`} />
+                        {isBookmarked("post", post.id) ? "Unsave post" : "Save post"}
                       </button>
-                      <button
-                        onClick={() => { setConfirmDelete(true); setMenuOpen(false); }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                      >
-                        <Trash2Icon className="w-3.5 h-3.5" /> Delete post
-                      </button>
+                      {/* Edit / Delete — only for own posts */}
+                      {isOwn && (
+                        <>
+                          <div className="border-t border-gray-100 my-1" />
+                          <button
+                            onClick={startEdit}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            <PencilIcon className="w-3.5 h-3.5 text-gray-400" /> Edit post
+                          </button>
+                          <button
+                            onClick={() => { setConfirmDelete(true); setMenuOpen(false); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2Icon className="w-3.5 h-3.5" /> Delete post
+                          </button>
+                        </>
+                      )}
                     </div>
                   </>
                 )}
