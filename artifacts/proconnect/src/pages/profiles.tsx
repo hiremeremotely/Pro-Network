@@ -19,7 +19,8 @@ interface RowActions {
   onMessage: (id: number) => void;
 }
 
-function ConnectButton({ profileId, isConnected, onToggle, className = "" }: { profileId: number; isConnected: boolean; onToggle: (id: number) => void; className?: string }) {
+function ConnectButton({ profileId, isConnected, onToggle, accountType, className = "" }: { profileId: number; isConnected: boolean; onToggle: (id: number) => void; accountType?: string | null; className?: string }) {
+  const isCompany = accountType === "company";
   return (
     <Button
       size="sm"
@@ -33,7 +34,9 @@ function ConnectButton({ profileId, isConnected, onToggle, className = "" }: { p
     >
       {isConnected
         ? <><UserCheckIcon className="w-3 h-3" /> Following</>
-        : <><UserPlusIcon className="w-3 h-3" /> Connect</>}
+        : isCompany
+          ? <><UserPlusIcon className="w-3 h-3" /> Follow</>
+          : <><UserPlusIcon className="w-3 h-3" /> Connect</>}
     </Button>
   );
 }
@@ -79,7 +82,7 @@ function ProfileRow({ profile, isConnected, onToggle, onMessage }: { profile: Pr
         )}
         <div className="hidden sm:flex items-center gap-2">
           <MessageButton profileId={profile.id} onMessage={onMessage} />
-          <ConnectButton profileId={profile.id} isConnected={isConnected} onToggle={onToggle} />
+          <ConnectButton profileId={profile.id} isConnected={isConnected} onToggle={onToggle} accountType={profile.accountType} />
         </div>
       </div>
     </Link>
@@ -120,7 +123,7 @@ function ProfileTableRow({ profile, index, isConnected, onToggle, onMessage }: {
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <MessageButton profileId={profile.id} onMessage={onMessage} />
-          <ConnectButton profileId={profile.id} isConnected={isConnected} onToggle={onToggle} />
+          <ConnectButton profileId={profile.id} isConnected={isConnected} onToggle={onToggle} accountType={profile.accountType} />
         </div>
       </td>
     </tr>
@@ -234,6 +237,7 @@ export default function Profiles() {
                       profileId={profile.id}
                       isConnected={isConnected(profile.id)}
                       onToggle={toggleConnect}
+                      accountType={profile.accountType}
                       className="shadow-sm"
                     />
                   </div>

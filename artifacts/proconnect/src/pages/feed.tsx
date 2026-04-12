@@ -30,11 +30,14 @@ import {
   SendHorizontalIcon,
   UserPlusIcon,
   UserCheckIcon,
+  LinkIcon,
+  StarIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useConnections } from "@/hooks/use-connections";
 import { useStartChat } from "@/hooks/use-start-chat";
+import { useToast } from "@/hooks/use-toast";
 
 // ── Reaction definitions ─────────────────────────────────────────────────────
 const REACTIONS = [
@@ -251,6 +254,93 @@ function CommentsSection({ postId, currentUserId, currentUserAvatar, currentUser
   );
 }
 
+// ── Send-to-connection modal ──────────────────────────────────────────────────
+function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void }) {
+  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const startChat = useStartChat();
+  const [, navigate] = useLocation();
+  const [sending, setSending] = useState<number | null>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const { data } = useQuery({
+    queryKey: ["send-search", query],
+    queryFn: () =>
+      fetch(`${import.meta.env.BASE_URL}api/profiles?${query ? `search=${encodeURIComponent(query)}&` : ""}limit=8`).then(r => r.json()),
+  });
+  const profiles: any[] = data?.profiles ?? [];
+
+  async function handleSend(profileId: number) {
+    setSending(profileId);
+    await startChat(profileId);
+    navigate("/messaging");
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100">
+          <h3 className="font-semibold text-gray-900 text-sm">Send to a connection</h3>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 transition-colors">
+            <XIcon className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Post preview */}
+        <div className="mx-4 mt-3 mb-1 bg-gray-50 rounded-xl border border-gray-100 px-3 py-2">
+          <p className="text-xs text-gray-500 font-medium">{post.profileName}</p>
+          <p className="text-xs text-gray-600 line-clamp-2 mt-0.5">{post.content}</p>
+        </div>
+
+        <div className="px-4 pt-2 pb-3">
+          <input
+            autoFocus
+            type="text"
+            placeholder="Search people..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full h-9 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 bg-gray-50"
+          />
+        </div>
+
+        <div className="max-h-60 overflow-y-auto px-2 pb-3">
+          {profiles.length === 0 && (
+            <p className="text-xs text-gray-400 text-center py-6">No people found</p>
+          )}
+          {profiles.map((p: any) => {
+            const initials = p.name.slice(0, 2).toUpperCase();
+            return (
+              <button
+                key={p.id}
+                onClick={() => handleSend(p.id)}
+                disabled={sending === p.id}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors text-left disabled:opacity-60"
+              >
+                <Avatar className="w-9 h-9 border border-gray-100 flex-shrink-0">
+                  <AvatarImage src={p.avatarUrl || undefined} />
+                  <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">{initials}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 leading-tight truncate">{p.name}</p>
+                  <p className="text-xs text-gray-400 truncate">{p.headline}</p>
+                </div>
+                {sending === p.id
+                  ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  : <SendIcon className="w-4 h-4 text-primary flex-shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PostCard({ post, currentUserId, currentUserAvatar, currentUserName }: {
   post: FeedPost; currentUserId?: number; currentUserAvatar?: string; currentUserName?: string;
 }) {
@@ -269,9 +359,32 @@ function PostCard({ post, currentUserId, currentUserAvatar, currentUserName }: {
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const { toast } = useToast();
+  const [sendOpen, setSendOpen] = useState(false);
+
   const isOwn = currentUserId === post.profileId;
   const timeAgo = formatDistanceToNow(new Date(post.createdAt), { addSuffix: true });
   const totalReactions = Object.values(reactionCounts).reduce((a, b) => a + b, 0);
+
+  async function handleShare() {
+    const url = window.location.origin + "/feed";
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Post by ${post.profileName} on Hire Me Remotely`,
+          text: post.content.slice(0, 150),
+          url,
+        });
+      } catch {}
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast({ title: "Link copied to clipboard" });
+      } catch {
+        toast({ title: "Could not copy link", variant: "destructive" });
+      }
+    }
+  }
 
   useEffect(() => {
     setEditYtId(extractYouTubeId(editContent));
@@ -369,6 +482,8 @@ function PostCard({ post, currentUserId, currentUserAvatar, currentUserName }: {
   }
 
   return (
+    <>
+    {sendOpen && <SendToModal post={post} onClose={() => setSendOpen(false)} />}
     <Card className="rounded-xl overflow-hidden border border-gray-200 shadow-none bg-white">
       <CardContent className="p-4">
 
@@ -617,10 +732,16 @@ function PostCard({ post, currentUserId, currentUserAvatar, currentUserName }: {
           >
             <MessageSquareIcon className="w-4 h-4" />Comment
           </button>
-          <button className="flex items-center gap-1.5 flex-1 justify-center py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+          <button
+            onClick={handleShare}
+            className="flex items-center gap-1.5 flex-1 justify-center py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+          >
             <Share2Icon className="w-4 h-4" />Share
           </button>
-          <button className="flex items-center gap-1.5 flex-1 justify-center py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+          <button
+            onClick={() => setSendOpen(true)}
+            className="flex items-center gap-1.5 flex-1 justify-center py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+          >
             <SendIcon className="w-4 h-4" />Send
           </button>
         </div>
@@ -637,6 +758,7 @@ function PostCard({ post, currentUserId, currentUserAvatar, currentUserName }: {
         )}
       </CardContent>
     </Card>
+    </>
   );
 }
 
@@ -951,7 +1073,9 @@ export default function Home() {
                           >
                             {isFeedConnected(profile.id)
                               ? <><UserCheckIcon className="w-2.5 h-2.5" /> Following</>
-                              : <><UserPlusIcon className="w-2.5 h-2.5" /> Connect</>}
+                              : profile.accountType === "company"
+                                ? <><StarIcon className="w-2.5 h-2.5" /> Follow</>
+                                : <><UserPlusIcon className="w-2.5 h-2.5" /> Connect</>}
                           </Button>
                         </div>
                       </div>

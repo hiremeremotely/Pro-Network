@@ -24,7 +24,7 @@ import {
   MapPinIcon, GlobeIcon, GithubIcon, LinkedinIcon, TwitterIcon,
   GraduationCapIcon, BriefcaseIcon, ZapIcon, PencilIcon,
   PlusIcon, TrashIcon, XIcon, CheckIcon, CameraIcon,
-  UserCheckIcon, MessageSquareIcon, BuildingIcon, UsersIcon,
+  UserCheckIcon, UserPlusIcon, MessageSquareIcon, BuildingIcon, UsersIcon,
   ArrowRightIcon, DollarSignIcon, ClockIcon, StarIcon,
 } from "lucide-react";
 import { useListJobs, getListJobsQueryKey } from "@workspace/api-client-react";
@@ -265,10 +265,11 @@ function AddSkillModal({ profileId, onClose }: { profileId: number; onClose: () 
 }
 
 // ── Company Profile View ──────────────────────────────────────────────────────
-function CompanyProfileView({ profile, id, isOwn, onEditInfo, avatarInputRef, avatarUploading, handleAvatarFile }: {
+function CompanyProfileView({ profile, id, isOwn, onEditInfo, avatarInputRef, avatarUploading, handleAvatarFile, isFollowing, onFollow }: {
   profile: any; id: number; isOwn: boolean; onEditInfo: () => void;
   avatarInputRef: React.RefObject<HTMLInputElement>; avatarUploading: boolean;
   handleAvatarFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  isFollowing: boolean; onFollow: () => void;
 }) {
   const initials = profile.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().substring(0, 2);
 
@@ -325,8 +326,19 @@ function CompanyProfileView({ profile, id, isOwn, onEditInfo, avatarInputRef, av
                   </Button>
                 ) : (
                   <>
-                    <Button size="sm" className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5">
-                      <StarIcon className="w-3.5 h-3.5" /> Follow
+                    <Button
+                      size="sm"
+                      variant={isFollowing ? "secondary" : "default"}
+                      onClick={onFollow}
+                      className={`rounded-full h-9 px-5 text-sm font-semibold gap-1.5 ${
+                        isFollowing
+                          ? "bg-primary/10 text-primary border border-primary/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200"
+                          : ""
+                      }`}
+                    >
+                      {isFollowing
+                        ? <><UserCheckIcon className="w-3.5 h-3.5" /> Following</>
+                        : <><StarIcon className="w-3.5 h-3.5" /> Follow</>}
                     </Button>
                     {profile.website && (
                       <a href={profile.website} target="_blank" rel="noopener noreferrer">
@@ -690,6 +702,8 @@ export default function ProfileDetail() {
           avatarInputRef={avatarInputRef}
           avatarUploading={avatarUploading}
           handleAvatarFile={handleAvatarFile}
+          isFollowing={isConnected(id)}
+          onFollow={() => toggleConnect(id)}
         />
       </>
     );
@@ -768,8 +782,8 @@ export default function ProfileDetail() {
                       }`}
                     >
                       {isConnected(id)
-                        ? <><UserCheckIcon className="w-3.5 h-3.5" /> Following</>
-                        : <><UserCheckIcon className="w-3.5 h-3.5" /> Connect</>}
+                        ? <><UserCheckIcon className="w-3.5 h-3.5" /> Connected</>
+                        : <><UserPlusIcon className="w-3.5 h-3.5" /> Connect</>}
                     </Button>
                     <Button variant="outline" size="sm" onClick={handleMessage} disabled={msgLoading} className="rounded-full h-9 px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
                       <MessageSquareIcon className="w-3.5 h-3.5" /> {msgLoading ? "Opening…" : "Message"}
