@@ -83,9 +83,9 @@ export default function Messaging() {
   const isCompanyUser = user?.accountType === "company";
 
   const { data: messages = [], isLoading: msgsLoading } = useQuery<Message[]>({
-    queryKey: ["messages", activeConvId],
-    queryFn: () => fetch(`${BASE}api/conversations/${activeConvId}/messages`).then(r => r.json()),
-    enabled: !!activeConvId,
+    queryKey: ["messages", activeConvId, user?.id],
+    queryFn: () => fetch(`${BASE}api/conversations/${activeConvId}/messages?profileId=${user?.id}`).then(r => r.json()),
+    enabled: !!activeConvId && !!user?.id,
     refetchInterval: 3000,
     staleTime: 0,
   });

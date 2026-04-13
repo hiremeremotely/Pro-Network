@@ -148,7 +148,28 @@ router.delete("/employees/:id", async (req, res): Promise<void> => {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
+
+  const cId = record.companyProfileId;
+  const iId = record.individualProfileId;
+
   await db.delete(employeesTable).where(eq(employeesTable.id, id));
+
+  // Remove former employee from company team channel (non-fatal)
+  try {
+    const [channel] = await db
+      .select({ id: conversationsTable.id })
+      .from(conversationsTable)
+      .where(and(eq(conversationsTable.companyProfileId, cId), eq(conversationsTable.type, "team")))
+      .limit(1);
+    if (channel) {
+      await db
+        .delete(conversationMembersTable)
+        .where(and(eq(conversationMembersTable.conversationId, channel.id), eq(conversationMembersTable.profileId, iId)));
+    }
+  } catch {
+    // Non-fatal: employee is deleted, team channel cleanup failure should not block
+  }
+
   res.status(204).end();
 });
 

@@ -301,10 +301,34 @@ router.get("/conversations", async (req, res): Promise<void> => {
   res.json([...enrichedTeam, ...enrichedDirect]);
 });
 
+// ── Helper: check that profileId is allowed to access a conversation ──────────
+// Direct: must be participant1 or participant2
+// Team: must be a member in conversation_members
+async function canAccessConversation(convId: number, profileId: number): Promise<boolean> {
+  const [conv] = await db.select().from(conversationsTable).where(eq(conversationsTable.id, convId)).limit(1);
+  if (!conv) return false;
+  if (conv.type === "team") {
+    const [member] = await db
+      .select({ id: conversationMembersTable.id })
+      .from(conversationMembersTable)
+      .where(and(eq(conversationMembersTable.conversationId, convId), eq(conversationMembersTable.profileId, profileId)))
+      .limit(1);
+    return !!member;
+  }
+  return conv.participant1Id === profileId || conv.participant2Id === profileId;
+}
+
 // ── GET /conversations/:id/messages ─────────────────────────────────────────
+// Query: ?profileId= required to enforce access control
 router.get("/conversations/:id/messages", async (req, res): Promise<void> => {
   const convId = Number(req.params.id);
+  const profileId = Number(req.query.profileId);
   if (isNaN(convId)) { res.status(400).json({ error: "Invalid id" }); return; }
+  if (!profileId || isNaN(profileId)) { res.status(400).json({ error: "profileId required" }); return; }
+
+  // Authorization check
+  const allowed = await canAccessConversation(convId, profileId);
+  if (!allowed) { res.status(403).json({ error: "Access denied" }); return; }
 
   const msgs = await db
     .select({
@@ -344,8 +368,20 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
 
   if (!conv) { res.status(404).json({ error: "Conversation not found" }); return; }
 
-  // For team channels: any member can send (no connection check needed)
-  if (conv.type !== "team") {
+  // Enforce sender authorization
+  if (conv.type === "team") {
+    // Team channel: sender must be a member
+    const [member] = await db
+      .select({ id: conversationMembersTable.id })
+      .from(conversationMembersTable)
+      .where(and(eq(conversationMembersTable.conversationId, convId), eq(conversationMembersTable.profileId, Number(senderProfileId))))
+      .limit(1);
+    if (!member) {
+      res.status(403).json({ error: "Access denied: not a member of this team channel" });
+      return;
+    }
+  } else {
+    // Direct conversation: sender must be a participant
     const otherProfileId = conv.participant1Id === Number(senderProfileId)
       ? conv.participant2Id
       : conv.participant1Id;
