@@ -74,6 +74,7 @@ function CompanyApplicationsView() {
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("list");
   const [converting, setConverting] = useState<number | null>(null);
+  const [convertedAppIds, setConvertedAppIds] = useState<Set<number>>(new Set());
   const [updatingStatus, setUpdatingStatus] = useState<number | null>(null);
   const { toast } = useToast();
 
@@ -100,7 +101,7 @@ function CompanyApplicationsView() {
       const res = await fetch(`${BASE}api/applications/${appId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, companyProfileId: user?.id }),
       });
       if (!res.ok) throw new Error("Failed to update status");
       const updated = await res.json();
@@ -115,6 +116,7 @@ function CompanyApplicationsView() {
 
   const convertToEmployee = async (app: CompanyApplication) => {
     if (!user?.id || !app.profile) return;
+    if (convertedAppIds.has(app.id)) return;
     if (!confirm(`Convert ${app.profile.name} to a team employee?`)) return;
     setConverting(app.id);
     try {
@@ -131,7 +133,8 @@ function CompanyApplicationsView() {
         }),
       });
       if (!res.ok) throw new Error("Conversion failed");
-      await updateStatus(app.id, "accepted");
+      if (app.status !== "accepted") await updateStatus(app.id, "accepted");
+      setConvertedAppIds(prev => new Set(prev).add(app.id));
       toast({
         title: "Converted to employee!",
         description: `${app.profile.name} has been added to your team.`,
@@ -237,12 +240,12 @@ function CompanyApplicationsView() {
                       {app.status === "accepted" && (
                         <Button
                           size="sm"
-                          disabled={converting === app.id}
+                          disabled={converting === app.id || convertedAppIds.has(app.id)}
                           onClick={() => convertToEmployee(app)}
-                          className="rounded-full text-[10px] gap-1 h-7 px-2.5 flex-shrink-0 bg-green-600 hover:bg-green-700"
+                          className="rounded-full text-[10px] gap-1 h-7 px-2.5 flex-shrink-0 bg-green-600 hover:bg-green-700 disabled:opacity-60"
                         >
                           <UserPlusIcon className="w-3 h-3" />
-                          {converting === app.id ? "…" : "Hire"}
+                          {convertedAppIds.has(app.id) ? "Hired" : converting === app.id ? "…" : "Hire"}
                         </Button>
                       )}
                     </div>
@@ -304,12 +307,12 @@ function CompanyApplicationsView() {
                         {app.status === "accepted" && (
                           <Button
                             size="sm"
-                            disabled={converting === app.id}
+                            disabled={converting === app.id || convertedAppIds.has(app.id)}
                             onClick={() => convertToEmployee(app)}
-                            className="rounded-full text-[10px] gap-1 h-7 px-2.5 bg-green-600 hover:bg-green-700"
+                            className="rounded-full text-[10px] gap-1 h-7 px-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-60"
                           >
                             <UserPlusIcon className="w-3 h-3" />
-                            {converting === app.id ? "…" : "Convert to Employee"}
+                            {convertedAppIds.has(app.id) ? "Hired" : converting === app.id ? "…" : "Convert to Employee"}
                           </Button>
                         )}
                       </div>
@@ -369,12 +372,12 @@ function CompanyApplicationsView() {
                           {app.status === "accepted" ? (
                             <Button
                               size="sm"
-                              disabled={converting === app.id}
+                              disabled={converting === app.id || convertedAppIds.has(app.id)}
                               onClick={() => convertToEmployee(app)}
-                              className="rounded-full text-[10px] gap-1 h-7 px-2.5 bg-green-600 hover:bg-green-700"
+                              className="rounded-full text-[10px] gap-1 h-7 px-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-60"
                             >
                               <UserPlusIcon className="w-3 h-3" />
-                              {converting === app.id ? "…" : "Hire"}
+                              {convertedAppIds.has(app.id) ? "Hired" : converting === app.id ? "…" : "Hire"}
                             </Button>
                           ) : (
                             <span className="text-xs text-gray-300">—</span>

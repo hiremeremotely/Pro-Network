@@ -32,11 +32,24 @@ router.post("/employees", async (req, res): Promise<void> => {
     res.status(400).json({ error: "companyProfileId, individualProfileId, and role are required" });
     return;
   }
+  const cId = Number(companyProfileId);
+  const iId = Number(individualProfileId);
+  // Idempotency: check if this employee record already exists
+  const existing = await db
+    .select()
+    .from(employeesTable)
+    .where(eq(employeesTable.companyProfileId, cId))
+    .then(rows => rows.find(r => r.individualProfileId === iId));
+  if (existing) {
+    const enriched = await enrichEmployee(existing);
+    res.status(200).json(enriched);
+    return;
+  }
   const [emp] = await db
     .insert(employeesTable)
     .values({
-      companyProfileId: Number(companyProfileId),
-      individualProfileId: Number(individualProfileId),
+      companyProfileId: cId,
+      individualProfileId: iId,
       jobId: jobId ? Number(jobId) : null,
       role: String(role),
       salary: salary ? Number(salary) : null,
@@ -55,8 +68,16 @@ router.patch("/employees/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  const { role, salary, currency, status, startDate, companyProfileId } = req.body;
+  // Ownership check: caller must provide the owning companyProfileId
+  if (companyProfileId) {
+    const [record] = await db.select().from(employeesTable).where(eq(employeesTable.id, id));
+    if (!record || record.companyProfileId !== Number(companyProfileId)) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+  }
   const updates: Record<string, unknown> = {};
-  const { role, salary, currency, status, startDate } = req.body;
   if (role !== undefined)      updates.role = String(role);
   if (salary !== undefined)    updates.salary = salary === null ? null : Number(salary);
   if (currency !== undefined)  updates.currency = String(currency);
@@ -81,6 +102,14 @@ router.delete("/employees/:id", async (req, res): Promise<void> => {
   if (!id || isNaN(id)) {
     res.status(400).json({ error: "Invalid id" });
     return;
+  }
+  const companyProfileId = req.query.companyProfileId as string | undefined;
+  if (companyProfileId) {
+    const [record] = await db.select().from(employeesTable).where(eq(employeesTable.id, id));
+    if (!record || record.companyProfileId !== Number(companyProfileId)) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
   }
   await db.delete(employeesTable).where(eq(employeesTable.id, id));
   res.status(204).end();
@@ -121,10 +150,21 @@ router.get("/companies/:companyId/applications", async (req, res): Promise<void>
 
 router.patch("/applications/:id/status", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
-  const { status } = req.body;
+  const { status, companyProfileId } = req.body;
   if (!id || isNaN(id) || !status) {
     res.status(400).json({ error: "Invalid parameters" });
     return;
+  }
+  // Ownership check: ensure this application belongs to a job posted by the requesting company
+  if (companyProfileId) {
+    const [existingApp] = await db.select().from(applicationsTable).where(eq(applicationsTable.id, id));
+    if (existingApp) {
+      const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, existingApp.jobId));
+      if (!job || job.companyProfileId !== Number(companyProfileId)) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+    }
   }
   const [app] = await db
     .update(applicationsTable)

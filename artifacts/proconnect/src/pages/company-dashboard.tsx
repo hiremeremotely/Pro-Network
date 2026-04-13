@@ -74,11 +74,13 @@ const STATUS_DOT: Record<EmployeeStatus, string> = {
 
 function TeamMemberModal({
   emp,
+  companyId,
   onClose,
   onUpdate,
   onRemove,
 }: {
   emp: EmployeeRecord;
+  companyId: number;
   onClose: () => void;
   onUpdate: (updated: EmployeeRecord) => void;
   onRemove: (id: number) => void;
@@ -100,6 +102,7 @@ function TeamMemberModal({
           role,
           salary: salary ? parseInt(salary) : null,
           status,
+          companyProfileId: companyId,
         }),
       });
       if (!res.ok) throw new Error("Save failed");
@@ -117,7 +120,7 @@ function TeamMemberModal({
     if (!confirm(`Remove ${emp.profile?.name ?? "this employee"} from your team?`)) return;
     setRemoving(true);
     try {
-      await fetch(`${BASE}api/employees/${emp.id}`, { method: "DELETE" });
+      await fetch(`${BASE}api/employees/${emp.id}?companyProfileId=${companyId}`, { method: "DELETE" });
       onRemove(emp.id);
       onClose();
       toast({ title: "Removed", description: "Employee removed from team." });
@@ -234,6 +237,7 @@ export default function CompanyDashboard() {
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord | null>(null);
+  const [companyApps, setCompanyApps] = useState<{ status: string }[]>([]);
 
   useEffect(() => {
     if (user && user.accountType !== "company") navigate("/feed");
@@ -254,8 +258,12 @@ export default function CompanyDashboard() {
     if (!user?.id) return;
     setLoadingEmployees(true);
     try {
-      const res = await fetch(`${BASE}api/employees?companyId=${user.id}`);
-      if (res.ok) setEmployees(await res.json());
+      const [empRes, appRes] = await Promise.all([
+        fetch(`${BASE}api/employees?companyId=${user.id}`),
+        fetch(`${BASE}api/companies/${user.id}/applications`),
+      ]);
+      if (empRes.ok) setEmployees(await empRes.json());
+      if (appRes.ok) setCompanyApps(await appRes.json());
     } finally {
       setLoadingEmployees(false);
     }
@@ -508,25 +516,29 @@ export default function CompanyDashboard() {
               <TrendingUpIcon className="w-4 h-4 text-primary" />
             </div>
             <div className="space-y-3">
-              {[
-                { label: "Applied",     status: "pending",   color: "bg-yellow-400" },
-                { label: "Reviewing",   status: "reviewing", color: "bg-blue-400" },
-                { label: "Interview",   status: "interview", color: "bg-purple-400" },
-                { label: "Offer Sent",  status: "offer",     color: "bg-indigo-400" },
-                { label: "Hired",       status: "accepted",  color: "bg-green-500" },
-              ].map(({ label, color }) => {
-                const count = Math.floor(Math.random() * 8);
-                return (
-                  <div key={label} className="flex items-center gap-3">
-                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${color}`} />
-                    <span className="text-xs text-gray-600 flex-1">{label}</span>
-                    <span className="text-xs font-bold text-gray-900">{count}</span>
-                    <div className="w-20 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                      <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.min(count * 12, 100)}%` }} />
+              {(() => {
+                const stages = [
+                  { label: "Applied",    status: "pending",   color: "bg-yellow-400" },
+                  { label: "Reviewing",  status: "reviewing", color: "bg-blue-400" },
+                  { label: "Interview",  status: "interview", color: "bg-purple-400" },
+                  { label: "Offer Sent", status: "offer",     color: "bg-indigo-400" },
+                  { label: "Hired",      status: "accepted",  color: "bg-green-500" },
+                ];
+                const maxCount = Math.max(...stages.map(s => companyApps.filter(a => a.status === s.status).length), 1);
+                return stages.map(({ label, status, color }) => {
+                  const count = companyApps.filter(a => a.status === status).length;
+                  return (
+                    <div key={label} className="flex items-center gap-3">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${color}`} />
+                      <span className="text-xs text-gray-600 flex-1">{label}</span>
+                      <span className="text-xs font-bold text-gray-900">{count}</span>
+                      <div className="w-20 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                        <div className={`h-full rounded-full ${color}`} style={{ width: `${count === 0 ? 0 : Math.max((count / maxCount) * 100, 6)}%` }} />
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
             <Link href="/applications" className="inline-flex items-center gap-0.5 mt-4 text-xs font-semibold text-primary hover:underline">
               Manage applications <ChevronRightIcon className="w-3.5 h-3.5" />
@@ -629,6 +641,7 @@ export default function CompanyDashboard() {
       {selectedEmployee && (
         <TeamMemberModal
           emp={selectedEmployee}
+          companyId={user?.id ?? 0}
           onClose={() => setSelectedEmployee(null)}
           onUpdate={updated => {
             setEmployees(prev => prev.map(e => e.id === updated.id ? updated : e));
