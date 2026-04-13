@@ -135,21 +135,25 @@ export function HRInsightsWidget({ companyProfileId }: Props) {
         <div className={`rounded-xl border p-3.5 ${trendBg}`}>
           <div className="flex items-center gap-2 mb-1">
             <TrendIcon className={`w-4 h-4 ${trendColor}`} />
-            <span className="text-xs font-semibold text-gray-700">Application Activity</span>
+            <span className="text-xs font-semibold text-gray-700">Hiring Activity (30 days)</span>
           </div>
           <div className="flex items-end justify-between">
             <div>
               <p className={`text-lg font-bold ${trendColor}`}>{hiringTrend.recent}</p>
               <p className="text-xs text-gray-500">applications this month</p>
             </div>
-            {hiringTrend.previous > 0 && (
-              <div className="text-right">
-                <p className="text-sm text-gray-400">{hiringTrend.previous} last month</p>
-                <p className={`text-xs font-semibold ${trendColor}`}>
-                  {hiringTrend.trend === "up" ? "▲ Increasing" : hiringTrend.trend === "down" ? "▼ Declining" : "→ Steady"}
-                </p>
-              </div>
-            )}
+            <div className="text-right">
+              {hiringTrend.previous > 0 ? (
+                <>
+                  <p className="text-sm text-gray-400">{hiringTrend.previous} last month</p>
+                  <p className={`text-xs font-semibold ${trendColor}`}>
+                    {hiringTrend.trend === "up" ? "▲ Increasing" : hiringTrend.trend === "down" ? "▼ Declining" : "→ Steady"}
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-gray-400">No prior data</p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -160,7 +164,7 @@ export function HRInsightsWidget({ companyProfileId }: Props) {
               <DollarSignIcon className="w-3.5 h-3.5 text-indigo-600" />
               <span className="text-xs font-semibold text-indigo-800">Market Rate · {topCategory}</span>
             </div>
-            <p className="text-xs text-indigo-600 mb-2.5">Mid-level remote (USD baseline)</p>
+            <p className="text-xs text-indigo-600 mb-2.5">Mid-level remote · USD global baseline</p>
             <div className="relative h-5">
               <div className="absolute inset-y-1.5 left-0 right-0 bg-indigo-100 rounded-full" />
               <div className="absolute inset-y-1.5 bg-indigo-500 rounded-full" style={{ left: "0%", width: "100%" }} />

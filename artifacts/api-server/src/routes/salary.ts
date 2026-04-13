@@ -326,10 +326,23 @@ router.get("/salary-estimate", (req, res): void => {
 
 // ── GET /hr-insights ──────────────────────────────────────────────────────────
 // Returns: top job category, market salary range, top candidate matches, hiring trend
+// Note: market salary baseline is always US mid-level (USD) for cross-country comparison
 router.get("/hr-insights", async (req, res): Promise<void> => {
   const companyProfileId = parseInt(req.query.companyProfileId as string);
   if (!companyProfileId || isNaN(companyProfileId)) {
     res.status(400).json({ error: "companyProfileId is required" });
+    return;
+  }
+
+  // Guard: ensure the requested profileId belongs to a company account
+  const profileCheck = await db
+    .select({ accountType: profilesTable.accountType })
+    .from(profilesTable)
+    .where(eq(profilesTable.id, companyProfileId))
+    .limit(1);
+
+  if (!profileCheck.length || profileCheck[0].accountType !== "company") {
+    res.status(403).json({ error: "Access restricted to company profiles" });
     return;
   }
 
