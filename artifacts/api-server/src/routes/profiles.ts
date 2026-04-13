@@ -26,6 +26,7 @@ router.get("/profiles", async (req, res): Promise<void> => {
       ilike(profilesTable.name, `%${search}%`),
       ilike(profilesTable.headline, `%${search}%`),
       ilike(profilesTable.location, `%${search}%`),
+      ilike(profilesTable.email, `%${search}%`),
     );
   }
 
