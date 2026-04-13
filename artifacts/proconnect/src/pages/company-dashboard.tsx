@@ -107,6 +107,26 @@ interface OfferData {
   companyName: string;
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function safeData(d: OfferData): OfferData {
+  return {
+    employeeName: escapeHtml(d.employeeName),
+    role: escapeHtml(d.role),
+    salary: d.salary,
+    currency: escapeHtml(d.currency),
+    startDate: escapeHtml(d.startDate),
+    companyName: escapeHtml(d.companyName),
+  };
+}
+
 const OFFER_TEMPLATES = [
   {
     id: "full-time",
@@ -212,10 +232,10 @@ type OfferTemplateId = typeof OFFER_TEMPLATES[number]["id"];
 function downloadOfferLetter(templateId: OfferTemplateId, data: OfferData) {
   const tmpl = OFFER_TEMPLATES.find(t => t.id === templateId);
   if (!tmpl) return;
-  const body = tmpl.render(data);
+  const body = tmpl.render(safeData(data));
   const html = `<!DOCTYPE html><html lang="en"><head>
     <meta charset="UTF-8">
-    <title>Offer Letter — ${data.companyName}</title>
+    <title>Offer Letter — ${escapeHtml(data.companyName)}</title>
     <style>
       body { font-family: Georgia, 'Times New Roman', serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; line-height: 1.7; font-size: 15px; }
       h3 { font-size: 15px; margin-top: 24px; margin-bottom: 8px; }
@@ -274,18 +294,25 @@ function OfferLetterTab({ emp, companyName }: { emp: EmployeeRecord; companyName
         </div>
       </div>
 
-      {selectedTemplate && (
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Preview</p>
-          <div className="text-xs text-gray-600 space-y-1">
-            <p><span className="font-medium">Recipient:</span> {offerData.employeeName}</p>
-            <p><span className="font-medium">Role:</span> {offerData.role}</p>
-            <p><span className="font-medium">Salary:</span> {offerData.salary ? `${offerData.currency} ${offerData.salary.toLocaleString()} / yr` : "TBD"}</p>
-            <p><span className="font-medium">Start Date:</span> {offerData.startDate}</p>
-            <p><span className="font-medium">Company:</span> {offerData.companyName}</p>
+      {selectedTemplate && (() => {
+        const tmpl = OFFER_TEMPLATES.find(t => t.id === selectedTemplate);
+        if (!tmpl) return null;
+        const safeD = safeData(offerData);
+        const renderedBody = tmpl.render(safeD);
+        return (
+          <div className="rounded-xl border border-gray-200 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-gray-50">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Letter Preview</p>
+              <span className="text-[10px] text-gray-400">Scroll to read full letter</span>
+            </div>
+            <div
+              className="max-h-56 overflow-y-auto p-4 bg-white"
+              style={{ fontFamily: "Georgia, serif", fontSize: "12px", lineHeight: "1.6", color: "#1a1a1a" }}
+              dangerouslySetInnerHTML={{ __html: renderedBody }}
+            />
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <Button
         className="w-full gap-2"

@@ -144,8 +144,10 @@ router.get("/onboarding/progress", async (req, res): Promise<void> => {
       .select()
       .from(onboardingTasksTable)
       .where(eq(onboardingTasksTable.employeeId, empId));
+    // If no tasks seeded yet, use the default task count so the UI always shows progress
+    const total = tasks.length > 0 ? tasks.length : DEFAULT_TASKS.length;
     progress[empId] = {
-      total: tasks.length,
+      total,
       completed: tasks.filter(t => t.completed).length,
     };
   }
