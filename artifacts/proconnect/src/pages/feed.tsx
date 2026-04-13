@@ -32,6 +32,8 @@ import {
   UserCheckIcon,
   LinkIcon,
   StarIcon,
+  VideoIcon,
+  NewspaperIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useAppAuth } from "@/contexts/app-auth";
@@ -783,6 +785,32 @@ export default function Home() {
   const [postContent, setPostContent] = useState("");
   const [postFocused, setPostFocused] = useState(false);
   const [ytId, setYtId] = useState<string | null>(null);
+  const [postType, setPostType]       = useState<"text" | "photo" | "video" | "article" | "link">("text");
+  const [postPhoto, setPostPhoto]     = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [postLink, setPostLink]       = useState("");
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const resetComposer = () => {
+    setPostFocused(false);
+    setPostContent("");
+    setPostType("text");
+    setPostPhoto(null);
+    setPhotoPreview(null);
+    setPostLink("");
+  };
+
+  const uploadPhoto = async (file: File): Promise<string> => {
+    const BASE = import.meta.env.BASE_URL;
+    const { uploadURL, objectPath } = await fetch(`${BASE}api/storage/uploads/request-url`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+    }).then(r => r.json());
+    await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+    return `${BASE}api/storage/public-objects/${objectPath}`;
+  };
 
   useEffect(() => {
     setYtId(extractYouTubeId(postContent));
@@ -829,8 +857,7 @@ export default function Home() {
       return res.json();
     },
     onSuccess: () => {
-      setPostContent("");
-      setPostFocused(false);
+      resetComposer();
       setYtId(null);
       queryClient.invalidateQueries({ queryKey: ["posts"] });
     },
@@ -939,9 +966,25 @@ export default function Home() {
                   <AvatarImage src={currentAvatar} />
                   <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">{currentInitials}</AvatarFallback>
                 </Avatar>
+                {/* Hidden file input for photo uploads */}
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setPostPhoto(file);
+                      setPhotoPreview(URL.createObjectURL(file));
+                    }
+                    e.target.value = "";
+                  }}
+                />
+
                 {!postFocused ? (
                   <button
-                    onClick={() => setPostFocused(true)}
+                    onClick={() => { setPostFocused(true); setPostType("text"); }}
                     className="flex-1 text-left text-sm text-gray-400 border border-gray-300 rounded-full px-4 py-2 hover:bg-gray-50 hover:border-gray-400 transition-colors"
                   >
                     Share something with the network...
@@ -949,12 +992,63 @@ export default function Home() {
                 ) : (
                   <div className="flex-1">
                     <Textarea
-                      autoFocus
-                      placeholder="What do you want to talk about?"
+                      autoFocus={postType !== "photo"}
+                      placeholder={
+                        postType === "photo"   ? "Add a caption…" :
+                        postType === "video"   ? "Share your thoughts about this video…" :
+                        postType === "article" ? "Write your article…" :
+                        postType === "link"    ? "Say something about this link…" :
+                        "What do you want to talk about?"
+                      }
                       value={postContent}
                       onChange={e => setPostContent(e.target.value)}
                       className="border-0 focus-visible:ring-0 p-0 min-h-[80px] resize-none text-sm"
                     />
+
+                    {/* Photo preview */}
+                    {postType === "photo" && photoPreview && (
+                      <div className="mt-3 rounded-xl overflow-hidden border border-gray-200 relative group">
+                        <img src={photoPreview} alt="Preview" className="w-full object-cover max-h-64" />
+                        <button
+                          onClick={() => { setPostPhoto(null); setPhotoPreview(null); }}
+                          className="absolute top-2 right-2 w-7 h-7 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-colors"
+                        >
+                          <XIcon className="w-3.5 h-3.5 text-white" />
+                        </button>
+                      </div>
+                    )}
+                    {postType === "photo" && !photoPreview && (
+                      <button
+                        onClick={() => photoInputRef.current?.click()}
+                        className="mt-2 w-full border-2 border-dashed border-gray-200 rounded-xl py-6 text-sm text-gray-400 hover:border-primary/40 hover:text-primary transition-colors flex flex-col items-center gap-1.5"
+                      >
+                        <ImageIcon className="w-6 h-6" />
+                        Click to choose a photo
+                      </button>
+                    )}
+
+                    {/* Link input */}
+                    {postType === "link" && (
+                      <div className="mt-3">
+                        <input
+                          type="url"
+                          placeholder="Paste a link URL…"
+                          value={postLink}
+                          onChange={e => setPostLink(e.target.value)}
+                          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        />
+                      </div>
+                    )}
+
+                    {/* Video hint */}
+                    {postType === "video" && !ytId && (
+                      <p className="mt-2 text-xs text-gray-400 flex items-center gap-1.5">
+                        <VideoIcon className="w-3.5 h-3.5 text-red-400" />
+                        Paste a YouTube link in the text above to embed a video preview
+                      </p>
+                    )}
+
+                    {/* YouTube preview */}
                     {ytId && (
                       <div className="mt-3 rounded-xl overflow-hidden border border-gray-200 relative group bg-black">
                         <img
@@ -988,35 +1082,68 @@ export default function Home() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => { setPostFocused(false); setPostContent(""); }}
+                    onClick={resetComposer}
                     className="rounded-full text-xs"
                   >
                     Cancel
                   </Button>
                   <Button
                     size="sm"
-                    disabled={!postContent.trim() || createPostMutation.isPending}
-                    onClick={() => createPostMutation.mutate({ content: postContent.trim(), imageUrl: ytId ? ytThumb(ytId) : undefined })}
+                    disabled={
+                      (postType === "photo" ? !photoPreview : !postContent.trim() && !postLink.trim()) ||
+                      createPostMutation.isPending ||
+                      photoUploading
+                    }
+                    onClick={async () => {
+                      let imageUrl: string | undefined;
+                      if (postPhoto) {
+                        setPhotoUploading(true);
+                        try { imageUrl = await uploadPhoto(postPhoto); }
+                        finally { setPhotoUploading(false); }
+                      } else if (ytId) {
+                        imageUrl = ytThumb(ytId);
+                      }
+                      const finalContent = postLink
+                        ? `${postContent.trim()}\n\n${postLink}`.trim()
+                        : postContent.trim();
+                      createPostMutation.mutate({ content: finalContent || " ", imageUrl });
+                    }}
                     className="rounded-full text-xs px-5"
                   >
-                    Post
+                    {photoUploading ? "Uploading…" : createPostMutation.isPending ? "Posting…" : "Post"}
                   </Button>
                 </div>
               )}
 
               {!postFocused && (
                 <div className="flex items-center gap-1 mt-2">
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors">
+                  <button
+                    onClick={() => { setPostFocused(true); setPostType("photo"); photoInputRef.current?.click(); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors"
+                  >
                     <ImageIcon className="w-4 h-4 text-blue-500" />
                     Photo
                   </button>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors">
-                    <BookmarkIcon className="w-4 h-4 text-orange-500" />
+                  <button
+                    onClick={() => { setPostFocused(true); setPostType("video"); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors"
+                  >
+                    <VideoIcon className="w-4 h-4 text-red-500" />
+                    Video
+                  </button>
+                  <button
+                    onClick={() => { setPostFocused(true); setPostType("article"); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors"
+                  >
+                    <NewspaperIcon className="w-4 h-4 text-orange-500" />
                     Article
                   </button>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors">
-                    <BriefcaseIcon className="w-4 h-4 text-purple-500" />
-                    Job
+                  <button
+                    onClick={() => { setPostFocused(true); setPostType("link"); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors"
+                  >
+                    <LinkIcon className="w-4 h-4 text-green-500" />
+                    Link
                   </button>
                 </div>
               )}
