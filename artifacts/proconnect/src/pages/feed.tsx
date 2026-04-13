@@ -36,8 +36,10 @@ import {
   UserCheckIcon,
   VideoIcon,
   NewspaperIcon,
+  CameraIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { useUpload } from "@workspace/object-storage-web";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useConnections } from "@/hooks/use-connections";
 import { useStartChat } from "@/hooks/use-start-chat";
@@ -826,6 +828,52 @@ export default function Home() {
   const currentAvatar   = user?.avatarUrl ?? undefined;
   const currentInitials = currentName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
 
+  // Avatar upload / remove / lightbox
+  const avatarInputRef  = useRef<HTMLInputElement>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [showLightbox, setShowLightbox]       = useState(false);
+  const { toast } = useToast();
+
+  const { uploadFile } = useUpload({
+    async onSuccess(res) {
+      const avatarUrl = `/api/storage${res.objectPath}`;
+      await fetch(`${import.meta.env.BASE_URL}api/profiles/${user!.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatarUrl }),
+      });
+      const raw = localStorage.getItem("app_user_session");
+      if (raw) {
+        try { localStorage.setItem("app_user_session", JSON.stringify({ ...JSON.parse(raw), avatarUrl })); } catch {}
+      }
+      setAvatarUploading(false);
+      window.location.reload();
+    },
+    onError() { setAvatarUploading(false); toast({ title: "Upload failed", variant: "destructive" }); },
+  });
+
+  async function handleAvatarFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setAvatarUploading(true);
+    await uploadFile(file);
+    e.target.value = "";
+  }
+
+  async function removeAvatar() {
+    if (!user) return;
+    await fetch(`${import.meta.env.BASE_URL}api/profiles/${user.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ avatarUrl: null }),
+    });
+    const raw = localStorage.getItem("app_user_session");
+    if (raw) {
+      try { localStorage.setItem("app_user_session", JSON.stringify({ ...JSON.parse(raw), avatarUrl: null })); } catch {}
+    }
+    window.location.reload();
+  }
+
   const { data: stats } = useGetFeedStats({ query: { queryKey: getGetFeedStatsQueryKey() } });
 
   // Personalized application data for the sidebar widget
@@ -894,15 +942,85 @@ export default function Home() {
             {/* Banner */}
             <div className="h-[54px] bg-gradient-to-r from-primary/70 via-primary/45 to-indigo-300/60" />
 
-            {/* Avatar */}
-            <div className="px-3 -mt-[34px] mb-1">
-              <Link href={user ? `/profiles/${user.id}` : "/login"}>
-                <Avatar className="w-[68px] h-[68px] border-[3px] border-white shadow-sm ring-1 ring-gray-100 hover:opacity-90 transition-opacity">
-                  <AvatarImage src={currentAvatar} />
-                  <AvatarFallback className="font-bold text-xl bg-primary/10 text-primary">{currentInitials}</AvatarFallback>
-                </Avatar>
-              </Link>
+            {/* Avatar with upload / view / remove */}
+            <div className="px-3 -mt-[34px] mb-1 flex items-end gap-2">
+              {/* Hidden file input */}
+              <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarFile} />
+
+              <div className="relative group/av">
+                {/* Avatar itself — click to view full-size if photo exists */}
+                <button
+                  type="button"
+                  onClick={() => currentAvatar && setShowLightbox(true)}
+                  className={`block rounded-full focus:outline-none ${currentAvatar ? "cursor-zoom-in" : "cursor-default"}`}
+                  title={currentAvatar ? "View photo" : undefined}
+                >
+                  <Avatar className={`w-[68px] h-[68px] border-[3px] border-white shadow-sm ring-1 ring-gray-100 transition-opacity ${avatarUploading ? "opacity-40" : ""}`}>
+                    <AvatarImage src={currentAvatar} />
+                    <AvatarFallback className="font-bold text-xl bg-primary/10 text-primary">{currentInitials}</AvatarFallback>
+                  </Avatar>
+                </button>
+
+                {/* Hover actions — only shown when logged in */}
+                {user && (
+                  <div className="absolute -bottom-1 -right-1 flex gap-0.5 opacity-0 group-hover/av:opacity-100 transition-opacity">
+                    {/* Upload / change */}
+                    <button
+                      type="button"
+                      title="Upload photo"
+                      disabled={avatarUploading}
+                      onClick={() => avatarInputRef.current?.click()}
+                      className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    >
+                      <CameraIcon className="w-3 h-3" />
+                    </button>
+                    {/* Remove — only if photo exists */}
+                    {currentAvatar && (
+                      <button
+                        type="button"
+                        title="Remove photo"
+                        onClick={removeAvatar}
+                        className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-sm hover:bg-red-600 transition-colors"
+                      >
+                        <Trash2Icon className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Lightbox */}
+            {showLightbox && currentAvatar && (
+              <div
+                className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center"
+                onClick={() => setShowLightbox(false)}
+              >
+                <div className="relative max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
+                  <img src={currentAvatar} alt={currentName} className="w-full rounded-2xl shadow-2xl object-cover" />
+                  <button
+                    onClick={() => setShowLightbox(false)}
+                    className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-gray-700 flex items-center justify-center shadow-md hover:bg-gray-100 transition-colors"
+                  >
+                    <XIcon className="w-4 h-4" />
+                  </button>
+                  <div className="flex gap-2 mt-3 justify-center">
+                    <button
+                      onClick={() => { setShowLightbox(false); avatarInputRef.current?.click(); }}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-white bg-primary px-3 py-1.5 rounded-full hover:bg-primary/90 transition-colors"
+                    >
+                      <CameraIcon className="w-3.5 h-3.5" /> Change photo
+                    </button>
+                    <button
+                      onClick={() => { setShowLightbox(false); removeAvatar(); }}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-white bg-red-500 px-3 py-1.5 rounded-full hover:bg-red-600 transition-colors"
+                    >
+                      <Trash2Icon className="w-3.5 h-3.5" /> Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Name / headline / location */}
             <div className="px-3 pb-3">
