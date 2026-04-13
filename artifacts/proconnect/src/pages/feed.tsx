@@ -28,10 +28,12 @@ import {
   Trash2Icon,
   CheckIcon,
   SendHorizontalIcon,
+  ClockIcon,
+  FileTextIcon,
+  StarIcon,
+  LinkIcon,
   UserPlusIcon,
   UserCheckIcon,
-  LinkIcon,
-  StarIcon,
   VideoIcon,
   NewspaperIcon,
 } from "lucide-react";
@@ -825,6 +827,22 @@ export default function Home() {
   const currentInitials = currentName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
 
   const { data: stats } = useGetFeedStats({ query: { queryKey: getGetFeedStatsQueryKey() } });
+
+  // Personalized application data for the sidebar widget
+  const { data: myApplications = [] } = useQuery<any[]>({
+    queryKey: ["my-applications", user?.id],
+    queryFn: () =>
+      fetch(`${import.meta.env.BASE_URL}api/profiles/${user!.id}/applications`).then(r => r.json()),
+    enabled: !!user?.id && user.accountType === "individual",
+    staleTime: 60_000,
+  });
+
+  const appStatusCounts = myApplications.reduce<Record<string, number>>((acc, a) => {
+    acc[a.status] = (acc[a.status] ?? 0) + 1;
+    return acc;
+  }, {});
+  const mostRecentApp = myApplications.at(0);
+
   const { data: suggestedProfiles } = useListFeaturedProfiles({ query: { queryKey: getListFeaturedProfilesQueryKey() } });
   const { data: featuredJobs } = useListFeaturedJobs({ query: { queryKey: getListFeaturedJobsQueryKey() } });
   const { isConnected: isFeedConnected, toggleConnect: feedToggleConnect } = useConnections();
@@ -931,17 +949,82 @@ export default function Home() {
             </div>
           </Card>
 
-          {/* ── Platform stats card ── */}
-          {stats && (
-            <Card className="rounded-xl border border-gray-200 shadow-none bg-white">
+          {/* ── My Applications / Hiring widget ── */}
+          {user && user.accountType === "individual" && (
+            <Card className="rounded-xl border border-gray-200 shadow-none bg-white overflow-hidden">
               <CardContent className="px-3 py-3 space-y-0">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2.5">Platform</p>
+                <div className="flex items-center justify-between mb-2.5">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">My Applications</p>
+                  <span className="text-xs font-bold text-primary bg-primary/8 px-2 py-0.5 rounded-full">
+                    {myApplications.length}
+                  </span>
+                </div>
+
+                {myApplications.length === 0 ? (
+                  <div className="py-2 text-center">
+                    <FileTextIcon className="w-6 h-6 text-gray-200 mx-auto mb-1.5" />
+                    <p className="text-xs text-gray-400">No applications yet</p>
+                    <Link href="/jobs">
+                      <p className="text-xs text-primary font-semibold mt-1 hover:underline cursor-pointer">Browse open roles →</p>
+                    </Link>
+                  </div>
+                ) : (
+                  <>
+                    {/* Status breakdown */}
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {[
+                        { key: "pending",   label: "Submitted", color: "bg-amber-50 text-amber-700" },
+                        { key: "reviewing", label: "Reviewing", color: "bg-blue-50 text-blue-700" },
+                        { key: "interview", label: "Interview", color: "bg-purple-50 text-purple-700" },
+                        { key: "offer",     label: "Offer",     color: "bg-green-50 text-green-700" },
+                      ]
+                        .filter(s => appStatusCounts[s.key])
+                        .map(s => (
+                          <span key={s.key} className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${s.color}`}>
+                            {appStatusCounts[s.key]} {s.label}
+                          </span>
+                        ))
+                      }
+                    </div>
+
+                    {/* Most recent application */}
+                    {mostRecentApp && (
+                      <Link href="/applications">
+                        <div className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 hover:bg-primary/5 transition-colors cursor-pointer group -mx-0.5">
+                          <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <BriefcaseIcon className="w-3 h-3 text-primary" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-gray-800 group-hover:text-primary transition-colors truncate leading-tight">
+                              {mostRecentApp.job?.title}
+                            </p>
+                            <p className="text-[10px] text-gray-400 truncate">{mostRecentApp.job?.company}</p>
+                          </div>
+                        </div>
+                      </Link>
+                    )}
+                  </>
+                )}
+
+                <div className="pt-2.5">
+                  <Link href="/applications" className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5">
+                    View all applications <ChevronRightIcon className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Company hiring quick stats */}
+          {user && user.accountType === "company" && (
+            <Card className="rounded-xl border border-gray-200 shadow-none bg-white">
+              <CardContent className="px-3 py-3">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2.5">Hiring</p>
                 {[
-                  { icon: UsersIcon,     color: "bg-primary/10 text-primary",    value: stats.totalProfiles,           label: "Professionals" },
-                  { icon: BriefcaseIcon, color: "bg-green-50 text-green-600",    value: stats.totalJobs,               label: "Active Jobs" },
-                  { icon: TrendingUpIcon,color: "bg-orange-50 text-orange-500",  value: stats.remoteJobsPostedThisWeek, label: "New this week" },
+                  { icon: BriefcaseIcon, color: "bg-primary/10 text-primary",  value: stats?.totalJobs ?? 0,   label: "Active job posts" },
+                  { icon: ClockIcon,     color: "bg-amber-50 text-amber-600",  value: stats?.remoteJobsPostedThisWeek ?? 0, label: "New this week" },
                 ].map(({ icon: Icon, color, value, label }) => (
-                  <div key={label} className="flex items-center gap-2.5 py-1.5 hover:bg-gray-50 -mx-1 px-1 rounded-lg cursor-pointer transition-colors">
+                  <div key={label} className="flex items-center gap-2.5 py-1.5 -mx-1 px-1 rounded-lg">
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
                       <Icon className="w-3.5 h-3.5" />
                     </div>
@@ -951,6 +1034,11 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
+                <div className="pt-1.5">
+                  <Link href="/company-dashboard" className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5">
+                    Go to dashboard <ChevronRightIcon className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           )}
