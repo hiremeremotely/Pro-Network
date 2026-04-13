@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, ilike, or, sql } from "drizzle-orm";
+import { eq, ilike, or, and, sql } from "drizzle-orm";
 import { db, jobsTable } from "@workspace/db";
 import {
   CreateJobBody,
@@ -20,15 +20,31 @@ router.get("/jobs", async (req, res): Promise<void> => {
   }
   const { search, category, experienceLevel, limit = 20, offset = 0 } = query.data;
 
-  let conditions: ReturnType<typeof eq>[] = [];
-  if (category) conditions.push(eq(jobsTable.category, category));
-  if (experienceLevel) conditions.push(eq(jobsTable.experienceLevel, experienceLevel));
+  // Build each condition independently then AND them all together
+  const clauses: ReturnType<typeof eq | typeof or | typeof and>[] = [];
 
-  let baseQuery = db.select().from(jobsTable);
+  // Keyword search: title, company, description, location, tags
+  if (search) {
+    clauses.push(
+      or(
+        ilike(jobsTable.title, `%${search}%`),
+        ilike(jobsTable.company, `%${search}%`),
+        ilike(jobsTable.description, `%${search}%`),
+        ilike(jobsTable.location, `%${search}%`),
+        sql`array_to_string(${jobsTable.tags}, ' ') ILIKE ${'%' + search + '%'}`,
+      )!
+    );
+  }
 
-  const whereClause = search
-    ? or(ilike(jobsTable.title, `%${search}%`), ilike(jobsTable.company, `%${search}%`), ilike(jobsTable.description, `%${search}%`))
-    : undefined;
+  // Exact-match filters — applied as AND on top of the search
+  if (category) clauses.push(eq(jobsTable.category, category));
+  if (experienceLevel) clauses.push(eq(jobsTable.experienceLevel, experienceLevel));
+
+  const whereClause = clauses.length === 0
+    ? undefined
+    : clauses.length === 1
+      ? clauses[0]
+      : and(...clauses);
 
   const [jobs, countResult] = await Promise.all([
     db.select().from(jobsTable).where(whereClause).limit(limit).offset(offset).orderBy(jobsTable.createdAt),
