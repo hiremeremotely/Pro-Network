@@ -5,7 +5,7 @@ import {
   timeOffRequestsTable,
   employeesTable,
 } from "@workspace/db/schema";
-import { eq, and, gte, lte, sql } from "drizzle-orm";
+import { eq, and, gte, lte, inArray } from "drizzle-orm";
 
 const router = Router();
 
@@ -104,7 +104,9 @@ router.post("/employees/:employeeId/time-off", async (req, res): Promise<void> =
 });
 
 // ── PATCH /time-off/:requestId/review ─────────────────────────────────────────
-// Company approves/rejects a time-off request
+// Company approves/rejects a time-off request.
+// Authorization: companyId from body is verified against the employee's companyProfileId
+// (same pattern as the rest of the codebase — no session middleware in these routes).
 router.patch("/time-off/:requestId/review", async (req, res): Promise<void> => {
   const requestId = parseInt(req.params.requestId);
   const { companyId, status, reviewNote } = req.body;
@@ -117,6 +119,7 @@ router.patch("/time-off/:requestId/review", async (req, res): Promise<void> => {
     .where(eq(timeOffRequestsTable.id, requestId)).limit(1);
   if (!existing.length) { res.status(404).json({ error: "Request not found" }); return; }
 
+  // Verify the company owns the employee who submitted this request
   const emp = await db.select({ id: employeesTable.id }).from(employeesTable)
     .where(and(eq(employeesTable.id, existing[0].employeeId), eq(employeesTable.companyProfileId, parseInt(companyId))))
     .limit(1);
@@ -141,11 +144,7 @@ router.get("/companies/:companyId/attendance/pending-time-off", async (req, res)
 
   const empIds = employees.map(e => e.id);
   const pending = await db.select().from(timeOffRequestsTable)
-    .where(
-      empIds.length === 1
-        ? and(eq(timeOffRequestsTable.employeeId, empIds[0]), eq(timeOffRequestsTable.status, "pending"))
-        : and(timeOffRequestsTable.employeeId.in(empIds), eq(timeOffRequestsTable.status, "pending"))
-    )
+    .where(and(inArray(timeOffRequestsTable.employeeId, empIds), eq(timeOffRequestsTable.status, "pending")))
     .orderBy(timeOffRequestsTable.createdAt);
 
   const empById = Object.fromEntries(employees.map(e => [e.id, e]));
@@ -168,19 +167,17 @@ router.get("/companies/:companyId/attendance/monthly-summary", async (req, res):
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
 
   const empIds = employees.map(e => e.id);
-  const empIdCondition = empIds.length === 1
-    ? eq(workLogsTable.employeeId, empIds[0])
-    : workLogsTable.employeeId.in(empIds);
 
   const logs = await db.select().from(workLogsTable)
-    .where(and(empIdCondition, gte(workLogsTable.date, monthStart), lte(workLogsTable.date, monthEnd)));
-
-  const torCondition = empIds.length === 1
-    ? and(eq(timeOffRequestsTable.employeeId, empIds[0]), eq(timeOffRequestsTable.status, "approved"))
-    : and(timeOffRequestsTable.employeeId.in(empIds), eq(timeOffRequestsTable.status, "approved"));
+    .where(and(inArray(workLogsTable.employeeId, empIds), gte(workLogsTable.date, monthStart), lte(workLogsTable.date, monthEnd)));
 
   const approved = await db.select().from(timeOffRequestsTable)
-    .where(and(torCondition, gte(timeOffRequestsTable.startDate, monthStart), lte(timeOffRequestsTable.endDate, monthEnd)));
+    .where(and(
+      inArray(timeOffRequestsTable.employeeId, empIds),
+      eq(timeOffRequestsTable.status, "approved"),
+      gte(timeOffRequestsTable.startDate, monthStart),
+      lte(timeOffRequestsTable.endDate, monthEnd)
+    ));
 
   const hoursByEmp: Record<number, number> = {};
   for (const log of logs) {
@@ -204,6 +201,20 @@ router.get("/companies/:companyId/attendance/monthly-summary", async (req, res):
   }));
 
   res.json(summary);
+});
+
+// ── GET /my-employment — individual user's employment records ─────────────────
+// Returns all companies the individual is employed at (via employees table)
+// Used by freelancers to find their employeeId for logging work and time-off
+router.get("/my-employment", async (req, res): Promise<void> => {
+  const profileId = parseInt(req.query.profileId as string);
+  if (isNaN(profileId)) { res.status(400).json({ error: "profileId required" }); return; }
+
+  const records = await db.select().from(employeesTable)
+    .where(eq(employeesTable.individualProfileId, profileId))
+    .orderBy(employeesTable.createdAt);
+
+  res.json(records);
 });
 
 export default router;

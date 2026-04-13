@@ -4,7 +4,7 @@ import {
   contractsTable,
   employeesTable,
 } from "@workspace/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 
 const router = Router();
 
@@ -89,11 +89,7 @@ router.get("/companies/:companyId/contracts/renewals", async (req, res): Promise
   const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   const allContracts = await db.select().from(contractsTable)
-    .where(
-      empIds.length === 1
-        ? eq(contractsTable.employeeId, empIds[0])
-        : contractsTable.employeeId.in(empIds)
-    );
+    .where(inArray(contractsTable.employeeId, empIds));
 
   const upcoming = allContracts.filter(c => {
     if (!c.endDate) return false;

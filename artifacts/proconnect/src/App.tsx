@@ -24,6 +24,7 @@ import Messaging from "@/pages/messaging";
 import MyItems from "@/pages/my-items";
 import Analytics from "@/pages/analytics";
 import SalaryEstimator from "@/pages/salary-estimator";
+import MyWork from "@/pages/my-work";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +59,7 @@ function Router() {
             <Route path="/my-items" component={MyItems} />
             <Route path="/analytics" component={Analytics} />
             <Route path="/salary-estimator" component={SalaryEstimator} />
+            <Route path="/my-work" component={MyWork} />
             <Route component={NotFound} />
           </Switch>
         </Layout>
