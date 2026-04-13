@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useConnections } from "@/hooks/use-connections";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   useListJobs, getListJobsQueryKey,
   useListProfiles, getListProfilesQueryKey,
@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useUpload } from "@workspace/object-storage-web";
 import {
   BriefcaseIcon,
   UsersIcon,
@@ -31,6 +32,13 @@ import {
   SaveIcon,
   UserMinusIcon,
   EyeIcon,
+  FileTextIcon,
+  DownloadIcon,
+  UploadIcon,
+  TrashIcon,
+  FileIcon,
+  Square,
+  CheckSquare,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL;
@@ -60,6 +68,24 @@ interface EmployeeRecord {
   job: { title: string; company: string } | null;
 }
 
+interface OnboardingTask {
+  id: number;
+  employeeId: number;
+  title: string;
+  completed: boolean;
+  completedAt?: string | null;
+  order: number;
+}
+
+interface EmployeeDocument {
+  id: number;
+  employeeId: number;
+  fileName: string;
+  objectPath: string;
+  uploadedAt: string;
+  documentType: string;
+}
+
 const STATUS_STYLES: Record<EmployeeStatus, string> = {
   active:      "bg-green-50 text-green-700 border-green-200",
   contractor:  "bg-blue-50 text-blue-700 border-blue-200",
@@ -72,19 +98,462 @@ const STATUS_DOT: Record<EmployeeStatus, string> = {
   "on-leave":  "bg-amber-500",
 };
 
-function TeamMemberModal({
+interface OfferData {
+  employeeName: string;
+  role: string;
+  salary: number | null;
+  currency: string;
+  startDate: string;
+  companyName: string;
+}
+
+const OFFER_TEMPLATES = [
+  {
+    id: "full-time",
+    label: "Remote Full-Time",
+    desc: "Permanent salaried employment",
+    color: "border-indigo-200 bg-indigo-50",
+    badge: "text-indigo-700 bg-indigo-100",
+    render: (d: OfferData) => {
+      const salaryLine = d.salary ? `an annual salary of ${d.currency} ${d.salary.toLocaleString()}` : "a competitive salary to be agreed upon";
+      return `
+<div style="text-align:center;border-bottom:2px solid #6366f1;padding-bottom:20px;margin-bottom:30px">
+  <div style="font-size:26px;font-weight:bold;color:#6366f1">${d.companyName}</div>
+  <div style="color:#666;font-size:13px;margin-top:6px">${new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"})}</div>
+</div>
+<p>Dear <strong>${d.employeeName}</strong>,</p>
+<p>We are pleased to extend this formal offer of employment for the position of <strong>${d.role}</strong> at <strong>${d.companyName}</strong>, effective <strong>${d.startDate}</strong>.</p>
+<h3>Position Details</h3>
+<ul>
+  <li><strong>Title:</strong> ${d.role}</li>
+  <li><strong>Type:</strong> Full-Time, Remote</li>
+  <li><strong>Start Date:</strong> ${d.startDate}</li>
+  <li><strong>Compensation:</strong> ${salaryLine} per year</li>
+</ul>
+<h3>Employment Terms</h3>
+<p>This offer is contingent upon satisfactory completion of any required background or reference checks. You will receive a comprehensive benefits package including health insurance, paid time off, and remote work allowance in accordance with our remote-first policy.</p>
+<p>Please confirm your acceptance of this offer by signing and returning this letter within <strong>5 business days</strong>.</p>
+<div style="margin-top:60px">
+  <p>Sincerely,</p>
+  <p><strong>${d.companyName}</strong></p>
+  <p style="margin-top:40px;border-top:1px solid #ccc;padding-top:10px">Accepted by: _________________________ &nbsp; Date: _____________</p>
+</div>`;
+    },
+  },
+  {
+    id: "contractor",
+    label: "Contractor",
+    desc: "Fixed-term contract engagement",
+    color: "border-blue-200 bg-blue-50",
+    badge: "text-blue-700 bg-blue-100",
+    render: (d: OfferData) => {
+      const salaryLine = d.salary ? `${d.currency} ${d.salary.toLocaleString()} per year (pro-rated for the contract period)` : "an agreed-upon rate to be documented in the accompanying Schedule A";
+      return `
+<div style="text-align:center;border-bottom:2px solid #3b82f6;padding-bottom:20px;margin-bottom:30px">
+  <div style="font-size:26px;font-weight:bold;color:#3b82f6">${d.companyName}</div>
+  <div style="color:#666;font-size:13px;margin-top:6px">${new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"})}</div>
+</div>
+<p>Dear <strong>${d.employeeName}</strong>,</p>
+<p>We are pleased to offer you an engagement as a <strong>Contractor</strong> for the role of <strong>${d.role}</strong> at <strong>${d.companyName}</strong>, commencing <strong>${d.startDate}</strong>.</p>
+<h3>Contract Details</h3>
+<ul>
+  <li><strong>Role:</strong> ${d.role}</li>
+  <li><strong>Engagement Type:</strong> Fixed-Term Contract</li>
+  <li><strong>Start Date:</strong> ${d.startDate}</li>
+  <li><strong>Compensation:</strong> ${salaryLine}</li>
+  <li><strong>Work Arrangement:</strong> Fully Remote</li>
+</ul>
+<h3>Terms & Conditions</h3>
+<p>As a contractor, you will retain independent status and be responsible for your own tax obligations. You will invoice ${d.companyName} according to the schedule outlined in Schedule A. Either party may terminate this agreement with <strong>14 days written notice</strong>.</p>
+<p>Please confirm your acceptance by signing below and returning within <strong>3 business days</strong>.</p>
+<div style="margin-top:60px">
+  <p>For and on behalf of <strong>${d.companyName}</strong>:</p>
+  <p style="margin-top:40px;border-top:1px solid #ccc;padding-top:10px">Contractor signature: _________________________ &nbsp; Date: _____________</p>
+</div>`;
+    },
+  },
+  {
+    id: "freelance",
+    label: "Freelance",
+    desc: "Project-based collaboration",
+    color: "border-purple-200 bg-purple-50",
+    badge: "text-purple-700 bg-purple-100",
+    render: (d: OfferData) => {
+      const salaryLine = d.salary ? `a project budget of ${d.currency} ${d.salary.toLocaleString()}` : "a project rate to be agreed in the accompanying Statement of Work";
+      return `
+<div style="text-align:center;border-bottom:2px solid #8b5cf6;padding-bottom:20px;margin-bottom:30px">
+  <div style="font-size:26px;font-weight:bold;color:#8b5cf6">${d.companyName}</div>
+  <div style="color:#666;font-size:13px;margin-top:6px">${new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"})}</div>
+</div>
+<p>Dear <strong>${d.employeeName}</strong>,</p>
+<p>We would like to engage your services on a freelance basis for the project role of <strong>${d.role}</strong> at <strong>${d.companyName}</strong>, beginning <strong>${d.startDate}</strong>.</p>
+<h3>Project Details</h3>
+<ul>
+  <li><strong>Role:</strong> ${d.role}</li>
+  <li><strong>Engagement:</strong> Freelance / Project-Based</li>
+  <li><strong>Estimated Start:</strong> ${d.startDate}</li>
+  <li><strong>Budget:</strong> ${salaryLine}</li>
+  <li><strong>Work Mode:</strong> 100% Remote</li>
+</ul>
+<h3>Scope & Terms</h3>
+<p>Deliverables and milestones will be specified in the accompanying Statement of Work. You will remain an independent contractor and retain rights to your tools and equipment. Intellectual property created specifically for this project will vest in ${d.companyName} upon full payment.</p>
+<p>Please acknowledge acceptance of these terms within <strong>48 hours</strong>.</p>
+<div style="margin-top:60px">
+  <p>Warm regards,</p>
+  <p><strong>${d.companyName}</strong></p>
+  <p style="margin-top:40px;border-top:1px solid #ccc;padding-top:10px">Freelancer signature: _________________________ &nbsp; Date: _____________</p>
+</div>`;
+    },
+  },
+] as const;
+
+type OfferTemplateId = typeof OFFER_TEMPLATES[number]["id"];
+
+function downloadOfferLetter(templateId: OfferTemplateId, data: OfferData) {
+  const tmpl = OFFER_TEMPLATES.find(t => t.id === templateId);
+  if (!tmpl) return;
+  const body = tmpl.render(data);
+  const html = `<!DOCTYPE html><html lang="en"><head>
+    <meta charset="UTF-8">
+    <title>Offer Letter — ${data.companyName}</title>
+    <style>
+      body { font-family: Georgia, 'Times New Roman', serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; line-height: 1.7; font-size: 15px; }
+      h3 { font-size: 15px; margin-top: 24px; margin-bottom: 8px; }
+      ul { padding-left: 20px; }
+      li { margin-bottom: 4px; }
+      @media print { body { margin: 20px; } }
+    </style>
+  </head><body>${body}</body></html>`;
+  const w = window.open("", "_blank");
+  if (!w) return;
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => { w.print(); }, 400);
+}
+
+function OfferLetterTab({ emp, companyName }: { emp: EmployeeRecord; companyName: string }) {
+  const [selectedTemplate, setSelectedTemplate] = useState<OfferTemplateId | null>(null);
+  const offerData: OfferData = {
+    employeeName: emp.profile?.name ?? "Employee",
+    role: emp.role,
+    salary: emp.salary ?? null,
+    currency: emp.currency ?? "USD",
+    startDate: emp.startDate
+      ? new Date(emp.startDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+      : new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+    companyName,
+  };
+
+  return (
+    <div className="px-6 py-5 space-y-5">
+      <div>
+        <h3 className="text-sm font-semibold text-gray-800 mb-1">Select a template</h3>
+        <p className="text-xs text-gray-500 mb-4">The letter will be pre-filled with {emp.profile?.name ?? "this employee"}'s details. Click "Download PDF" to open a print dialog.</p>
+        <div className="space-y-3">
+          {OFFER_TEMPLATES.map(tmpl => (
+            <button
+              key={tmpl.id}
+              onClick={() => setSelectedTemplate(tmpl.id)}
+              className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
+                selectedTemplate === tmpl.id
+                  ? tmpl.color + " border-current ring-1 ring-current"
+                  : "border-gray-200 hover:border-gray-300 bg-white"
+              }`}
+            >
+              <FileTextIcon className="w-5 h-5 flex-shrink-0 text-gray-500" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900">{tmpl.label}</p>
+                <p className="text-xs text-gray-500">{tmpl.desc}</p>
+              </div>
+              {selectedTemplate === tmpl.id && (
+                <CheckCircleIcon className="w-4 h-4 text-green-500 flex-shrink-0" />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {selectedTemplate && (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Preview</p>
+          <div className="text-xs text-gray-600 space-y-1">
+            <p><span className="font-medium">Recipient:</span> {offerData.employeeName}</p>
+            <p><span className="font-medium">Role:</span> {offerData.role}</p>
+            <p><span className="font-medium">Salary:</span> {offerData.salary ? `${offerData.currency} ${offerData.salary.toLocaleString()} / yr` : "TBD"}</p>
+            <p><span className="font-medium">Start Date:</span> {offerData.startDate}</p>
+            <p><span className="font-medium">Company:</span> {offerData.companyName}</p>
+          </div>
+        </div>
+      )}
+
+      <Button
+        className="w-full gap-2"
+        disabled={!selectedTemplate}
+        onClick={() => selectedTemplate && downloadOfferLetter(selectedTemplate, offerData)}
+      >
+        <DownloadIcon className="w-4 h-4" />
+        Download PDF
+      </Button>
+    </div>
+  );
+}
+
+function OnboardingTab({
   emp,
   companyId,
-  onClose,
-  onUpdate,
-  onRemove,
+  onProgress,
 }: {
   emp: EmployeeRecord;
   companyId: number;
+  onProgress: (completed: number, total: number) => void;
+}) {
+  const [tasks, setTasks] = useState<OnboardingTask[]>([]);
+  const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState<number | null>(null);
+  const [docType, setDocType] = useState("other");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  const { uploadFile } = useUpload({
+    basePath: "/api/storage",
+  });
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${BASE}api/employees/${emp.id}/onboarding?companyId=${companyId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTasks(data.tasks ?? []);
+        setDocuments(data.documents ?? []);
+        const completed = (data.tasks ?? []).filter((t: OnboardingTask) => t.completed).length;
+        onProgress(completed, (data.tasks ?? []).length);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [emp.id, companyId, onProgress]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const toggleTask = async (task: OnboardingTask) => {
+    setToggling(task.id);
+    try {
+      const res = await fetch(`${BASE}api/employees/${emp.id}/onboarding/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed: !task.completed, companyId }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const updated: OnboardingTask = await res.json();
+      const newTasks = tasks.map(t => t.id === updated.id ? updated : t);
+      setTasks(newTasks);
+      const completed = newTasks.filter(t => t.completed).length;
+      onProgress(completed, newTasks.length);
+    } catch {
+      toast({ title: "Error", description: "Could not update task.", variant: "destructive" });
+    } finally {
+      setToggling(null);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const result = await uploadFile(file);
+      if (!result) throw new Error("Upload failed");
+      const res = await fetch(`${BASE}api/employees/${emp.id}/documents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyId,
+          fileName: file.name,
+          objectPath: result.objectPath,
+          documentType: docType,
+        }),
+      });
+      if (!res.ok) throw new Error("Could not save document");
+      const doc = await res.json();
+      setDocuments(prev => [...prev, doc]);
+      toast({ title: "Document uploaded", description: file.name });
+    } catch {
+      toast({ title: "Error", description: "Could not upload document.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const removeDocument = async (doc: EmployeeDocument) => {
+    try {
+      const res = await fetch(
+        `${BASE}api/employees/${emp.id}/documents/${doc.id}?companyId=${companyId}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) throw new Error("Failed");
+      setDocuments(prev => prev.filter(d => d.id !== doc.id));
+      toast({ title: "Document removed" });
+    } catch {
+      toast({ title: "Error", description: "Could not remove document.", variant: "destructive" });
+    }
+  };
+
+  const completedCount = tasks.filter(t => t.completed).length;
+  const pct = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
+
+  const DOC_TYPE_LABELS: Record<string, string> = {
+    contract: "Contract",
+    id: "ID Document",
+    other: "Other",
+  };
+
+  if (loading) {
+    return (
+      <div className="px-6 py-10 text-center text-gray-400 text-sm">Loading onboarding data…</div>
+    );
+  }
+
+  return (
+    <div className="px-6 py-5 space-y-6">
+      {/* Progress */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-semibold text-gray-800">Onboarding Progress</span>
+          <span className="text-sm font-bold text-primary">{completedCount}/{tasks.length} tasks</span>
+        </div>
+        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-primary rounded-full transition-all duration-300"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        {pct === 100 && (
+          <p className="text-xs text-green-600 font-semibold mt-1.5 flex items-center gap-1">
+            <CheckCircleIcon className="w-3.5 h-3.5" /> Onboarding complete!
+          </p>
+        )}
+      </div>
+
+      {/* Checklist */}
+      <div>
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Checklist</h3>
+        <div className="space-y-2">
+          {tasks.map(task => (
+            <button
+              key={task.id}
+              onClick={() => !toggling && toggleTask(task)}
+              disabled={toggling === task.id}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors group text-left"
+            >
+              {task.completed
+                ? <CheckSquare className="w-4.5 h-4.5 text-primary flex-shrink-0 w-5 h-5" />
+                : <Square className="w-5 h-5 text-gray-300 flex-shrink-0 group-hover:text-gray-400 transition-colors" />
+              }
+              <span className={`text-sm flex-1 ${task.completed ? "line-through text-gray-400" : "text-gray-700"}`}>
+                {task.title}
+              </span>
+              {task.completed && task.completedAt && (
+                <span className="text-[10px] text-gray-400 flex-shrink-0">
+                  {new Date(task.completedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </span>
+              )}
+              {toggling === task.id && <span className="text-xs text-gray-400 flex-shrink-0">…</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Document Upload */}
+      <div>
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Documents</h3>
+        <div className="flex items-center gap-2 mb-3">
+          <select
+            value={docType}
+            onChange={e => setDocType(e.target.value)}
+            className="text-xs border border-gray-200 rounded-lg px-2.5 py-2 bg-white focus:outline-none focus:border-primary/50"
+          >
+            <option value="contract">Contract</option>
+            <option value="id">ID Document</option>
+            <option value="other">Other</option>
+          </select>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+            className="gap-1.5 text-xs"
+          >
+            <UploadIcon className="w-3.5 h-3.5" />
+            {uploading ? "Uploading…" : "Upload File"}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
+        </div>
+
+        {documents.length === 0 ? (
+          <p className="text-xs text-gray-400 text-center py-4">No documents uploaded yet</p>
+        ) : (
+          <div className="space-y-2">
+            {documents.map(doc => (
+              <div key={doc.id} className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-gray-100 bg-gray-50">
+                <FileIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-700 truncate">{doc.fileName}</p>
+                  <p className="text-[10px] text-gray-400">
+                    {DOC_TYPE_LABELS[doc.documentType] ?? doc.documentType} ·{" "}
+                    {new Date(doc.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </p>
+                </div>
+                <a
+                  href={`/api/storage${doc.objectPath}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline text-[10px] font-medium flex-shrink-0"
+                >
+                  View
+                </a>
+                <button
+                  onClick={() => removeDocument(doc)}
+                  className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-50 transition-colors flex-shrink-0"
+                >
+                  <TrashIcon className="w-3.5 h-3.5 text-gray-400 hover:text-red-500" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TeamMemberModal({
+  emp,
+  companyId,
+  companyName,
+  onClose,
+  onUpdate,
+  onRemove,
+  onProgressUpdate,
+}: {
+  emp: EmployeeRecord;
+  companyId: number;
+  companyName: string;
   onClose: () => void;
   onUpdate: (updated: EmployeeRecord) => void;
   onRemove: (id: number) => void;
+  onProgressUpdate: (empId: number, completed: number, total: number) => void;
 }) {
+  const [tab, setTab] = useState<"details" | "offer" | "onboarding">("details");
   const [role, setRole] = useState(emp.role);
   const [salary, setSalary] = useState(emp.salary ? String(emp.salary) : "");
   const [status, setStatus] = useState<EmployeeStatus>(emp.status);
@@ -98,12 +567,7 @@ function TeamMemberModal({
       const res = await fetch(`${BASE}api/employees/${emp.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          role,
-          salary: salary ? parseInt(salary) : null,
-          status,
-          companyProfileId: companyId,
-        }),
+        body: JSON.stringify({ role, salary: salary ? parseInt(salary) : null, status, companyProfileId: companyId }),
       });
       if (!res.ok) throw new Error("Save failed");
       const updated = await res.json();
@@ -137,97 +601,148 @@ function TeamMemberModal({
 
   const initials = emp.profile?.name?.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) ?? "?";
 
+  const TABS = [
+    { id: "details" as const, label: "Details" },
+    { id: "offer" as const, label: "Offer Letter" },
+    { id: "onboarding" as const, label: "Onboarding" },
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto overflow-hidden max-h-[90vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-primary/80 to-indigo-500/70 h-20 relative">
+        <div className="bg-gradient-to-r from-primary/80 to-indigo-500/70 h-16 relative flex-shrink-0">
           <button onClick={onClose} className="absolute top-3 right-3 w-7 h-7 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition-colors">
             <XIcon className="w-4 h-4" />
           </button>
         </div>
-        <div className="px-6 -mt-10 pb-6">
-          <Avatar className="w-16 h-16 border-4 border-white shadow-md mb-3">
-            <AvatarImage src={emp.profile?.avatarUrl ?? undefined} />
-            <AvatarFallback className="text-lg font-bold bg-primary/10 text-primary">{initials}</AvatarFallback>
-          </Avatar>
-          <div className="mb-1 flex items-center gap-2">
-            <h2 className="text-xl font-bold text-gray-900">{emp.profile?.name ?? "Unknown"}</h2>
-            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT[emp.status]}`} />
+
+        {/* Employee name row */}
+        <div className="px-6 -mt-8 pb-0 flex-shrink-0">
+          <div className="flex items-end gap-3 mb-3">
+            <Avatar className="w-14 h-14 border-4 border-white shadow-md flex-shrink-0">
+              <AvatarImage src={emp.profile?.avatarUrl ?? undefined} />
+              <AvatarFallback className="text-base font-bold bg-primary/10 text-primary">{initials}</AvatarFallback>
+            </Avatar>
+            <div className="pb-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-gray-900 truncate">{emp.profile?.name ?? "Unknown"}</h2>
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${STATUS_DOT[emp.status]}`} />
+              </div>
+              <p className="text-xs text-gray-500 truncate">{emp.role}</p>
+            </div>
           </div>
-          {emp.profile?.headline && <p className="text-sm text-gray-500 mb-1">{emp.profile.headline}</p>}
-          {emp.profile?.location && (
-            <div className="flex items-center gap-1 text-xs text-gray-400 mb-4">
-              <MapPinIcon className="w-3 h-3" />
-              {emp.profile.location}
+
+          {/* Tabs */}
+          <div className="flex border-b border-gray-200">
+            {TABS.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`px-4 py-2.5 text-xs font-semibold transition-colors relative ${
+                  tab === t.id
+                    ? "text-primary"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {t.label}
+                {tab === t.id && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tab content — scrollable */}
+        <div className="overflow-y-auto flex-1">
+
+          {/* ── Details tab ── */}
+          {tab === "details" && (
+            <div className="px-6 py-5">
+              {emp.profile?.headline && <p className="text-sm text-gray-500 mb-1">{emp.profile.headline}</p>}
+              {emp.profile?.location && (
+                <div className="flex items-center gap-1 text-xs text-gray-400 mb-4">
+                  <MapPinIcon className="w-3 h-3" />
+                  {emp.profile.location}
+                </div>
+              )}
+              <div className="space-y-3 mb-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Role</label>
+                  <input
+                    value={role}
+                    onChange={e => setRole(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Salary / yr</label>
+                    <input
+                      type="number"
+                      value={salary}
+                      onChange={e => setSalary(e.target.value)}
+                      placeholder="e.g. 85000"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Status</label>
+                    <select
+                      value={status}
+                      onChange={e => setStatus(e.target.value as EmployeeStatus)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 bg-white"
+                    >
+                      <option value="active">Active</option>
+                      <option value="contractor">Contractor</option>
+                      <option value="on-leave">On Leave</option>
+                    </select>
+                  </div>
+                </div>
+                {emp.startDate && (
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Start Date</label>
+                    <p className="text-sm text-gray-700">{new Date(emp.startDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
+                  </div>
+                )}
+                {emp.job && (
+                  <div>
+                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Hired For</label>
+                    <p className="text-sm text-gray-700">{emp.job.title}</p>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Link href={`/profiles/${emp.individualProfileId}`} className="flex-1">
+                  <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs">
+                    <EyeIcon className="w-3.5 h-3.5" /> View Profile
+                  </Button>
+                </Link>
+                <Button size="sm" onClick={save} disabled={saving} className="flex-1 gap-1.5 text-xs">
+                  <SaveIcon className="w-3.5 h-3.5" /> {saving ? "Saving…" : "Save"}
+                </Button>
+                <Button size="sm" variant="outline" onClick={remove} disabled={removing} className="text-red-500 border-red-200 hover:bg-red-50 gap-1.5 text-xs">
+                  <UserMinusIcon className="w-3.5 h-3.5" /> Remove
+                </Button>
+              </div>
             </div>
           )}
 
-          {/* Editable fields */}
-          <div className="space-y-3 mb-4">
-            <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Role</label>
-              <input
-                value={role}
-                onChange={e => setRole(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Salary / yr</label>
-                <input
-                  type="number"
-                  value={salary}
-                  onChange={e => setSalary(e.target.value)}
-                  placeholder="e.g. 85000"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Status</label>
-                <select
-                  value={status}
-                  onChange={e => setStatus(e.target.value as EmployeeStatus)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 bg-white"
-                >
-                  <option value="active">Active</option>
-                  <option value="contractor">Contractor</option>
-                  <option value="on-leave">On Leave</option>
-                </select>
-              </div>
-            </div>
-            {emp.startDate && (
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Start Date</label>
-                <p className="text-sm text-gray-700">{new Date(emp.startDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
-              </div>
-            )}
-            {emp.job && (
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Hired For</label>
-                <p className="text-sm text-gray-700">{emp.job.title}</p>
-              </div>
-            )}
-          </div>
+          {/* ── Offer Letter tab ── */}
+          {tab === "offer" && <OfferLetterTab emp={emp} companyName={companyName} />}
 
-          {/* Actions */}
-          <div className="flex gap-2">
-            <Link href={`/profiles/${emp.individualProfileId}`} className="flex-1">
-              <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs">
-                <EyeIcon className="w-3.5 h-3.5" /> View Profile
-              </Button>
-            </Link>
-            <Button size="sm" onClick={save} disabled={saving} className="flex-1 gap-1.5 text-xs">
-              <SaveIcon className="w-3.5 h-3.5" /> {saving ? "Saving…" : "Save"}
-            </Button>
-            <Button size="sm" variant="outline" onClick={remove} disabled={removing} className="text-red-500 border-red-200 hover:bg-red-50 gap-1.5 text-xs">
-              <UserMinusIcon className="w-3.5 h-3.5" /> Remove
-            </Button>
-          </div>
+          {/* ── Onboarding tab ── */}
+          {tab === "onboarding" && (
+            <OnboardingTab
+              emp={emp}
+              companyId={companyId}
+              onProgress={(completed, total) => onProgressUpdate(emp.id, completed, total)}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -242,6 +757,7 @@ export default function CompanyDashboard() {
   const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord | null>(null);
   const [companyApps, setCompanyApps] = useState<{ status: string }[]>([]);
+  const [onboardingProgress, setOnboardingProgress] = useState<Record<number, { total: number; completed: number }>>({});
 
   useEffect(() => {
     if (user && user.accountType !== "company") navigate("/feed");
@@ -258,22 +774,28 @@ export default function CompanyDashboard() {
     { query: { queryKey: getListProfilesQueryKey({ limit: 6, offset: 0 }) } }
   );
 
-  const fetchEmployees = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!user?.id) return;
     setLoadingEmployees(true);
     try {
-      const [empRes, appRes] = await Promise.all([
+      const [empRes, appRes, progressRes] = await Promise.all([
         fetch(`${BASE}api/employees?companyId=${user.id}`),
         fetch(`${BASE}api/companies/${user.id}/applications`),
+        fetch(`${BASE}api/onboarding/progress?companyId=${user.id}`),
       ]);
       if (empRes.ok) setEmployees(await empRes.json());
       if (appRes.ok) setCompanyApps(await appRes.json());
+      if (progressRes.ok) setOnboardingProgress(await progressRes.json());
     } finally {
       setLoadingEmployees(false);
     }
   }, [user?.id]);
 
-  useEffect(() => { fetchEmployees(); }, [fetchEmployees]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleProgressUpdate = useCallback((empId: number, completed: number, total: number) => {
+    setOnboardingProgress(prev => ({ ...prev, [empId]: { total, completed } }));
+  }, []);
 
   const openToWork = (talentData?.profiles ?? []).filter(p => p.openToWork && p.accountType !== "company");
   const myJobs = (jobsData?.jobs ?? []).filter(j => j.companyProfileId === user?.id);
@@ -337,30 +859,10 @@ export default function CompanyDashboard() {
           {/* HR Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              {
-                label: "Total Headcount",
-                value: employees.length,
-                icon: UsersIcon,
-                color: "text-indigo-600 bg-indigo-50",
-              },
-              {
-                label: "Active Employees",
-                value: activeCount,
-                icon: UserCheckIcon,
-                color: "text-green-600 bg-green-50",
-              },
-              {
-                label: "Open Roles",
-                value: myJobs.length,
-                icon: BriefcaseIcon,
-                color: "text-blue-600 bg-blue-50",
-              },
-              {
-                label: "Avg Salary / yr",
-                value: avgSalary ? `$${Math.round(avgSalary / 1000)}k` : "—",
-                icon: DollarSignIcon,
-                color: "text-amber-600 bg-amber-50",
-              },
+              { label: "Total Headcount", value: employees.length, icon: UsersIcon, color: "text-indigo-600 bg-indigo-50" },
+              { label: "Active Employees", value: activeCount, icon: UserCheckIcon, color: "text-green-600 bg-green-50" },
+              { label: "Open Roles", value: myJobs.length, icon: BriefcaseIcon, color: "text-blue-600 bg-blue-50" },
+              { label: "Avg Salary / yr", value: avgSalary ? `$${Math.round(avgSalary / 1000)}k` : "—", icon: DollarSignIcon, color: "text-amber-600 bg-amber-50" },
             ].map(({ label, value, icon: Icon, color }) => (
               <div key={label} className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-2">
                 <div className={`w-9 h-9 rounded-lg ${color} flex items-center justify-center`}>
@@ -428,6 +930,9 @@ export default function CompanyDashboard() {
               <div className="divide-y divide-gray-50">
                 {employees.map(emp => {
                   const initials = emp.profile?.name?.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) ?? "?";
+                  const progress = onboardingProgress[emp.id];
+                  const hasProgress = progress && progress.total > 0;
+                  const progressPct = hasProgress ? Math.round((progress.completed / progress.total) * 100) : null;
                   return (
                     <button
                       key={emp.id}
@@ -441,6 +946,19 @@ export default function CompanyDashboard() {
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm text-gray-900 group-hover:text-primary transition-colors truncate">{emp.profile?.name ?? "Unknown"}</p>
                         <p className="text-xs text-gray-500 truncate">{emp.role}</p>
+                        {hasProgress && progressPct !== null && (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <div className="w-16 h-1 rounded-full bg-gray-100 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${progressPct === 100 ? "bg-green-500" : "bg-primary"}`}
+                                style={{ width: `${progressPct}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] text-gray-400">
+                              {progressPct === 100 ? "Onboarded" : `${progress.completed}/${progress.total} onboarding`}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div className="hidden sm:flex items-center gap-3 flex-shrink-0">
                         {emp.salary && (
@@ -557,9 +1075,9 @@ export default function CompanyDashboard() {
             </div>
             <div className="space-y-3">
               {[
-                { done: !!user?.avatarUrl,  label: "Add a company logo" },
-                { done: !!user?.headline,   label: "Write a company tagline" },
-                { done: myJobs.length > 0,  label: "Post your first job" },
+                { done: !!user?.avatarUrl,    label: "Add a company logo" },
+                { done: !!user?.headline,     label: "Write a company tagline" },
+                { done: myJobs.length > 0,    label: "Post your first job" },
                 { done: employees.length > 0, label: "Add a team member" },
               ].map(({ done, label }) => (
                 <div key={label} className="flex items-center gap-2.5">
@@ -635,7 +1153,7 @@ export default function CompanyDashboard() {
           <div className="bg-gradient-to-br from-primary/5 to-indigo-100/60 rounded-xl border border-primary/15 p-5">
             <p className="text-xs font-semibold text-primary mb-1.5">HR tip</p>
             <p className="text-sm text-gray-700 leading-relaxed">
-              Remote teams with structured onboarding retain employees <strong>50% longer</strong>. Once you hire, use the onboarding toolkit to guide new hires from day one.
+              Remote teams with structured onboarding retain employees <strong>50% longer</strong>. Open any team member and visit the Onboarding tab to track their progress.
             </p>
           </div>
         </div>
@@ -646,12 +1164,14 @@ export default function CompanyDashboard() {
         <TeamMemberModal
           emp={selectedEmployee}
           companyId={user?.id ?? 0}
+          companyName={user?.name ?? "Our Company"}
           onClose={() => setSelectedEmployee(null)}
           onUpdate={updated => {
             setEmployees(prev => prev.map(e => e.id === updated.id ? updated : e));
             setSelectedEmployee(updated);
           }}
           onRemove={id => setEmployees(prev => prev.filter(e => e.id !== id))}
+          onProgressUpdate={handleProgressUpdate}
         />
       )}
     </div>

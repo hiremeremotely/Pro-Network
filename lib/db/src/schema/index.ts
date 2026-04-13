@@ -6,6 +6,7 @@ export * from "./skills";
 export * from "./jobs";
 export * from "./applications";
 export * from "./employees";
+export * from "./onboarding";
 export * from "./posts";
 export * from "./connections";
 export * from "./bookmarks";
