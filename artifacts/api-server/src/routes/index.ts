@@ -19,6 +19,7 @@ import bookmarksRouter from "./bookmarks";
 import analyticsRouter from "./analytics";
 import employeesRouter from "./employees";
 import onboardingRouter from "./onboarding";
+import salaryRouter from "./salary";
 
 const router: IRouter = Router();
 
@@ -31,6 +32,7 @@ router.use(bookmarksRouter);
 router.use(analyticsRouter);
 router.use(employeesRouter);
 router.use(onboardingRouter);
+router.use(salaryRouter);
 router.use(profilesRouter);
 router.use(educationRouter);
 router.use(experienceRouter);

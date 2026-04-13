@@ -23,6 +23,7 @@ import {
 
   BuildingIcon,
   BarChart2Icon,
+  DollarSignIcon,
 } from "lucide-react";
 import logo from "@assets/hr_1775483051104.png";
 import { useAppAuth } from "@/contexts/app-auth";
@@ -553,11 +554,18 @@ export function Layout({ children }: LayoutProps) {
                 </>
               )}
               {user?.accountType === "company" && (
-                <DropdownMenuItem asChild>
-                  <Link href="/company-dashboard" className="flex items-center gap-2 cursor-pointer">
-                    <BuildingIcon className="w-4 h-4" /> Company Dashboard
-                  </Link>
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href="/company-dashboard" className="flex items-center gap-2 cursor-pointer">
+                      <BuildingIcon className="w-4 h-4" /> Company Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/salary-estimator" className="flex items-center gap-2 cursor-pointer">
+                      <DollarSignIcon className="w-4 h-4" /> Salary Estimator
+                    </Link>
+                  </DropdownMenuItem>
+                </>
               )}
               <DropdownMenuItem asChild>
                 <Link href={user ? `/profiles/${user.id}` : "/login"} className="flex items-center gap-2 cursor-pointer">

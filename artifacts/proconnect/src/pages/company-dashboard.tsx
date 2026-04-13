@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useConnections } from "@/hooks/use-connections";
 import { useEffect, useState, useCallback, useRef } from "react";
+import { HRInsightsWidget } from "@/components/hr-insights-widget";
 import {
   useListJobs, getListJobsQueryKey,
   useListProfiles, getListProfilesQueryKey,
@@ -918,11 +919,11 @@ export default function CompanyDashboard() {
             <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">Quick Actions</h2>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {[
-                { label: "Post a Job",    icon: PlusCircleIcon,   href: "/jobs",         color: "bg-primary text-white hover:bg-primary/90" },
-                { label: "Find Talent",   icon: SearchIcon,       href: "/profiles",     color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
-                { label: "Applications", icon: ClipboardListIcon, href: "/applications", color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
-                { label: "Analytics",    icon: BarChart2Icon,     href: "/analytics",    color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
-                { label: "Edit Profile", icon: PencilIcon,        href: "/profile/edit", color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
+                { label: "Post a Job",       icon: PlusCircleIcon,   href: "/jobs",              color: "bg-primary text-white hover:bg-primary/90" },
+                { label: "Find Talent",      icon: SearchIcon,       href: "/profiles",          color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
+                { label: "Applications",     icon: ClipboardListIcon, href: "/applications",     color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
+                { label: "Salary Tool",      icon: DollarSignIcon,   href: "/salary-estimator",  color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
+                { label: "Edit Profile",     icon: PencilIcon,       href: "/profile/edit",      color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
               ].map(({ label, icon: Icon, href, color }) => (
                 <Link key={label} href={href}>
                   <button className={`w-full rounded-xl px-3 py-3.5 text-sm font-semibold flex flex-col items-center gap-2 transition-colors ${color}`}>
@@ -1185,6 +1186,9 @@ export default function CompanyDashboard() {
               })}
             </div>
           </div>
+
+          {/* HR Insights Widget */}
+          {user?.id && <HRInsightsWidget companyProfileId={user.id} />}
 
           {/* HR tip */}
           <div className="bg-gradient-to-br from-primary/5 to-indigo-100/60 rounded-xl border border-primary/15 p-5">
