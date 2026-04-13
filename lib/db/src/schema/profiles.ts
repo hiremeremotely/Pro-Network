@@ -18,6 +18,7 @@ export const profilesTable = pgTable("profiles", {
   linkedinUrl: text("linkedin_url"),
   githubUrl: text("github_url"),
   twitterUrl: text("twitter_url"),
+  interests: text("interests").array().notNull().default([]),
   openToWork: boolean("open_to_work").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

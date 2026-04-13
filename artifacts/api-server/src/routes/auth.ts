@@ -10,9 +10,10 @@ function hashPassword(password: string): string {
 }
 
 router.post("/auth/register", async (req, res): Promise<void> => {
-  const { name, email, password, accountType = "individual", headline = "", location = "" } = req.body as {
+  const { name, email, password, accountType = "individual", headline = "", location = "", industry = "", interests = [] } = req.body as {
     name?: string; email?: string; password?: string;
     accountType?: string; headline?: string; location?: string;
+    industry?: string; interests?: string[];
   };
 
   if (!name || !email || !password) {
@@ -37,6 +38,8 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     accountType: accountType as "individual" | "company",
     headline: headline || (accountType === "company" ? "Company on Hire Me Remotely" : "Professional on Hire Me Remotely"),
     location: location || undefined,
+    industry: industry || undefined,
+    interests: Array.isArray(interests) ? interests : [],
     openToWork: false,
   }).returning();
 

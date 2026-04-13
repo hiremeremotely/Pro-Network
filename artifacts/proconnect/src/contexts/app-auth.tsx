@@ -25,6 +25,8 @@ interface SignupData {
   accountType: string;
   headline?: string;
   location?: string;
+  industry?: string;
+  interests?: string[];
 }
 
 const Ctx = createContext<AppAuthCtx | null>(null);
