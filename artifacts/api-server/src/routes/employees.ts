@@ -34,6 +34,11 @@ router.post("/employees", async (req, res): Promise<void> => {
   }
   const cId = Number(companyProfileId);
   const iId = Number(individualProfileId);
+  const VALID_STATUSES = ["active", "contractor", "on-leave"];
+  if (status !== undefined && !VALID_STATUSES.includes(status)) {
+    res.status(400).json({ error: `status must be one of: ${VALID_STATUSES.join(", ")}` });
+    return;
+  }
   // Idempotency: check if this employee record already exists
   const existing = await db
     .select()
@@ -69,13 +74,20 @@ router.patch("/employees/:id", async (req, res): Promise<void> => {
     return;
   }
   const { role, salary, currency, status, startDate, companyProfileId } = req.body;
-  // Ownership check: caller must provide the owning companyProfileId
-  if (companyProfileId) {
-    const [record] = await db.select().from(employeesTable).where(eq(employeesTable.id, id));
-    if (!record || record.companyProfileId !== Number(companyProfileId)) {
-      res.status(403).json({ error: "Forbidden" });
-      return;
-    }
+  const VALID_STATUSES = ["active", "contractor", "on-leave"];
+  if (!companyProfileId) {
+    res.status(400).json({ error: "companyProfileId is required" });
+    return;
+  }
+  // Unconditional ownership check
+  const [record] = await db.select().from(employeesTable).where(eq(employeesTable.id, id));
+  if (!record || record.companyProfileId !== Number(companyProfileId)) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  if (status !== undefined && !VALID_STATUSES.includes(status)) {
+    res.status(400).json({ error: `status must be one of: ${VALID_STATUSES.join(", ")}` });
+    return;
   }
   const updates: Record<string, unknown> = {};
   if (role !== undefined)      updates.role = String(role);
@@ -104,12 +116,15 @@ router.delete("/employees/:id", async (req, res): Promise<void> => {
     return;
   }
   const companyProfileId = req.query.companyProfileId as string | undefined;
-  if (companyProfileId) {
-    const [record] = await db.select().from(employeesTable).where(eq(employeesTable.id, id));
-    if (!record || record.companyProfileId !== Number(companyProfileId)) {
-      res.status(403).json({ error: "Forbidden" });
-      return;
-    }
+  if (!companyProfileId) {
+    res.status(400).json({ error: "companyProfileId query param is required" });
+    return;
+  }
+  // Unconditional ownership check
+  const [record] = await db.select().from(employeesTable).where(eq(employeesTable.id, id));
+  if (!record || record.companyProfileId !== Number(companyProfileId)) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
   }
   await db.delete(employeesTable).where(eq(employeesTable.id, id));
   res.status(204).end();
@@ -155,16 +170,20 @@ router.patch("/applications/:id/status", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid parameters" });
     return;
   }
-  // Ownership check: ensure this application belongs to a job posted by the requesting company
-  if (companyProfileId) {
-    const [existingApp] = await db.select().from(applicationsTable).where(eq(applicationsTable.id, id));
-    if (existingApp) {
-      const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, existingApp.jobId));
-      if (!job || job.companyProfileId !== Number(companyProfileId)) {
-        res.status(403).json({ error: "Forbidden" });
-        return;
-      }
-    }
+  if (!companyProfileId) {
+    res.status(400).json({ error: "companyProfileId is required" });
+    return;
+  }
+  // Unconditional ownership check: application must belong to a job posted by this company
+  const [existingApp] = await db.select().from(applicationsTable).where(eq(applicationsTable.id, id));
+  if (!existingApp) {
+    res.status(404).json({ error: "Application not found" });
+    return;
+  }
+  const [ownerJob] = await db.select().from(jobsTable).where(eq(jobsTable.id, existingApp.jobId));
+  if (!ownerJob || ownerJob.companyProfileId !== Number(companyProfileId)) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
   }
   const [app] = await db
     .update(applicationsTable)

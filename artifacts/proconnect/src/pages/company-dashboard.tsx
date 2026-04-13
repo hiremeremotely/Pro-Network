@@ -120,12 +120,16 @@ function TeamMemberModal({
     if (!confirm(`Remove ${emp.profile?.name ?? "this employee"} from your team?`)) return;
     setRemoving(true);
     try {
-      await fetch(`${BASE}api/employees/${emp.id}?companyProfileId=${companyId}`, { method: "DELETE" });
+      const res = await fetch(`${BASE}api/employees/${emp.id}?companyProfileId=${companyId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? "Delete failed");
+      }
       onRemove(emp.id);
       onClose();
       toast({ title: "Removed", description: "Employee removed from team." });
-    } catch {
-      toast({ title: "Error", description: "Could not remove employee.", variant: "destructive" });
+    } catch (e: unknown) {
+      toast({ title: "Error", description: e instanceof Error ? e.message : "Could not remove employee.", variant: "destructive" });
     } finally {
       setRemoving(false);
     }
