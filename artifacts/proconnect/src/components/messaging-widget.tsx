@@ -72,8 +72,8 @@ function ChatWindow({
   const { isConnected: checkConnected, toggleConnect } = useConnections();
 
   const { data: messages = [] } = useQuery<Message[]>({
-    queryKey: ["messages", conv.id],
-    queryFn: () => fetch(`${BASE}api/conversations/${conv.id}/messages`).then(r => r.json()),
+    queryKey: ["messages", conv.id, myId],
+    queryFn: () => fetch(`${BASE}api/conversations/${conv.id}/messages?profileId=${myId}`).then(r => r.json()),
     refetchInterval: minimized ? false : 3000,
     staleTime: 0,
   });

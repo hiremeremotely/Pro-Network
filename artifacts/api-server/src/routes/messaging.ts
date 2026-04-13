@@ -382,11 +382,14 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
     }
   } else {
     // Direct conversation: sender must be a participant
-    const otherProfileId = conv.participant1Id === Number(senderProfileId)
-      ? conv.participant2Id
-      : conv.participant1Id;
+    const senderId = Number(senderProfileId);
+    if (conv.participant1Id !== senderId && conv.participant2Id !== senderId) {
+      res.status(403).json({ error: "Access denied: you are not a participant in this conversation" });
+      return;
+    }
 
-    const connected = await areConnected(Number(senderProfileId), otherProfileId);
+    const otherProfileId = conv.participant1Id === senderId ? conv.participant2Id : conv.participant1Id;
+    const connected = await areConnected(senderId, otherProfileId);
 
     if (!connected) {
       const [{ senderMsgCount }] = await db
@@ -394,7 +397,7 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
         .from(messagesTable)
         .where(and(
           eq(messagesTable.conversationId, convId),
-          eq(messagesTable.senderProfileId, Number(senderProfileId)),
+          eq(messagesTable.senderProfileId, senderId),
         ));
 
       if (senderMsgCount >= 1) {
