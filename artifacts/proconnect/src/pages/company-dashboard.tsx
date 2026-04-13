@@ -19,7 +19,6 @@ import {
   SearchIcon,
   ClipboardListIcon,
   PencilIcon,
-  BarChart2Icon,
   MapPinIcon,
   ArrowRightIcon,
   BuildingIcon,
@@ -40,6 +39,12 @@ import {
   FileIcon,
   Square,
   CheckSquare,
+  CalendarIcon,
+  AlertCircleIcon,
+  TimerIcon,
+  PlusIcon,
+  ThumbsUpIcon,
+  ThumbsDownIcon,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL;
@@ -564,6 +569,545 @@ function OnboardingTab({
   );
 }
 
+// ── ContractTab ───────────────────────────────────────────────────────────────
+interface ContractData {
+  id?: number;
+  type: string;
+  startDate: string;
+  endDate: string;
+  rate: string;
+  currency: string;
+  paymentStatus: string;
+  notes: string;
+}
+
+const CONTRACT_TYPE_LABELS: Record<string, string> = {
+  "full-time": "Full-Time",
+  "part-time": "Part-Time",
+  "freelance": "Freelance",
+  "contractor": "Contractor",
+};
+
+const PAYMENT_STATUS_STYLES: Record<string, string> = {
+  paid:     "bg-green-50 text-green-700 border-green-200",
+  due:      "bg-amber-50 text-amber-700 border-amber-200",
+  overdue:  "bg-red-50 text-red-700 border-red-200",
+};
+
+function ContractTab({ emp, companyId }: { emp: EmployeeRecord; companyId: number }) {
+  const [contract, setContract] = useState<ContractData>({
+    type: "full-time",
+    startDate: emp.startDate ? emp.startDate.slice(0, 10) : "",
+    endDate: "",
+    rate: emp.salary ? String(emp.salary) : "",
+    currency: emp.currency ?? "USD",
+    paymentStatus: "paid",
+    notes: "",
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${BASE}api/employees/${emp.id}/contract?companyId=${companyId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data) {
+            setContract({
+              id: data.id,
+              type: data.type ?? "full-time",
+              startDate: data.startDate ? data.startDate.slice(0, 10) : "",
+              endDate: data.endDate ? data.endDate.slice(0, 10) : "",
+              rate: data.rate ?? "",
+              currency: data.currency ?? "USD",
+              paymentStatus: data.paymentStatus ?? "paid",
+              notes: data.notes ?? "",
+            });
+          }
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [emp.id, companyId]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`${BASE}api/employees/${emp.id}/contract`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...contract, companyId }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      setContract(prev => ({ ...prev, id: data.id }));
+      toast({ title: "Contract saved" });
+    } catch {
+      toast({ title: "Error", description: "Could not save contract.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const daysToExpiry = contract.endDate
+    ? Math.ceil((new Date(contract.endDate).getTime() - Date.now()) / 86400000)
+    : null;
+
+  if (loading) {
+    return <div className="px-6 py-10 text-center text-gray-400 text-sm">Loading contract…</div>;
+  }
+
+  return (
+    <div className="px-6 py-5 space-y-4">
+      {/* Renewal warning */}
+      {daysToExpiry !== null && daysToExpiry >= 0 && daysToExpiry <= 30 && (
+        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-3">
+          <AlertCircleIcon className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-semibold text-amber-800">Renewal due soon</p>
+            <p className="text-xs text-amber-700">
+              {daysToExpiry === 0 ? "Contract expires today" : `Expires in ${daysToExpiry} day${daysToExpiry === 1 ? "" : "s"}`}
+            </p>
+          </div>
+        </div>
+      )}
+      {daysToExpiry !== null && daysToExpiry < 0 && (
+        <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl px-3.5 py-3">
+          <AlertCircleIcon className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+          <p className="text-xs font-semibold text-red-800">Contract has expired — please renew</p>
+        </div>
+      )}
+
+      {/* Contract type */}
+      <div>
+        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Contract Type</label>
+        <div className="grid grid-cols-2 gap-2">
+          {Object.entries(CONTRACT_TYPE_LABELS).map(([val, lbl]) => (
+            <button
+              key={val}
+              onClick={() => setContract(c => ({ ...c, type: val }))}
+              className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-colors text-left ${
+                contract.type === val
+                  ? "bg-primary/10 border-primary/40 text-primary"
+                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {lbl}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Dates */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Start Date</label>
+          <input
+            type="date"
+            value={contract.startDate}
+            onChange={e => setContract(c => ({ ...c, startDate: e.target.value }))}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">End Date</label>
+          <input
+            type="date"
+            value={contract.endDate}
+            onChange={e => setContract(c => ({ ...c, endDate: e.target.value }))}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
+          />
+        </div>
+      </div>
+
+      {/* Rate + currency */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Rate / yr</label>
+          <input
+            type="number"
+            value={contract.rate}
+            onChange={e => setContract(c => ({ ...c, rate: e.target.value }))}
+            placeholder="e.g. 85000"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Currency</label>
+          <select
+            value={contract.currency}
+            onChange={e => setContract(c => ({ ...c, currency: e.target.value }))}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none"
+          >
+            {["USD","EUR","GBP","CAD","AUD","INR","BRL"].map(cur => (
+              <option key={cur} value={cur}>{cur}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Payment status */}
+      <div>
+        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Payment Status</label>
+        <div className="flex gap-2">
+          {(["paid","due","overdue"] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => setContract(c => ({ ...c, paymentStatus: s }))}
+              className={`flex-1 py-1.5 rounded-lg border text-xs font-semibold capitalize transition-colors ${
+                contract.paymentStatus === s
+                  ? PAYMENT_STATUS_STYLES[s]
+                  : "border-gray-200 text-gray-400 hover:bg-gray-50"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div>
+        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Notes</label>
+        <textarea
+          value={contract.notes}
+          onChange={e => setContract(c => ({ ...c, notes: e.target.value }))}
+          rows={2}
+          placeholder="Additional terms or comments…"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50 resize-none"
+        />
+      </div>
+
+      <Button onClick={save} disabled={saving} className="w-full gap-2">
+        <SaveIcon className="w-4 h-4" />
+        {saving ? "Saving…" : contract.id ? "Update Contract" : "Create Contract"}
+      </Button>
+    </div>
+  );
+}
+
+// ── AttendanceTab ─────────────────────────────────────────────────────────────
+interface WorkLog {
+  id: number;
+  employeeId: number;
+  date: string;
+  hours: string;
+  description: string | null;
+  createdAt: string;
+}
+
+interface TimeOffRequest {
+  id: number;
+  employeeId: number;
+  startDate: string;
+  endDate: string;
+  reason: string | null;
+  status: string;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  createdAt: string;
+}
+
+const STATUS_BADGE: Record<string, string> = {
+  pending:  "bg-amber-50 text-amber-700 border-amber-200",
+  approved: "bg-green-50 text-green-700 border-green-200",
+  rejected: "bg-red-50 text-red-700 border-red-200",
+};
+
+function AttendanceTab({ emp, companyId }: { emp: EmployeeRecord; companyId: number }) {
+  const [logs, setLogs] = useState<WorkLog[]>([]);
+  const [timeOff, setTimeOff] = useState<TimeOffRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newLog, setNewLog] = useState({ date: new Date().toISOString().slice(0, 10), hours: "", description: "" });
+  const [newTOR, setNewTOR] = useState({ startDate: "", endDate: "", reason: "" });
+  const [addingLog, setAddingLog] = useState(false);
+  const [addingTOR, setAddingTOR] = useState(false);
+  const [showLogForm, setShowLogForm] = useState(false);
+  const [showTORForm, setShowTORForm] = useState(false);
+  const [reviewing, setReviewing] = useState<number | null>(null);
+  const { toast } = useToast();
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [logRes, torRes] = await Promise.all([
+        fetch(`${BASE}api/employees/${emp.id}/work-logs?companyId=${companyId}`),
+        fetch(`${BASE}api/employees/${emp.id}/time-off?companyId=${companyId}`),
+      ]);
+      if (logRes.ok) setLogs(await logRes.json());
+      if (torRes.ok) setTimeOff(await torRes.json());
+    } finally {
+      setLoading(false);
+    }
+  }, [emp.id, companyId]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const submitLog = async () => {
+    if (!newLog.hours || isNaN(Number(newLog.hours))) return;
+    setAddingLog(true);
+    try {
+      const res = await fetch(`${BASE}api/employees/${emp.id}/work-logs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...newLog, companyId }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const log = await res.json();
+      setLogs(prev => [...prev, log]);
+      setNewLog({ date: new Date().toISOString().slice(0, 10), hours: "", description: "" });
+      setShowLogForm(false);
+      toast({ title: "Work log added" });
+    } catch {
+      toast({ title: "Error", description: "Could not add log.", variant: "destructive" });
+    } finally {
+      setAddingLog(false);
+    }
+  };
+
+  const deleteLog = async (logId: number) => {
+    try {
+      await fetch(`${BASE}api/employees/${emp.id}/work-logs/${logId}?companyId=${companyId}`, { method: "DELETE" });
+      setLogs(prev => prev.filter(l => l.id !== logId));
+    } catch {
+      toast({ title: "Error", description: "Could not delete log.", variant: "destructive" });
+    }
+  };
+
+  const submitTOR = async () => {
+    if (!newTOR.startDate || !newTOR.endDate) return;
+    setAddingTOR(true);
+    try {
+      const res = await fetch(`${BASE}api/employees/${emp.id}/time-off`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...newTOR, companyId }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const tor = await res.json();
+      setTimeOff(prev => [...prev, tor]);
+      setNewTOR({ startDate: "", endDate: "", reason: "" });
+      setShowTORForm(false);
+      toast({ title: "Time-off request submitted" });
+    } catch {
+      toast({ title: "Error", description: "Could not submit request.", variant: "destructive" });
+    } finally {
+      setAddingTOR(false);
+    }
+  };
+
+  const reviewTOR = async (requestId: number, status: "approved" | "rejected") => {
+    setReviewing(requestId);
+    try {
+      const res = await fetch(`${BASE}api/time-off/${requestId}/review`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyId, status }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const updated = await res.json();
+      setTimeOff(prev => prev.map(r => r.id === requestId ? updated : r));
+      toast({ title: status === "approved" ? "Approved" : "Rejected" });
+    } catch {
+      toast({ title: "Error", description: "Could not process request.", variant: "destructive" });
+    } finally {
+      setReviewing(null);
+    }
+  };
+
+  // Monthly summary
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const thisMonthLogs = logs.filter(l => l.date >= monthStart && l.date <= monthEnd);
+  const totalHours = thisMonthLogs.reduce((s, l) => s + Number(l.hours), 0);
+  const approvedTOR = timeOff.filter(r => r.status === "approved" && r.startDate >= monthStart);
+  const totalDaysOff = approvedTOR.reduce((s, r) => {
+    return s + Math.max(1, Math.round((new Date(r.endDate).getTime() - new Date(r.startDate).getTime()) / 86400000) + 1);
+  }, 0);
+
+  if (loading) {
+    return <div className="px-6 py-10 text-center text-gray-400 text-sm">Loading attendance…</div>;
+  }
+
+  return (
+    <div className="px-6 py-5 space-y-5">
+      {/* Monthly summary card */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-center">
+          <TimerIcon className="w-4 h-4 text-indigo-500 mx-auto mb-1" />
+          <p className="text-xl font-bold text-indigo-700">{totalHours.toFixed(1)}</p>
+          <p className="text-xs text-indigo-500">hrs logged this month</p>
+        </div>
+        <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-center">
+          <CalendarIcon className="w-4 h-4 text-green-500 mx-auto mb-1" />
+          <p className="text-xl font-bold text-green-700">{totalDaysOff}</p>
+          <p className="text-xs text-green-500">approved days off</p>
+        </div>
+      </div>
+
+      {/* Work logs */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Work Logs</h3>
+          <button
+            onClick={() => setShowLogForm(v => !v)}
+            className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+          >
+            <PlusIcon className="w-3.5 h-3.5" /> Log hours
+          </button>
+        </div>
+        {showLogForm && (
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-3 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="date"
+                value={newLog.date}
+                onChange={e => setNewLog(l => ({ ...l, date: e.target.value }))}
+                className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+              />
+              <input
+                type="number"
+                value={newLog.hours}
+                onChange={e => setNewLog(l => ({ ...l, hours: e.target.value }))}
+                placeholder="Hours worked"
+                min="0.5"
+                max="24"
+                step="0.5"
+                className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+              />
+            </div>
+            <input
+              value={newLog.description}
+              onChange={e => setNewLog(l => ({ ...l, description: e.target.value }))}
+              placeholder="What did you work on? (optional)"
+              className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+            />
+            <Button size="sm" onClick={submitLog} disabled={addingLog || !newLog.hours} className="w-full text-xs gap-1">
+              <SaveIcon className="w-3 h-3" /> {addingLog ? "Saving…" : "Save Log"}
+            </Button>
+          </div>
+        )}
+        {logs.length === 0 ? (
+          <p className="text-xs text-gray-400 text-center py-3">No work logs yet</p>
+        ) : (
+          <div className="space-y-1.5 max-h-36 overflow-y-auto">
+            {[...logs].reverse().map(log => (
+              <div key={log.id} className="flex items-start gap-2 px-3 py-2 rounded-lg border border-gray-100 bg-white">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-gray-700">{Number(log.hours)}h</span>
+                    <span className="text-[10px] text-gray-400">{new Date(log.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                  </div>
+                  {log.description && <p className="text-[11px] text-gray-500 truncate">{log.description}</p>}
+                </div>
+                <button onClick={() => deleteLog(log.id)} className="w-5 h-5 flex items-center justify-center rounded hover:bg-red-50 flex-shrink-0">
+                  <TrashIcon className="w-3 h-3 text-gray-300 hover:text-red-400" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Time-off requests */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Time-Off Requests</h3>
+          <button
+            onClick={() => setShowTORForm(v => !v)}
+            className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+          >
+            <PlusIcon className="w-3.5 h-3.5" /> Request
+          </button>
+        </div>
+        {showTORForm && (
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-3 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] text-gray-500 block mb-0.5">From</label>
+                <input
+                  type="date"
+                  value={newTOR.startDate}
+                  onChange={e => setNewTOR(t => ({ ...t, startDate: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-500 block mb-0.5">To</label>
+                <input
+                  type="date"
+                  value={newTOR.endDate}
+                  onChange={e => setNewTOR(t => ({ ...t, endDate: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+                />
+              </div>
+            </div>
+            <input
+              value={newTOR.reason}
+              onChange={e => setNewTOR(t => ({ ...t, reason: e.target.value }))}
+              placeholder="Reason (optional)"
+              className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none"
+            />
+            <Button size="sm" onClick={submitTOR} disabled={addingTOR || !newTOR.startDate || !newTOR.endDate} className="w-full text-xs gap-1">
+              <SaveIcon className="w-3 h-3" /> {addingTOR ? "Submitting…" : "Submit Request"}
+            </Button>
+          </div>
+        )}
+        {timeOff.length === 0 ? (
+          <p className="text-xs text-gray-400 text-center py-3">No time-off requests yet</p>
+        ) : (
+          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+            {[...timeOff].reverse().map(tor => (
+              <div key={tor.id} className="px-3 py-2 rounded-lg border border-gray-100 bg-white space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <CalendarIcon className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                    <span className="text-xs text-gray-700 font-medium">
+                      {new Date(tor.startDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      {" – "}
+                      {new Date(tor.endDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </span>
+                  </div>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border capitalize ${STATUS_BADGE[tor.status] ?? "bg-gray-50 text-gray-500"}`}>
+                    {tor.status}
+                  </span>
+                </div>
+                {tor.reason && <p className="text-[11px] text-gray-500 truncate">{tor.reason}</p>}
+                {tor.status === "pending" && (
+                  <div className="flex gap-1.5 pt-0.5">
+                    <Button
+                      size="sm"
+                      onClick={() => reviewTOR(tor.id, "approved")}
+                      disabled={reviewing === tor.id}
+                      className="flex-1 h-6 text-[10px] gap-1 bg-green-600 hover:bg-green-700"
+                    >
+                      <ThumbsUpIcon className="w-2.5 h-2.5" /> Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => reviewTOR(tor.id, "rejected")}
+                      disabled={reviewing === tor.id}
+                      className="flex-1 h-6 text-[10px] gap-1 text-red-600 border-red-200 hover:bg-red-50"
+                    >
+                      <ThumbsDownIcon className="w-2.5 h-2.5" /> Reject
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TeamMemberModal({
   emp,
   companyId,
@@ -581,7 +1125,7 @@ function TeamMemberModal({
   onRemove: (id: number) => void;
   onProgressUpdate: (empId: number, completed: number, total: number) => void;
 }) {
-  const [tab, setTab] = useState<"details" | "offer" | "onboarding">("details");
+  const [tab, setTab] = useState<"details" | "offer" | "onboarding" | "contract" | "attendance">("details");
   const [role, setRole] = useState(emp.role);
   const [salary, setSalary] = useState(emp.salary ? String(emp.salary) : "");
   const [status, setStatus] = useState<EmployeeStatus>(emp.status);
@@ -631,6 +1175,8 @@ function TeamMemberModal({
 
   const TABS = [
     { id: "details" as const, label: "Details" },
+    { id: "contract" as const, label: "Contract" },
+    { id: "attendance" as const, label: "Attendance" },
     { id: "offer" as const, label: "Offer Letter" },
     { id: "onboarding" as const, label: "Onboarding" },
   ];
@@ -770,6 +1316,12 @@ function TeamMemberModal({
             </div>
           )}
 
+          {/* ── Contract tab ── */}
+          {tab === "contract" && <ContractTab emp={emp} companyId={companyId} />}
+
+          {/* ── Attendance tab ── */}
+          {tab === "attendance" && <AttendanceTab emp={emp} companyId={companyId} />}
+
           {/* ── Offer Letter tab ── */}
           {tab === "offer" && <OfferLetterTab emp={emp} companyName={companyName} />}
 
@@ -796,6 +1348,10 @@ export default function CompanyDashboard() {
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord | null>(null);
   const [companyApps, setCompanyApps] = useState<{ status: string }[]>([]);
   const [onboardingProgress, setOnboardingProgress] = useState<Record<number, { total: number; completed: number }>>({});
+  const [renewals, setRenewals] = useState<Array<{ id: number; type: string; endDate: string; employee: { id: number; role: string; individualProfileId: number } | null }>>([]);
+  const [pendingTimeOff, setPendingTimeOff] = useState<Array<{ id: number; startDate: string; endDate: string; reason: string | null; employee: { id: number; role: string; individualProfileId: number } | null }>>([]);
+  const [monthlySummary, setMonthlySummary] = useState<Array<{ employeeId: number; role: string; hoursLogged: number; daysOff: number }>>([]);
+  const [reviewingTOR, setReviewingTOR] = useState<number | null>(null);
 
   useEffect(() => {
     if (user && user.accountType !== "company") navigate("/feed");
@@ -816,14 +1372,20 @@ export default function CompanyDashboard() {
     if (!user?.id) return;
     setLoadingEmployees(true);
     try {
-      const [empRes, appRes, progressRes] = await Promise.all([
+      const [empRes, appRes, progressRes, renewalRes, torRes, summaryRes] = await Promise.all([
         fetch(`${BASE}api/employees?companyId=${user.id}`),
         fetch(`${BASE}api/companies/${user.id}/applications`),
         fetch(`${BASE}api/onboarding/progress?companyId=${user.id}`),
+        fetch(`${BASE}api/companies/${user.id}/contracts/renewals`),
+        fetch(`${BASE}api/companies/${user.id}/attendance/pending-time-off`),
+        fetch(`${BASE}api/companies/${user.id}/attendance/monthly-summary`),
       ]);
       if (empRes.ok) setEmployees(await empRes.json());
       if (appRes.ok) setCompanyApps(await appRes.json());
       if (progressRes.ok) setOnboardingProgress(await progressRes.json());
+      if (renewalRes.ok) setRenewals(await renewalRes.json());
+      if (torRes.ok) setPendingTimeOff(await torRes.json());
+      if (summaryRes.ok) setMonthlySummary(await summaryRes.json());
     } finally {
       setLoadingEmployees(false);
     }
@@ -834,6 +1396,23 @@ export default function CompanyDashboard() {
   const handleProgressUpdate = useCallback((empId: number, completed: number, total: number) => {
     setOnboardingProgress(prev => ({ ...prev, [empId]: { total, completed } }));
   }, []);
+
+  const handleReviewTOR = useCallback(async (requestId: number, status: "approved" | "rejected") => {
+    if (!user?.id) return;
+    setReviewingTOR(requestId);
+    try {
+      const res = await fetch(`${BASE}api/time-off/${requestId}/review`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyId: user.id, status }),
+      });
+      if (res.ok) {
+        setPendingTimeOff(prev => prev.filter(r => r.id !== requestId));
+      }
+    } finally {
+      setReviewingTOR(null);
+    }
+  }, [user?.id]);
 
   const openToWork = (talentData?.profiles ?? []).filter(p => p.openToWork && p.accountType !== "company");
   const myJobs = (jobsData?.jobs ?? []).filter(j => j.companyProfileId === user?.id);
@@ -1021,6 +1600,155 @@ export default function CompanyDashboard() {
               </div>
             )}
           </div>
+
+          {/* Contract Renewals */}
+          {renewals.length > 0 && (
+            <div className="bg-white rounded-xl border border-amber-200 overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-amber-100 bg-amber-50/60">
+                <div className="flex items-center gap-2">
+                  <AlertCircleIcon className="w-4 h-4 text-amber-600" />
+                  <div>
+                    <h2 className="font-semibold text-gray-900 text-sm">Upcoming Contract Renewals</h2>
+                    <p className="text-xs text-amber-600">{renewals.length} contract{renewals.length !== 1 ? "s" : ""} expiring within 30 days</p>
+                  </div>
+                </div>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {renewals.map(renewal => {
+                  const daysLeft = Math.ceil((new Date(renewal.endDate).getTime() - Date.now()) / 86400000);
+                  const emp = employees.find(e => e.id === renewal.employee?.id);
+                  return (
+                    <div key={renewal.id} className="flex items-center gap-4 px-5 py-3.5">
+                      <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                        <FileTextIcon className="w-4 h-4 text-amber-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{renewal.employee?.role ?? "Unknown role"}</p>
+                        <p className="text-xs text-gray-500 capitalize">{CONTRACT_TYPE_LABELS[renewal.type] ?? renewal.type} · Ends {new Date(renewal.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${daysLeft <= 7 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                          {daysLeft === 0 ? "Today" : `${daysLeft}d`}
+                        </span>
+                        {emp && (
+                          <Button size="sm" variant="outline" onClick={() => setSelectedEmployee(emp)} className="text-xs h-7 px-2.5">
+                            Renew
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Pending Time-Off Approvals */}
+          {pendingTimeOff.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <div>
+                  <h2 className="font-semibold text-gray-900 text-sm">Pending Time-Off Requests</h2>
+                  <p className="text-xs text-gray-400">{pendingTimeOff.length} awaiting your approval</p>
+                </div>
+                <CalendarIcon className="w-4 h-4 text-gray-400" />
+              </div>
+              <div className="divide-y divide-gray-50">
+                {pendingTimeOff.map(tor => {
+                  const emp = employees.find(e => e.id === tor.employee?.id);
+                  const days = Math.max(1, Math.round((new Date(tor.endDate).getTime() - new Date(tor.startDate).getTime()) / 86400000) + 1);
+                  return (
+                    <div key={tor.id} className="flex items-start gap-3 px-5 py-3.5">
+                      <Avatar className="w-8 h-8 border border-gray-100 flex-shrink-0">
+                        <AvatarImage src={emp?.profile?.avatarUrl ?? undefined} />
+                        <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
+                          {emp?.profile?.name?.split(" ").map(n => n[0]).join("").slice(0, 2) ?? "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{emp?.profile?.name ?? tor.employee?.role ?? "Employee"}</p>
+                          <span className="text-xs text-gray-400 flex-shrink-0">{days}d off</span>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          {new Date(tor.startDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          {" – "}
+                          {new Date(tor.endDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          {tor.reason && ` · ${tor.reason}`}
+                        </p>
+                        <div className="flex gap-1.5 mt-1.5">
+                          <Button
+                            size="sm"
+                            onClick={() => handleReviewTOR(tor.id, "approved")}
+                            disabled={reviewingTOR === tor.id}
+                            className="h-6 text-[10px] gap-1 bg-green-600 hover:bg-green-700 px-2.5"
+                          >
+                            <ThumbsUpIcon className="w-2.5 h-2.5" /> Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleReviewTOR(tor.id, "rejected")}
+                            disabled={reviewingTOR === tor.id}
+                            className="h-6 text-[10px] gap-1 text-red-600 border-red-200 hover:bg-red-50 px-2.5"
+                          >
+                            <ThumbsDownIcon className="w-2.5 h-2.5" /> Reject
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Monthly Attendance Summary */}
+          {monthlySummary.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <div>
+                  <h2 className="font-semibold text-gray-900 text-sm">This Month's Summary</h2>
+                  <p className="text-xs text-gray-400">
+                    {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })} · hours logged + time off
+                  </p>
+                </div>
+                <TimerIcon className="w-4 h-4 text-gray-400" />
+              </div>
+              <div className="divide-y divide-gray-50">
+                {monthlySummary.map(summary => {
+                  const emp = employees.find(e => e.id === summary.employeeId);
+                  if (!emp) return null;
+                  return (
+                    <div key={summary.employeeId} className="flex items-center gap-4 px-5 py-3">
+                      <Avatar className="w-8 h-8 border border-gray-100 flex-shrink-0">
+                        <AvatarImage src={emp.profile?.avatarUrl ?? undefined} />
+                        <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
+                          {emp.profile?.name?.split(" ").map(n => n[0]).join("").slice(0, 2) ?? "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{emp.profile?.name ?? summary.role}</p>
+                        <p className="text-xs text-gray-400 truncate">{summary.role}</p>
+                      </div>
+                      <div className="flex items-center gap-3 text-right flex-shrink-0">
+                        <div>
+                          <p className="text-sm font-bold text-indigo-700">{summary.hoursLogged.toFixed(0)}h</p>
+                          <p className="text-[10px] text-gray-400">logged</p>
+                        </div>
+                        {summary.daysOff > 0 && (
+                          <div>
+                            <p className="text-sm font-bold text-green-700">{summary.daysOff}d</p>
+                            <p className="text-[10px] text-gray-400">off</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Recent Jobs */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
