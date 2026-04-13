@@ -39,7 +39,18 @@ export const conversationsTable = pgTable("conversations", {
   lastMessageAt: timestamp("last_message_at", { withTimezone: true }).defaultNow(),
   lastMessagePreview: text("last_message_preview"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  type: text("type").notNull().default("direct"),
+  companyProfileId: integer("company_profile_id"),
 });
+
+export const conversationMembersTable = pgTable("conversation_members", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").notNull(),
+  profileId: integer("profile_id").notNull(),
+  joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  uniqueMember: unique().on(t.conversationId, t.profileId),
+}));
 
 export const messagesTable = pgTable("messages", {
   id: serial("id").primaryKey(),

@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, inArray } from "drizzle-orm";
-import { db, employeesTable, profilesTable, jobsTable, applicationsTable } from "@workspace/db";
+import { db, employeesTable, profilesTable, jobsTable, applicationsTable, conversationsTable, conversationMembersTable } from "@workspace/db";
+import { and } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -63,6 +64,27 @@ router.post("/employees", async (req, res): Promise<void> => {
       status: status ?? "active",
     })
     .returning();
+
+  // Auto-enroll new employee in company team channel
+  try {
+    let [channel] = await db
+      .select()
+      .from(conversationsTable)
+      .where(and(eq(conversationsTable.companyProfileId, cId), eq(conversationsTable.type, "team")))
+      .limit(1);
+    if (!channel) {
+      const [created] = await db
+        .insert(conversationsTable)
+        .values({ participant1Id: cId, participant2Id: cId, type: "team", companyProfileId: cId })
+        .returning();
+      channel = created;
+      await db.insert(conversationMembersTable).values({ conversationId: channel.id, profileId: cId }).onConflictDoNothing();
+    }
+    await db.insert(conversationMembersTable).values({ conversationId: channel.id, profileId: iId }).onConflictDoNothing();
+  } catch {
+    // Non-fatal: employee is created, team channel enrollment failure should not block
+  }
+
   const enriched = await enrichEmployee(emp);
   res.status(201).json(enriched);
 });
