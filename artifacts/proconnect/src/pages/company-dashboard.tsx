@@ -18,6 +18,7 @@ import {
   SearchIcon,
   ClipboardListIcon,
   PencilIcon,
+  BarChart2Icon,
   MapPinIcon,
   ArrowRightIcon,
   BuildingIcon,
@@ -127,11 +128,12 @@ export default function CompanyDashboard() {
           {/* Quick actions */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">Quick Actions</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {[
                 { label: "Post a Job", icon: PlusCircleIcon, href: "/jobs", color: "bg-primary text-white hover:bg-primary/90" },
                 { label: "Find Talent", icon: SearchIcon, href: "/profiles", color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
                 { label: "Applications", icon: ClipboardListIcon, href: "/applications", color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
+                { label: "Analytics", icon: BarChart2Icon, href: "/analytics", color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
                 { label: "Edit Profile", icon: PencilIcon, href: "/profile/edit", color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
               ].map(({ label, icon: Icon, href, color }) => (
                 <Link key={label} href={href}>

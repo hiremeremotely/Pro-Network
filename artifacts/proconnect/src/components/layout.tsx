@@ -22,6 +22,7 @@ import {
   MessageSquareIcon,
   ClipboardListIcon,
   BuildingIcon,
+  BarChart2Icon,
 } from "lucide-react";
 import logo from "@assets/hr_1775483051104.png";
 import { useAppAuth } from "@/contexts/app-auth";
@@ -564,6 +565,13 @@ export function Layout({ children }: LayoutProps) {
                   <UserIcon className="w-4 h-4" /> View Profile
                 </Link>
               </DropdownMenuItem>
+              {user && (
+                <DropdownMenuItem asChild>
+                  <Link href="/analytics" className="flex items-center gap-2 cursor-pointer">
+                    <BarChart2Icon className="w-4 h-4" /> Analytics
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               {user ? (
                 <DropdownMenuItem onClick={handleSignOut} className="flex items-center gap-2 cursor-pointer text-gray-500">
