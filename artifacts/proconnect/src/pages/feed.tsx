@@ -1028,6 +1028,12 @@ export default function Home() {
                 <p className="font-semibold text-sm text-gray-900 leading-snug group-hover:underline">{currentName}</p>
               </Link>
               <p className="text-xs text-gray-500 leading-snug mt-0.5 line-clamp-2">{currentHeadline}</p>
+              <Link
+                href={user ? `/profiles/${user.id}` : "/login"}
+                className="inline-block mt-2 text-xs font-semibold text-primary border border-primary/40 rounded-full px-3 py-0.5 hover:bg-primary/5 transition-colors"
+              >
+                View profile
+              </Link>
             </div>
 
             <Separator />
