@@ -89,7 +89,7 @@ function ChatWindow({
     },
     onSuccess: (newMsg) => {
       setInput("");
-      qc.setQueryData<Message[]>(["messages", conv.id], old => [...(old ?? []), newMsg]);
+      qc.setQueryData<Message[]>(["messages", conv.id, myId], old => [...(old ?? []), newMsg]);
       qc.invalidateQueries({ queryKey: ["conversations", myId] });
     },
   });

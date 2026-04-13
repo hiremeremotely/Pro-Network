@@ -101,7 +101,7 @@ export default function Messaging() {
     },
     onSuccess: (newMsg) => {
       setInput("");
-      qc.setQueryData<Message[]>(["messages", activeConvId], old => [...(old ?? []), newMsg]);
+      qc.setQueryData<Message[]>(["messages", activeConvId, user?.id], old => [...(old ?? []), newMsg]);
       qc.invalidateQueries({ queryKey: ["conversations", user?.id] });
     },
   });

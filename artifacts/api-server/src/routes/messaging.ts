@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { conversationsTable, conversationMembersTable, messagesTable, profilesTable, connectionsTable } from "@workspace/db";
+import { conversationsTable, conversationMembersTable, messagesTable, profilesTable, connectionsTable, employeesTable } from "@workspace/db";
 import { desc, eq, sql, and, or, count, inArray } from "drizzle-orm";
 
 const router = Router();
@@ -77,6 +77,21 @@ router.post("/messaging/team-channel/members", async (req, res): Promise<void> =
     return;
   }
 
+  // Verify caller is adding a member to their OWN company channel:
+  // memberProfileId must be an active employee of companyProfileId
+  const [empCheck] = await db
+    .select({ id: employeesTable.id })
+    .from(employeesTable)
+    .where(and(
+      eq(employeesTable.companyProfileId, Number(companyProfileId)),
+      eq(employeesTable.individualProfileId, Number(memberProfileId)),
+    ))
+    .limit(1);
+  if (!empCheck) {
+    res.status(403).json({ error: "memberProfileId is not an employee of this company" });
+    return;
+  }
+
   // Get or create the team channel
   let channel = await db
     .select()
@@ -114,12 +129,24 @@ router.post("/messaging/team-channel/members", async (req, res): Promise<void> =
 
 // ── DELETE /messaging/team-channel/members ────────────────────────────────────
 // Remove a member from the team channel.
-// Body: { companyProfileId, memberProfileId }
+// Query: companyProfileId, memberProfileId
 router.delete("/messaging/team-channel/members", async (req, res): Promise<void> => {
   const companyProfileId = parseInt(req.query.companyProfileId as string);
   const memberProfileId = parseInt(req.query.memberProfileId as string);
   if (isNaN(companyProfileId) || isNaN(memberProfileId)) {
     res.status(400).json({ error: "companyProfileId and memberProfileId required" });
+    return;
+  }
+
+  // Verify the company profile actually owns a team channel
+  // (prevents one company from removing members from another company's channel)
+  const [channelOwnerCheck] = await db
+    .select({ id: conversationsTable.id, companyProfileId: conversationsTable.companyProfileId })
+    .from(conversationsTable)
+    .where(and(eq(conversationsTable.companyProfileId, companyProfileId), eq(conversationsTable.type, "team")))
+    .limit(1);
+  if (!channelOwnerCheck) {
+    res.status(404).json({ error: "Team channel not found for this company" });
     return;
   }
 
