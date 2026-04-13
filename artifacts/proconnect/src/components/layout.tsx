@@ -20,7 +20,7 @@ import {
   LoaderIcon,
   ThumbsUpIcon,
   MessageSquareIcon,
-  ClipboardListIcon,
+
   BuildingIcon,
   BarChart2Icon,
 } from "lucide-react";
@@ -486,7 +486,6 @@ export function Layout({ children }: LayoutProps) {
     { href: homeHref, label: "Home", icon: HomeIcon },
     { href: "/profiles", label: "Network", icon: UsersIcon },
     { href: "/jobs", label: "Jobs", icon: BriefcaseIcon },
-    { href: "/applications", label: "Applications", icon: ClipboardListIcon },
     { href: "/messaging", label: "Messaging", icon: MessageSquareIcon },
   ];
 
