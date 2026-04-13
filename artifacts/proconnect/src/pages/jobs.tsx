@@ -1,28 +1,182 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { useListJobs, getListJobsQueryKey } from "@workspace/api-client-react";
 import { JobCard } from "@/components/job-card";
 import { LoadingState, ErrorState } from "@/components/loading-state";
 import { ViewToggle, type ViewMode } from "@/components/view-toggle";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SearchIcon, BriefcaseIcon, XIcon, MapPinIcon, ClockIcon, DollarSignIcon, BookmarkIcon } from "lucide-react";
+import {
+  SearchIcon, BriefcaseIcon, XIcon, MapPinIcon,
+  DollarSignIcon, BookmarkIcon, BuildingIcon, TagIcon, SparklesIcon,
+} from "lucide-react";
 import type { Job } from "@workspace/api-client-react";
 import { useBookmarks } from "@/hooks/use-bookmarks";
 import { useAppAuth } from "@/contexts/app-auth";
 
+const BASE = import.meta.env.BASE_URL;
+
 const CATEGORIES = ["Engineering", "Design", "Product", "Data", "Marketing", "Sales"];
-const LEVELS = ["Entry", "Mid-level", "Senior", "Staff", "Manager"];
+const LEVELS     = ["Entry", "Mid-level", "Senior", "Staff", "Manager"];
 
 const LEVEL_COLORS: Record<string, string> = {
   Senior: "bg-purple-50 text-purple-700",
-  Staff: "bg-indigo-50 text-indigo-700",
+  Staff:  "bg-indigo-50 text-indigo-700",
   "Mid-level": "bg-blue-50 text-blue-700",
-  Entry: "bg-green-50 text-green-700",
+  Entry:  "bg-green-50 text-green-700",
   Manager: "bg-orange-50 text-orange-700",
 };
+
+// ── Typeahead search box ───────────────────────────────────────────────────────
+
+interface Suggestions { titles: string[]; companies: string[]; tags: string[]; }
+
+function JobSearchBox({ value, onChange, onCommit }: {
+  value: string;
+  onChange: (v: string) => void;
+  onCommit: (v: string) => void;
+}) {
+  const [open, setOpen]         = useState(false);
+  const [highlighted, setHighlighted] = useState(-1);
+  const [debouncedQ, setDebouncedQ]   = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const boxRef   = useRef<HTMLDivElement>(null);
+
+  // Debounce the query for fetching suggestions
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(value), 200);
+    return () => clearTimeout(t);
+  }, [value]);
+
+  const { data } = useQuery<Suggestions>({
+    queryKey: ["job-suggestions", debouncedQ],
+    queryFn: () => fetch(`${BASE}api/jobs/suggestions?q=${encodeURIComponent(debouncedQ)}`).then(r => r.json()),
+    enabled: debouncedQ.length >= 1,
+    staleTime: 30_000,
+  });
+
+  const groups: { label: string; icon: React.ElementType; items: string[]; }[] = [];
+  if (data?.titles?.length)    groups.push({ label: "Roles",     icon: BriefcaseIcon, items: data.titles });
+  if (data?.companies?.length) groups.push({ label: "Companies", icon: BuildingIcon,  items: data.companies });
+  if (data?.tags?.length)      groups.push({ label: "Skills",    icon: TagIcon,       items: data.tags });
+
+  const flat = groups.flatMap(g => g.items);
+  const showDropdown = open && debouncedQ.length >= 1 && groups.length > 0;
+
+  // Close on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setHighlighted(-1);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  function select(item: string) {
+    onChange(item);
+    onCommit(item);
+    setOpen(false);
+    setHighlighted(-1);
+    inputRef.current?.blur();
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!showDropdown) {
+      if (e.key === "Enter") { e.preventDefault(); onCommit(value); }
+      return;
+    }
+    if (e.key === "ArrowDown")  { e.preventDefault(); setHighlighted(h => Math.min(h + 1, flat.length - 1)); }
+    if (e.key === "ArrowUp")    { e.preventDefault(); setHighlighted(h => Math.max(h - 1, -1)); }
+    if (e.key === "Escape")     { setOpen(false); setHighlighted(-1); }
+    if (e.key === "Enter")      { e.preventDefault(); highlighted >= 0 ? select(flat[highlighted]) : onCommit(value); }
+  }
+
+  let itemIdx = 0;
+
+  return (
+    <div ref={boxRef} className="relative flex-1">
+      {/* Input */}
+      <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none z-10" />
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        placeholder="Search jobs, companies, or skills…"
+        autoComplete="off"
+        spellCheck={false}
+        className="w-full h-11 pl-9 pr-9 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all shadow-sm"
+        onChange={e => { onChange(e.target.value); setOpen(true); setHighlighted(-1); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={handleKeyDown}
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => { onChange(""); onCommit(""); inputRef.current?.focus(); }}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10"
+        >
+          <XIcon className="w-3.5 h-3.5" />
+        </button>
+      )}
+
+      {/* Dropdown */}
+      {showDropdown && (
+        <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+          {groups.map(group => (
+            <div key={group.label}>
+              <div className="flex items-center gap-1.5 px-3 pt-2.5 pb-1">
+                <group.icon className="w-3 h-3 text-gray-400" />
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{group.label}</span>
+              </div>
+              {group.items.map(item => {
+                const idx = itemIdx++;
+                const isActive = highlighted === idx;
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onMouseDown={() => select(item)}
+                    onMouseEnter={() => setHighlighted(idx)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${
+                      isActive ? "bg-primary/8 text-primary" : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="flex-1 truncate">{highlightMatch(item, debouncedQ)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+          <div className="border-t border-gray-100 px-3 py-2 flex items-center gap-1.5 text-[11px] text-gray-400">
+            <SparklesIcon className="w-3 h-3" />
+            Press Enter to search all results
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Highlight the matched portion of a suggestion
+function highlightMatch(text: string, query: string) {
+  if (!query) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <strong className="font-semibold text-primary">{text.slice(idx, idx + query.length)}</strong>
+      {text.slice(idx + query.length)}
+    </>
+  );
+}
+
+// ── Job row & table row ────────────────────────────────────────────────────────
 
 function JobRow({ job, bookmarked, onBookmark }: {
   job: Job & { applicationCount?: number };
@@ -126,12 +280,14 @@ function JobTableRow({ job, index, bookmarked, onBookmark }: {
   );
 }
 
+// ── Main page ──────────────────────────────────────────────────────────────────
+
 export default function Jobs() {
   const [search, setSearch] = useState("");
-  const [query, setQuery] = useState("");
+  const [query,  setQuery]  = useState("");
   const [category, setCategory] = useState<string>("");
-  const [level, setLevel] = useState<string>("");
-  const [view, setView] = useState<ViewMode>("grid");
+  const [level, setLevel]       = useState<string>("");
+  const [view, setView]         = useState<ViewMode>("grid");
 
   const { user } = useAppAuth();
   const { isBookmarked, toggleBookmark } = useBookmarks();
@@ -148,10 +304,11 @@ export default function Jobs() {
     query: { queryKey: getListJobsQueryKey(params) }
   });
 
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    setQuery(search);
-  }
+  // Commit the search (apply to results)
+  const commit = useCallback((val: string) => {
+    setSearch(val);
+    setQuery(val);
+  }, []);
 
   function clearFilters() {
     setSearch(""); setQuery(""); setCategory(""); setLevel("");
@@ -177,18 +334,21 @@ export default function Jobs() {
         <p className="text-muted-foreground">Find your next remote role at forward-thinking companies.</p>
       </div>
 
+      {/* Search bar + filters */}
       <div className="flex flex-col md:flex-row gap-3 mb-6">
-        <form onSubmit={handleSearch} className="flex gap-2 flex-1">
-          <div className="relative flex-1">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Search jobs, companies..." value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-          <Button type="submit">Search</Button>
-        </form>
+        <div className="flex gap-2 flex-1">
+          <JobSearchBox value={search} onChange={setSearch} onCommit={commit} />
+          <Button
+            onClick={() => commit(search)}
+            className="rounded-xl px-5 flex-shrink-0"
+          >
+            Search
+          </Button>
+        </div>
 
         <div className="flex gap-2 items-center flex-wrap">
           <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger className="w-36">
+            <SelectTrigger className="w-36 rounded-xl">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
@@ -197,7 +357,7 @@ export default function Jobs() {
           </Select>
 
           <Select value={level} onValueChange={setLevel}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-32 rounded-xl">
               <SelectValue placeholder="Level" />
             </SelectTrigger>
             <SelectContent>
@@ -217,6 +377,7 @@ export default function Jobs() {
         </div>
       </div>
 
+      {/* Results */}
       {isLoading ? (
         <LoadingState message="Loading jobs..." />
       ) : error ? (

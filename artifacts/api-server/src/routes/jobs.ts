@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, ilike, or, and, sql } from "drizzle-orm";
+import { eq, ilike, or, and, sql, asc } from "drizzle-orm";
 import { db, jobsTable } from "@workspace/db";
 import {
   CreateJobBody,
@@ -61,6 +61,51 @@ router.get("/jobs", async (req, res): Promise<void> => {
   );
 
   res.json({ jobs: jobsWithCount, total: Number(countResult[0]?.count ?? 0) });
+});
+
+// ── GET /jobs/suggestions?q=... — typeahead suggestions ──────────────────────
+router.get("/jobs/suggestions", async (req, res): Promise<void> => {
+  const q = (req.query.q as string ?? "").trim();
+  if (!q || q.length < 1) { res.json({ titles: [], companies: [], tags: [] }); return; }
+
+  const pattern = `%${q}%`;
+
+  const [titleRows, companyRows, tagRows] = await Promise.all([
+    // Distinct matching titles
+    db
+      .selectDistinct({ value: jobsTable.title })
+      .from(jobsTable)
+      .where(ilike(jobsTable.title, pattern))
+      .orderBy(asc(jobsTable.title))
+      .limit(5),
+
+    // Distinct matching company names
+    db
+      .selectDistinct({ value: jobsTable.company })
+      .from(jobsTable)
+      .where(ilike(jobsTable.company, pattern))
+      .orderBy(asc(jobsTable.company))
+      .limit(4),
+
+    // Tags: unnest the arrays, deduplicate, filter, limit
+    db.execute(
+      sql`SELECT DISTINCT unnest(tags) AS value
+          FROM ${jobsTable}
+          WHERE array_to_string(tags, ' ') ILIKE ${pattern}
+          ORDER BY value
+          LIMIT 6`
+    ),
+  ]);
+
+  const tags = (tagRows.rows ?? tagRows as any[])
+    .map((r: any) => String(r.value))
+    .filter((t: string) => t.toLowerCase().includes(q.toLowerCase()));
+
+  res.json({
+    titles:    titleRows.map(r => r.value),
+    companies: companyRows.map(r => r.value),
+    tags,
+  });
 });
 
 router.post("/jobs", async (req, res): Promise<void> => {
