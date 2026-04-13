@@ -73,9 +73,11 @@ interface CompanyInfo {
 function EngagementPanel({
   record,
   company,
+  individualProfileId,
 }: {
   record: EmploymentRecord;
   company: CompanyInfo | null;
+  individualProfileId: number;
 }) {
   const [logs, setLogs] = useState<WorkLog[]>([]);
   const [timeOff, setTimeOff] = useState<TimeOffRequest[]>([]);
@@ -92,15 +94,15 @@ function EngagementPanel({
     setLoading(true);
     try {
       const [logRes, torRes] = await Promise.all([
-        fetch(`${BASE}api/employees/${record.id}/work-logs?companyId=${record.companyProfileId}`),
-        fetch(`${BASE}api/employees/${record.id}/time-off?companyId=${record.companyProfileId}`),
+        fetch(`${BASE}api/employees/${record.id}/work-logs?individualProfileId=${individualProfileId}`),
+        fetch(`${BASE}api/employees/${record.id}/time-off?individualProfileId=${individualProfileId}`),
       ]);
       if (logRes.ok) setLogs(await logRes.json());
       if (torRes.ok) setTimeOff(await torRes.json());
     } finally {
       setLoading(false);
     }
-  }, [record.id, record.companyProfileId]);
+  }, [record.id, individualProfileId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -111,7 +113,7 @@ function EngagementPanel({
       const res = await fetch(`${BASE}api/employees/${record.id}/work-logs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...newLog, companyId: record.companyProfileId }),
+        body: JSON.stringify({ ...newLog, individualProfileId }),
       });
       if (!res.ok) throw new Error("Failed");
       const log = await res.json();
@@ -128,7 +130,7 @@ function EngagementPanel({
 
   const deleteLog = async (logId: number) => {
     try {
-      await fetch(`${BASE}api/employees/${record.id}/work-logs/${logId}?companyId=${record.companyProfileId}`, { method: "DELETE" });
+      await fetch(`${BASE}api/employees/${record.id}/work-logs/${logId}?individualProfileId=${individualProfileId}`, { method: "DELETE" });
       setLogs(prev => prev.filter(l => l.id !== logId));
     } catch {
       toast({ title: "Error", description: "Could not delete log.", variant: "destructive" });
@@ -142,7 +144,7 @@ function EngagementPanel({
       const res = await fetch(`${BASE}api/employees/${record.id}/time-off`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...newTOR, companyId: record.companyProfileId }),
+        body: JSON.stringify({ ...newTOR, individualProfileId }),
       });
       if (!res.ok) throw new Error("Failed");
       const tor = await res.json();
@@ -384,7 +386,7 @@ export default function MyWork() {
     (async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${BASE}api/my-employment?profileId=${user.id}`);
+        const res = await fetch(`${BASE}api/my-employment?individualProfileId=${user.id}`);
         if (!res.ok) return;
         const records: EmploymentRecord[] = await res.json();
         setEmployment(records);
@@ -458,6 +460,7 @@ export default function MyWork() {
                 key={record.id}
                 record={record}
                 company={companies[record.companyProfileId] ?? null}
+                individualProfileId={user.id}
               />
             ))}
           </div>
