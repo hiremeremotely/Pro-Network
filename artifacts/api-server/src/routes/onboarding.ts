@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, inArray } from "drizzle-orm";
 import { db, employeesTable, onboardingTasksTable, employeeDocumentsTable } from "@workspace/db";
 
 const router = Router();
@@ -55,6 +55,32 @@ router.get("/employees/:id/onboarding", async (req, res): Promise<void> => {
   res.json({ tasks, documents });
 });
 
+async function updateOnboardingTask(
+  employeeId: number,
+  taskId: number,
+  companyId: number,
+  completed: boolean,
+  res: import("express").Response
+): Promise<void> {
+  if (!(await verifyEmployeeOwnership(employeeId, companyId))) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const [task] = await db
+    .update(onboardingTasksTable)
+    .set({
+      completed: Boolean(completed),
+      completedAt: completed ? new Date() : null,
+    })
+    .where(and(eq(onboardingTasksTable.id, taskId), eq(onboardingTasksTable.employeeId, employeeId)))
+    .returning();
+  if (!task) {
+    res.status(404).json({ error: "Task not found" });
+    return;
+  }
+  res.json(task);
+}
+
 router.patch("/employees/:id/onboarding/tasks/:taskId", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   const taskId = parseInt(req.params.taskId);
@@ -63,24 +89,20 @@ router.patch("/employees/:id/onboarding/tasks/:taskId", async (req, res): Promis
     res.status(400).json({ error: "id, taskId, and companyId are required" });
     return;
   }
-  if (!(await verifyEmployeeOwnership(id, companyId))) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
   const { completed } = req.body;
-  const [task] = await db
-    .update(onboardingTasksTable)
-    .set({
-      completed: Boolean(completed),
-      completedAt: completed ? new Date() : null,
-    })
-    .where(and(eq(onboardingTasksTable.id, taskId), eq(onboardingTasksTable.employeeId, id)))
-    .returning();
-  if (!task) {
-    res.status(404).json({ error: "Task not found" });
+  await updateOnboardingTask(id, taskId, companyId, completed, res);
+});
+
+router.patch("/employees/:id/onboarding", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  const { taskId, completed, companyId: rawCompanyId } = req.body;
+  const companyId = parseInt(rawCompanyId);
+  const tId = parseInt(taskId);
+  if (!id || isNaN(id) || !tId || isNaN(tId) || !companyId || isNaN(companyId)) {
+    res.status(400).json({ error: "id, taskId, and companyId are required" });
     return;
   }
-  res.json(task);
+  await updateOnboardingTask(id, tId, companyId, completed, res);
 });
 
 router.post("/employees/:id/documents", async (req, res): Promise<void> => {
@@ -138,12 +160,14 @@ router.get("/onboarding/progress", async (req, res): Promise<void> => {
   }
 
   const empIds = employees.map(e => e.id);
+  const allTasks = await db
+    .select()
+    .from(onboardingTasksTable)
+    .where(inArray(onboardingTasksTable.employeeId, empIds));
+
   const progress: Record<number, { total: number; completed: number }> = {};
   for (const empId of empIds) {
-    const tasks = await db
-      .select()
-      .from(onboardingTasksTable)
-      .where(eq(onboardingTasksTable.employeeId, empId));
+    const tasks = allTasks.filter(t => t.employeeId === empId);
     // If no tasks seeded yet, use the default task count so the UI always shows progress
     const total = tasks.length > 0 ? tasks.length : DEFAULT_TASKS.length;
     progress[empId] = {

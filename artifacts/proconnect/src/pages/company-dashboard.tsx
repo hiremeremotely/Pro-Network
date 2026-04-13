@@ -743,6 +743,16 @@ function TeamMemberModal({
                   </div>
                 )}
               </div>
+              <div className="flex gap-2 mb-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setTab("offer")}
+                  className="flex-1 gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/5"
+                >
+                  <FileTextIcon className="w-3.5 h-3.5" /> Generate Offer Letter
+                </Button>
+              </div>
               <div className="flex gap-2">
                 <Link href={`/profiles/${emp.individualProfileId}`} className="flex-1">
                   <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs">
