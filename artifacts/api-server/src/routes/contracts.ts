@@ -75,7 +75,8 @@ router.put("/employees/:employeeId/contract", async (req, res): Promise<void> =>
 });
 
 // ── GET /companies/:companyId/contracts/renewals ──────────────────────────────
-// Returns contracts expiring within 30 days (for dashboard widget)
+// Returns contracts (freelance or contractor types) expiring within 30 days
+// or already expired. Used by the dashboard renewal widget.
 router.get("/companies/:companyId/contracts/renewals", async (req, res): Promise<void> => {
   const companyId = parseInt(req.params.companyId);
   if (isNaN(companyId)) { res.status(400).json({ error: "companyId required" }); return; }
@@ -91,16 +92,38 @@ router.get("/companies/:companyId/contracts/renewals", async (req, res): Promise
   const allContracts = await db.select().from(contractsTable)
     .where(inArray(contractsTable.employeeId, empIds));
 
+  // Renewals are relevant for freelance/contractor types (fixed-term engagements)
+  const RENEWAL_TYPES = ["freelance", "contractor"];
   const upcoming = allContracts.filter(c => {
+    if (!RENEWAL_TYPES.includes(c.type ?? "")) return false;
     if (!c.endDate) return false;
     const end = new Date(c.endDate);
-    return end >= now && end <= in30;
+    return end <= in30; // includes already expired (<= today) and expiring within 30 days
   });
 
   const empById = Object.fromEntries(employees.map(e => [e.id, e]));
   const result = upcoming.map(c => ({ ...c, employee: empById[c.employeeId] ?? null }));
 
   res.json(result);
+});
+
+// ── DELETE /employees/:employeeId/contract ─────────────────────────────────────
+// Deletes the contract for this employee. Company must own the employee record.
+router.delete("/employees/:employeeId/contract", async (req, res): Promise<void> => {
+  const employeeId = parseInt(req.params.employeeId);
+  const companyId = parseInt(req.query.companyId as string);
+  if (isNaN(employeeId) || isNaN(companyId)) {
+    res.status(400).json({ error: "employeeId and companyId required" });
+    return;
+  }
+
+  // Ownership check
+  const [emp] = await db.select({ id: employeesTable.id }).from(employeesTable)
+    .where(and(eq(employeesTable.id, employeeId), eq(employeesTable.companyProfileId, companyId)));
+  if (!emp) { res.status(403).json({ error: "Access denied" }); return; }
+
+  await db.delete(contractsTable).where(eq(contractsTable.employeeId, employeeId));
+  res.status(204).end();
 });
 
 export default router;

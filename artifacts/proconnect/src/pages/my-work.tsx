@@ -165,9 +165,13 @@ function EngagementPanel({
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
   const thisMonthLogs = logs.filter(l => l.date >= monthStart && l.date <= monthEnd);
   const totalHours = thisMonthLogs.reduce((s, l) => s + Number(l.hours), 0);
-  const approvedTOR = timeOff.filter(r => r.status === "approved" && r.startDate >= monthStart);
+  const approvedTOR = timeOff.filter(r =>
+    r.status === "approved" && r.startDate <= monthEnd && r.endDate >= monthStart
+  );
   const totalDaysOff = approvedTOR.reduce((s, r) => {
-    return s + Math.max(1, Math.round((new Date(r.endDate).getTime() - new Date(r.startDate).getTime()) / 86400000) + 1);
+    const start = new Date(Math.max(new Date(r.startDate).getTime(), new Date(monthStart).getTime()));
+    const end = new Date(Math.min(new Date(r.endDate).getTime(), new Date(monthEnd).getTime()));
+    return s + Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
   }, 0);
   const pendingCount = timeOff.filter(r => r.status === "pending").length;
 
