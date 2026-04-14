@@ -3,6 +3,7 @@ import { useAppAuth } from "@/contexts/app-auth";
 import { useConnections } from "@/hooks/use-connections";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { HRInsightsWidget } from "@/components/hr-insights-widget";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useListJobs, getListJobsQueryKey,
   useListProfiles, getListProfilesQueryKey,
@@ -1344,10 +1345,131 @@ function TeamMemberModal({
   );
 }
 
+// ── Post Job Modal ────────────────────────────────────────────────────────────
+const JOB_CATEGORIES = ["Engineering", "Design", "Product", "Data", "Marketing", "Sales", "Operations", "Customer Support"];
+const JOB_LEVELS     = ["Entry", "Mid-level", "Senior", "Staff", "Manager", "Director"];
+
+function PostJobModal({ companyName, onClose, onCreated }: { companyName: string; onClose: () => void; onCreated: () => void }) {
+  const BASE = import.meta.env.BASE_URL;
+  const { toast } = useToast();
+  const [form, setForm] = useState({
+    title: "", description: "", category: "", experienceLevel: "",
+    location: "Remote", salaryMin: "", salaryMax: "", tags: "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  function set(field: string, value: string) {
+    setForm(prev => ({ ...prev, [field]: value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.title.trim() || !form.description.trim() || !form.category || !form.experienceLevel) {
+      toast({ title: "Missing fields", description: "Title, description, category and level are required.", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const body = {
+        title: form.title.trim(),
+        company: companyName,
+        description: form.description.trim(),
+        category: form.category,
+        experienceLevel: form.experienceLevel,
+        location: form.location.trim() || "Remote",
+        salaryMin: form.salaryMin ? Number(form.salaryMin) : null,
+        salaryMax: form.salaryMax ? Number(form.salaryMax) : null,
+        tags: form.tags.split(",").map(t => t.trim()).filter(Boolean),
+      };
+      const res = await fetch(`${BASE}api/jobs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Failed to post job");
+      toast({ title: "Job posted!", description: `"${body.title}" is now live.` });
+      onCreated();
+      onClose();
+    } catch {
+      toast({ title: "Error", description: "Could not post job. Please try again.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Post a Job</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Posting as <span className="font-semibold text-gray-600">{companyName}</span></p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
+            <XIcon className="w-4 h-4" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">Job Title *</label>
+            <input value={form.title} onChange={e => set("title", e.target.value)} placeholder="e.g. Senior Frontend Engineer" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" required />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-600 block mb-1">Category *</label>
+              <select value={form.category} onChange={e => set("category", e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" required>
+                <option value="">Select…</option>
+                {JOB_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 block mb-1">Experience Level *</label>
+              <select value={form.experienceLevel} onChange={e => set("experienceLevel", e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" required>
+                <option value="">Select…</option>
+                {JOB_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">Location</label>
+            <input value={form.location} onChange={e => set("location", e.target.value)} placeholder="Remote" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-600 block mb-1">Salary Min (USD)</label>
+              <input type="number" value={form.salaryMin} onChange={e => set("salaryMin", e.target.value)} placeholder="80000" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" min={0} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 block mb-1">Salary Max (USD)</label>
+              <input type="number" value={form.salaryMax} onChange={e => set("salaryMax", e.target.value)} placeholder="120000" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" min={0} />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">Skills / Tags <span className="font-normal text-gray-400">(comma-separated)</span></label>
+            <input value={form.tags} onChange={e => set("tags", e.target.value)} placeholder="React, TypeScript, Node.js" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">Job Description *</label>
+            <textarea value={form.description} onChange={e => set("description", e.target.value)} rows={5} placeholder="Describe the role, responsibilities, requirements…" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" required />
+          </div>
+          <div className="flex gap-3 pt-1">
+            <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={onClose}>Cancel</Button>
+            <Button type="submit" className="flex-1 rounded-xl gap-2" disabled={saving}>
+              {saving ? <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />Posting…</> : <><PlusCircleIcon className="w-4 h-4" />Post Job</>}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function CompanyDashboard() {
   const { user } = useAppAuth();
   const [, navigate] = useLocation();
   const { isConnected, toggleConnect } = useConnections();
+  const qc = useQueryClient();
+  const [showPostJob, setShowPostJob] = useState(false);
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord | null>(null);
@@ -1464,11 +1586,9 @@ export default function CompanyDashboard() {
                 </Link>
               </div>
             </div>
-            <Link href="/jobs">
-              <Button className="rounded-full gap-2 shadow-sm flex-shrink-0">
-                <PlusCircleIcon className="w-4 h-4" /> Post a Job
-              </Button>
-            </Link>
+            <Button className="rounded-full gap-2 shadow-sm flex-shrink-0" onClick={() => setShowPostJob(true)}>
+              <PlusCircleIcon className="w-4 h-4" /> Post a Job
+            </Button>
           </div>
         </div>
       </div>
@@ -1503,20 +1623,21 @@ export default function CompanyDashboard() {
             <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">Quick Actions</h2>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
               {[
-                { label: "Post a Job",       icon: PlusCircleIcon,   href: "/jobs",              color: "bg-primary text-white hover:bg-primary/90" },
-                { label: "Find Talent",      icon: SearchIcon,       href: "/profiles",          color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
-                { label: "Applications",     icon: ClipboardListIcon, href: "/applications",     color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
-                { label: "Salary Tool",      icon: DollarSignIcon,   href: "/salary-estimator",  color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
-                { label: "Analytics",        icon: BarChart2Icon,    href: "/analytics",         color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
-                { label: "Edit Profile",     icon: PencilIcon,       href: "/profile/edit",      color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
-              ].map(({ label, icon: Icon, href, color }) => (
-                <Link key={label} href={href}>
-                  <button className={`w-full rounded-xl px-3 py-3.5 text-sm font-semibold flex flex-col items-center gap-2 transition-colors ${color}`}>
+                { label: "Post a Job",       icon: PlusCircleIcon,   onClick: () => setShowPostJob(true), href: null,              color: "bg-primary text-white hover:bg-primary/90" },
+                { label: "Find Talent",      icon: SearchIcon,       onClick: null, href: "/profiles",          color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
+                { label: "Applications",     icon: ClipboardListIcon, onClick: null, href: "/applications",     color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
+                { label: "Salary Tool",      icon: DollarSignIcon,   onClick: null, href: "/salary-estimator",  color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
+                { label: "Analytics",        icon: BarChart2Icon,    onClick: null, href: "/analytics",         color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
+                { label: "Edit Profile",     icon: PencilIcon,       onClick: null, href: "/profile/edit",      color: "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50" },
+              ].map(({ label, icon: Icon, href, onClick, color }) => {
+                const btn = (
+                  <button key={label} onClick={onClick ?? undefined} className={`w-full rounded-xl px-3 py-3.5 text-sm font-semibold flex flex-col items-center gap-2 transition-colors ${color}`}>
                     <Icon className="w-5 h-5" />
                     {label}
                   </button>
-                </Link>
-              ))}
+                );
+                return href ? <Link key={label} href={href}>{btn}</Link> : btn;
+              })}
             </div>
           </div>
 
@@ -1933,6 +2054,15 @@ export default function CompanyDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Post job modal */}
+      {showPostJob && (
+        <PostJobModal
+          companyName={user?.name ?? "Our Company"}
+          onClose={() => setShowPostJob(false)}
+          onCreated={() => qc.invalidateQueries({ queryKey: getListJobsQueryKey({ limit: 5, offset: 0 }) })}
+        />
+      )}
 
       {/* Team member modal */}
       {selectedEmployee && (
