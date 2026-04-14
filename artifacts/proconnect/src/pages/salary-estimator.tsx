@@ -150,7 +150,7 @@ export default function SalaryEstimator() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Remote Salary Estimator</h1>
-            <p className="text-sm text-gray-500">Research competitive pay across 20+ countries by role and experience level</p>
+            <p className="text-sm text-gray-500">Research competitive pay across 40+ countries by role and experience level</p>
           </div>
         </div>
       </div>
