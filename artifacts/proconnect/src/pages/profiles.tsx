@@ -330,12 +330,14 @@ function DiscoverTab({ userId, view, isConnected, onToggle, onMessage, initialSe
 export default function Profiles() {
   const { user } = useAppAuth();
   const searchString = useSearch();
-  const initialSearch = new URLSearchParams(searchString).get("search") ?? "";
+  const params = new URLSearchParams(searchString);
+  const initialSearch = params.get("search") ?? "";
+  const initialTab = params.get("tab") === "discover" || !!initialSearch ? "discover" : "network";
   const { isConnected, toggleConnect } = useConnections();
   const startChat = useStartChat();
   const [, navigate] = useLocation();
 
-  const [tab, setTab]   = useState<"network" | "discover">(initialSearch ? "discover" : "network");
+  const [tab, setTab]   = useState<"network" | "discover">(initialTab as "network" | "discover");
   const [view, setView] = useState<ViewMode>("list");
 
   const handleMessage = useCallback(async (profileId: number) => {

@@ -901,7 +901,9 @@ export default function Home() {
     navigate("/messaging");
   }, [startChat, navigate]);
 
-  const { data: posts = [], isLoading: postsLoading } = useQuery<FeedPost[]>({
+  const [visibleCount, setVisibleCount] = useState(10);
+
+  const { data: allPosts = [], isLoading: postsLoading } = useQuery<FeedPost[]>({
     queryKey: ["posts", user?.id],
     queryFn: async () => {
       const url = user?.id
@@ -911,6 +913,9 @@ export default function Home() {
       return res.json();
     },
   });
+
+  const posts = allPosts.slice(0, visibleCount);
+  const hasMore = allPosts.length > visibleCount;
 
 
   const createPostMutation = useMutation({
@@ -1367,25 +1372,38 @@ export default function Home() {
             <Card className="rounded-xl border border-gray-200 shadow-none bg-white">
               <CardContent className="p-8 text-center text-sm text-gray-400">Loading feed...</CardContent>
             </Card>
-          ) : posts.length === 0 ? (
+          ) : allPosts.length === 0 ? (
             <Card className="rounded-xl border border-gray-200 shadow-none bg-white">
               <CardContent className="p-8 text-center text-sm text-gray-400">No posts yet. Be the first to share something!</CardContent>
             </Card>
           ) : (
-            posts.map(post => (
-              <PostCard
-                key={post.id}
-                post={post}
-                currentUserId={user?.id}
-                currentUserAvatar={user?.avatarUrl ?? undefined}
-                currentUserName={user?.name ?? undefined}
-              />
-            ))
+            <>
+              {posts.map(post => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  currentUserId={user?.id}
+                  currentUserAvatar={user?.avatarUrl ?? undefined}
+                  currentUserName={user?.name ?? undefined}
+                />
+              ))}
+              {hasMore && (
+                <button
+                  onClick={() => setVisibleCount(c => c + 10)}
+                  className="w-full py-3 text-sm font-semibold text-primary border border-primary/30 rounded-xl bg-white hover:bg-primary/5 transition-colors"
+                >
+                  Load more posts
+                </button>
+              )}
+              {!hasMore && allPosts.length > 0 && (
+                <p className="text-center text-xs text-gray-400 py-4">You're all caught up!</p>
+              )}
+            </>
           )}
         </div>
 
         {/* RIGHT: Suggested connections + jobs */}
-        <aside className="hidden lg:flex flex-col gap-4 sticky top-20">
+        <aside className="hidden lg:flex flex-col gap-4 sticky top-20 max-h-[calc(100vh-5rem)] overflow-y-auto pb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {/* People you may know */}
           {suggestedProfiles && suggestedProfiles.length > 0 && (
             <Card className="rounded-xl border border-gray-200 shadow-none bg-white">
@@ -1407,12 +1425,12 @@ export default function Home() {
                           {profile.name}
                         </Link>
                         <p className="text-[10px] text-gray-400 truncate mb-1.5">{profile.headline}</p>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 w-full">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => handleFeedMessage(profile.id)}
-                            className="text-[10px] rounded-full px-2 py-0.5 h-6 flex-shrink-0 gap-1 border-gray-300 text-gray-600 hover:bg-gray-50"
+                            className="text-[10px] rounded-full px-2 py-0.5 h-6 flex-1 justify-center gap-1 border-gray-300 text-gray-600 hover:bg-gray-50"
                           >
                             <MessageSquareIcon className="w-2.5 h-2.5" /> Message
                           </Button>
@@ -1420,7 +1438,7 @@ export default function Home() {
                             variant={isFeedConnected(profile.id) ? "secondary" : "outline"}
                             size="sm"
                             onClick={() => feedToggleConnect(profile.id)}
-                            className={`text-[10px] rounded-full px-2 py-0.5 h-6 flex-shrink-0 gap-1 ${
+                            className={`text-[10px] rounded-full px-2 py-0.5 h-6 flex-1 justify-center gap-1 ${
                               isFeedConnected(profile.id)
                                 ? "bg-primary/10 text-primary border-primary/20 hover:bg-red-50 hover:text-red-500"
                                 : "border-primary text-primary hover:bg-primary/5"
@@ -1429,7 +1447,7 @@ export default function Home() {
                             {isFeedConnected(profile.id)
                               ? <><UserCheckIcon className="w-2.5 h-2.5" /> Following</>
                               : profile.accountType === "company"
-                                ? <><StarIcon className="w-2.5 h-2.5" /> Follow</>
+                                ? <><UserPlusIcon className="w-2.5 h-2.5" /> Follow</>
                                 : <><UserPlusIcon className="w-2.5 h-2.5" /> Connect</>}
                           </Button>
                         </div>
@@ -1437,7 +1455,7 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
-                <Link href="/profiles">
+                <Link href="/profiles?tab=discover">
                   <button className="mt-3 text-xs text-gray-500 hover:text-gray-800 hover:underline w-full text-center flex items-center justify-center gap-1">
                     Show more <ChevronRightIcon className="w-3 h-3" />
                   </button>
