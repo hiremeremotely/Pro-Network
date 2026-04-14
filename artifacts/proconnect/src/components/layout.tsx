@@ -574,11 +574,18 @@ export function Layout({ children }: LayoutProps) {
                 </Link>
               </DropdownMenuItem>
               {user?.accountType !== "company" && (
-                <DropdownMenuItem asChild>
-                  <Link href="/my-work" className="flex items-center gap-2 cursor-pointer">
-                    <TimerIcon className="w-4 h-4" /> My Work
-                  </Link>
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href="/applications" className="flex items-center gap-2 cursor-pointer">
+                      <BriefcaseIcon className="w-4 h-4" /> My Applications
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/my-work" className="flex items-center gap-2 cursor-pointer">
+                      <TimerIcon className="w-4 h-4" /> My Work
+                    </Link>
+                  </DropdownMenuItem>
+                </>
               )}
               {user && (
                 <DropdownMenuItem asChild>
