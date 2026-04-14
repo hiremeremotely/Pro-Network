@@ -495,9 +495,8 @@ export function Layout({ children }: LayoutProps) {
     <div className="min-h-screen flex flex-col bg-[#f3f2ef]">
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
-          <Link href={user ? homeHref : "/"} className="flex-shrink-0 flex items-center gap-2">
-            <img src={logo} alt="HR" className="h-8 w-8 object-cover object-top flex-shrink-0" />
-            <span className="text-xs font-bold text-gray-800 leading-tight uppercase tracking-wide whitespace-nowrap">Hire Me<br/>Remotely</span>
+          <Link href={user ? homeHref : "/"} className="flex-shrink-0 flex items-center">
+            <img src={logo} alt="Hire Me Remotely" className="h-8 w-auto" />
           </Link>
 
           <GlobalSearch />
@@ -648,16 +647,20 @@ export function Layout({ children }: LayoutProps) {
             Notifs
           </Link>
           <Link
-            href={user ? `/profiles/${user.id}` : "/login"}
+            href="/messaging"
             className={`flex flex-col items-center justify-center gap-1 flex-1 text-xs font-medium border-b-2 transition-colors ${
-              location.startsWith("/profiles") ? "border-primary text-primary" : "border-transparent text-gray-400"
+              location === "/messaging" ? "border-primary text-primary" : "border-transparent text-gray-400"
             }`}
           >
-            <Avatar className="w-5 h-5 border">
-              <AvatarImage src={user?.avatarUrl ?? undefined} />
-              <AvatarFallback className="text-[8px] bg-primary/10 text-primary font-semibold">{initials}</AvatarFallback>
-            </Avatar>
-            Me
+            <div className="relative">
+              <MessageSquareIcon className="w-5 h-5" />
+              {msgUnread > 0 && (
+                <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+                  {msgUnread > 9 ? "9+" : msgUnread}
+                </span>
+              )}
+            </div>
+            Messaging
           </Link>
         </nav>
       </div>
