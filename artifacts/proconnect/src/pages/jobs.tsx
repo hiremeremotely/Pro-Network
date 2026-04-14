@@ -346,9 +346,18 @@ export default function Jobs() {
           </Button>
         </div>
 
-        <div className="flex gap-2 items-center flex-wrap">
+        <div className="flex gap-2 items-center">
+          {/* Mobile: view toggle first, grid+list only (no table) */}
+          <div className="flex-shrink-0 md:hidden">
+            <ViewToggle
+              view={view === "table" ? "grid" : view}
+              onChange={setView}
+              options={["grid", "list"]}
+            />
+          </div>
+
           <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger className="w-36 rounded-xl">
+            <SelectTrigger className="flex-1 md:flex-none md:w-36 rounded-xl">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
@@ -357,7 +366,7 @@ export default function Jobs() {
           </Select>
 
           <Select value={level} onValueChange={setLevel}>
-            <SelectTrigger className="w-32 rounded-xl">
+            <SelectTrigger className="flex-1 md:flex-none md:w-32 rounded-xl">
               <SelectValue placeholder="Level" />
             </SelectTrigger>
             <SelectContent>
@@ -371,7 +380,8 @@ export default function Jobs() {
             </Button>
           )}
 
-          <div className="ml-auto md:ml-0">
+          {/* Desktop: view toggle at end, includes table option */}
+          <div className="hidden md:block flex-shrink-0">
             <ViewToggle view={view} onChange={setView} options={["grid", "list", "table"]} />
           </div>
         </div>
