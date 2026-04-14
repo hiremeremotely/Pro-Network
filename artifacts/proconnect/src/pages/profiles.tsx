@@ -67,13 +67,13 @@ function ProfileList({ profiles, view, isConnected, onToggle, onMessage, emptySl
 
   if (view === "grid") {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {profiles.map(profile => (
-          <div key={profile.id} className="relative group">
+          <div key={profile.id} className="flex flex-col">
             <ProfileCard profile={profile} />
-            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-              <MessageButton profileId={profile.id} onMessage={onMessage} className="shadow-sm" />
-              <ConnectButton profileId={profile.id} isConnected={isConnected(profile.id)} onToggle={onToggle} accountType={profile.accountType} className="shadow-sm" />
+            <div className="flex justify-center gap-2 mt-2 px-2">
+              <MessageButton profileId={profile.id} onMessage={onMessage} className="flex-1 justify-center" />
+              <ConnectButton profileId={profile.id} isConnected={isConnected(profile.id)} onToggle={onToggle} accountType={profile.accountType} className="flex-1 justify-center" />
             </div>
           </div>
         ))}
@@ -120,8 +120,8 @@ function ProfileList({ profiles, view, isConnected, onToggle, onMessage, emptySl
 
   // table
   return (
-    <div className="rounded-xl border border-gray-200 overflow-hidden bg-white">
-      <table className="w-full text-left">
+    <div className="rounded-xl border border-gray-200 overflow-x-auto bg-white">
+      <table className="w-full min-w-[640px] text-left">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">
             <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
@@ -129,7 +129,7 @@ function ProfileList({ profiles, view, isConnected, onToggle, onMessage, emptySl
             <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden lg:table-cell">Industry</th>
             <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Location</th>
             <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Status</th>
-            <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
+            <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-48">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -162,7 +162,7 @@ function ProfileList({ profiles, view, isConnected, onToggle, onMessage, emptySl
                     ? <Badge className="bg-green-50 text-green-600 border-0 text-[10px] font-semibold px-2 rounded-full">Open to Work</Badge>
                     : <span className="text-xs text-gray-300">—</span>}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 whitespace-nowrap">
                   <div className="flex items-center gap-2">
                     <MessageButton profileId={profile.id} onMessage={onMessage} />
                     <ConnectButton profileId={profile.id} isConnected={isConnected(profile.id)} onToggle={onToggle} accountType={profile.accountType} />
