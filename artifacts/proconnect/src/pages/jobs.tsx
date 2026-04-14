@@ -347,15 +347,6 @@ export default function Jobs() {
         </div>
 
         <div className="flex gap-2 items-center">
-          {/* Mobile: view toggle first, grid+list only (no table) */}
-          <div className="flex-shrink-0 md:hidden">
-            <ViewToggle
-              view={view === "table" ? "grid" : view}
-              onChange={setView}
-              options={["grid", "list"]}
-            />
-          </div>
-
           <Select value={category} onValueChange={setCategory}>
             <SelectTrigger className="flex-1 md:flex-none md:w-36 rounded-xl">
               <SelectValue placeholder="Category" />
@@ -379,6 +370,15 @@ export default function Jobs() {
               <XIcon className="w-4 h-4" />
             </Button>
           )}
+
+          {/* Mobile: view toggle at end, grid+list only (no table) */}
+          <div className="flex-shrink-0 md:hidden">
+            <ViewToggle
+              view={view === "table" ? "grid" : view}
+              onChange={setView}
+              options={["grid", "list"]}
+            />
+          </div>
 
           {/* Desktop: view toggle at end, includes table option */}
           <div className="hidden md:block flex-shrink-0">
