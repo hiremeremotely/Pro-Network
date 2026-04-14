@@ -1403,7 +1403,7 @@ export default function Home() {
         </div>
 
         {/* RIGHT: Suggested connections + jobs */}
-        <aside className="hidden lg:flex flex-col gap-4 sticky top-20 max-h-[calc(100vh-5rem)] overflow-y-auto pb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <aside className="hidden lg:flex flex-col gap-4">
           {/* People you may know */}
           {suggestedProfiles && suggestedProfiles.length > 0 && (
             <Card className="rounded-xl border border-gray-200 shadow-none bg-white">
