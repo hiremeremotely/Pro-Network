@@ -1333,31 +1333,31 @@ export default function Home() {
               )}
 
               {!postFocused && (
-                <div className="flex items-center gap-1 mt-2">
+                <div className="flex items-center gap-1 mt-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                   <button
                     onClick={() => { setPostFocused(true); setPostType("photo"); photoInputRef.current?.click(); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"
                   >
                     <ImageIcon className="w-4 h-4 text-blue-500" />
                     Photo
                   </button>
                   <button
                     onClick={() => { setPostFocused(true); setPostType("video"); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"
                   >
                     <VideoIcon className="w-4 h-4 text-red-500" />
                     Video
                   </button>
                   <button
                     onClick={() => { setPostFocused(true); setPostType("article"); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"
                   >
                     <NewspaperIcon className="w-4 h-4 text-orange-500" />
                     Article
                   </button>
                   <button
                     onClick={() => { setPostFocused(true); setPostType("link"); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"
                   >
                     <LinkIcon className="w-4 h-4 text-green-500" />
                     Link

@@ -396,7 +396,7 @@ export function MessagingWidget() {
     .filter(Boolean) as Conversation[];
 
   return (
-    <div className="fixed bottom-0 right-4 z-[500] flex items-end gap-2">
+    <div className="fixed bottom-14 md:bottom-0 right-4 z-[500] flex items-end gap-2">
       {/* Open chat windows — to the left of the panel button */}
       {openConvs.map(conv => (
         <ChatWindow
