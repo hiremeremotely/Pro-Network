@@ -17,6 +17,7 @@ const router = Router();
 // ── GET /posts ─────────────────────────────────────────────────────────────
 router.get("/posts", async (req, res): Promise<void> => {
   const myProfileId = req.query.profileId ? Number(req.query.profileId) : null;
+  const authorProfileId = req.query.authorProfileId ? Number(req.query.authorProfileId) : null;
 
   const posts = await db
     .select({
@@ -34,8 +35,9 @@ router.get("/posts", async (req, res): Promise<void> => {
     })
     .from(postsTable)
     .innerJoin(profilesTable, eq(postsTable.profileId, profilesTable.id))
+    .where(authorProfileId ? eq(postsTable.profileId, authorProfileId) : undefined)
     .orderBy(desc(postsTable.createdAt))
-    .limit(50);
+    .limit(authorProfileId ? 20 : 50);
 
   if (posts.length === 0) { res.json([]); return; }
 

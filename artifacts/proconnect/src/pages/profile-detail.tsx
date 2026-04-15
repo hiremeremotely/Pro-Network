@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useParams, Link, useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   useGetProfile, getGetProfileQueryKey,
   useUpdateProfile,
@@ -26,7 +26,9 @@ import {
   PlusIcon, TrashIcon, XIcon, CheckIcon, CameraIcon,
   UserCheckIcon, UserPlusIcon, MessageSquareIcon, BuildingIcon, UsersIcon,
   ArrowRightIcon, DollarSignIcon, ClockIcon, StarIcon,
+  ThumbsUpIcon, ActivityIcon, TrendingUpIcon, EyeIcon, FileTextIcon,
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { useListJobs, getListJobsQueryKey } from "@workspace/api-client-react";
 import { useStartChat } from "@/hooks/use-start-chat";
 import { useConnections } from "@/hooks/use-connections";
@@ -667,12 +669,30 @@ export default function ProfileDetail() {
     e.target.value = "";
   }
 
+  const BASE = import.meta.env.BASE_URL;
+
   const { data: profile, isLoading, error, refetch } = useGetProfile(id, {
     query: { enabled: !!id, queryKey: getGetProfileQueryKey(id) }
   });
   const { data: experience = [] } = useListExperience(id, { query: { queryKey: getListExperienceQueryKey(id) } });
   const { data: education = [] } = useListEducation(id, { query: { queryKey: getListEducationQueryKey(id) } });
   const { data: skills = [] } = useListProfileSkills(id, { query: { queryKey: getListProfileSkillsQueryKey(id) } });
+
+  const { data: profilePosts = [] } = useQuery<any[]>({
+    queryKey: ["profile-posts", id],
+    queryFn: () => fetch(`${BASE}api/posts?authorProfileId=${id}`).then(r => r.json()),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+
+  const { data: networkData } = useQuery<{ total: number; connections: any[] }>({
+    queryKey: ["profile-network", id],
+    queryFn: () => fetch(`${BASE}api/connections/network?profileId=${id}`).then(r => r.json()),
+    enabled: !!id,
+    staleTime: 60_000,
+  });
+
+  const connectionCount = networkData?.total ?? 0;
 
   if (isLoading) return <LoadingState message="Loading profile..." />;
   if (error) return <ErrorState error={error} retry={refetch} />;
@@ -717,238 +737,463 @@ export default function ProfileDetail() {
       {modal === "edu"   && <AddEducationModal  profileId={id} onClose={() => setModal(null)} />}
       {modal === "skill" && <AddSkillModal      profileId={id} onClose={() => setModal(null)} />}
 
-      <div className="max-w-3xl mx-auto px-4 pt-6 space-y-3">
+      <div className="max-w-[1320px] mx-auto px-4 pt-6 pb-24 md:pb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
 
-        {/* ── Profile card ── */}
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          {/* Banner */}
-          <div className="relative h-36 bg-gradient-to-r from-primary/70 via-primary/45 to-indigo-300/60 group">
-            {profile.coverUrl && <img src={profile.coverUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />}
-            {isOwn && (
-              <button className="absolute top-3 right-3 w-8 h-8 bg-white/80 hover:bg-white rounded-full flex items-center justify-center text-gray-600 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                <CameraIcon className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+          {/* ── Left column (main content) ── */}
+          <div className="lg:col-span-2 space-y-3">
 
-          <div className="px-5 pb-5">
-            {/* Avatar row */}
-            <div className="flex items-end justify-between -mt-12 mb-3">
-              <div className="relative">
-                <Avatar className={`w-24 h-24 border-4 border-white shadow-md transition-opacity ${avatarUploading ? "opacity-50" : ""}`}>
-                  <AvatarImage src={profile.avatarUrl ?? undefined} />
-                  <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">{initials}</AvatarFallback>
-                </Avatar>
+            {/* Profile header card */}
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+              {/* Banner */}
+              <div className="relative h-40 bg-gradient-to-r from-primary/70 via-primary/45 to-indigo-300/60 group">
+                {profile.coverUrl && <img src={profile.coverUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />}
                 {isOwn && (
-                  <>
-                    <input
-                      ref={avatarInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleAvatarFile}
-                    />
-                    <button
-                      onClick={() => avatarInputRef.current?.click()}
-                      disabled={avatarUploading}
-                      title="Upload profile photo"
-                      className="absolute bottom-1 right-1 w-7 h-7 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-50 shadow-sm disabled:opacity-50 transition-colors"
-                    >
-                      {avatarUploading
-                        ? <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                        : <CameraIcon className="w-3.5 h-3.5" />
-                      }
-                    </button>
-                  </>
+                  <button className="absolute top-3 right-3 w-8 h-8 bg-white/80 hover:bg-white rounded-full flex items-center justify-center text-gray-600 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                    <CameraIcon className="w-4 h-4" />
+                  </button>
                 )}
               </div>
 
-              {/* Action buttons */}
-              <div className="flex items-center gap-2 pt-14 flex-wrap justify-end">
-                {isOwn ? (
-                  <Button variant="outline" size="sm" onClick={() => setModal("info")} className="rounded-full h-9 px-3 sm:px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
-                    <PencilIcon className="w-3.5 h-3.5" /> Edit profile
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      size="sm"
-                      variant={isConnected(id) ? "secondary" : "default"}
-                      onClick={() => toggleConnect(id)}
-                      className={`rounded-full h-9 px-3 sm:px-5 text-sm font-semibold gap-1.5 ${
-                        isConnected(id)
-                          ? "bg-primary/10 text-primary border border-primary/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200"
-                          : ""
-                      }`}
-                    >
-                      {isConnected(id)
-                        ? <><UserCheckIcon className="w-3.5 h-3.5" /> Connected</>
-                        : <><UserPlusIcon className="w-3.5 h-3.5" /> Connect</>}
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleMessage} disabled={msgLoading} className="rounded-full h-9 px-3 sm:px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
-                      <MessageSquareIcon className="w-3.5 h-3.5" /> {msgLoading ? "Opening…" : "Message"}
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
+              <div className="px-6 pb-6">
+                {/* Avatar + action buttons row */}
+                <div className="flex items-end justify-between -mt-12 mb-4">
+                  <div className="relative">
+                    <Avatar className={`w-28 h-28 border-4 border-white shadow-md transition-opacity ${avatarUploading ? "opacity-50" : ""}`}>
+                      <AvatarImage src={profile.avatarUrl ?? undefined} />
+                      <AvatarFallback className="text-3xl font-bold bg-primary/10 text-primary">{initials}</AvatarFallback>
+                    </Avatar>
+                    {isOwn && (
+                      <>
+                        <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarFile} />
+                        <button
+                          onClick={() => avatarInputRef.current?.click()}
+                          disabled={avatarUploading}
+                          title="Upload profile photo"
+                          className="absolute bottom-1 right-1 w-7 h-7 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-50 shadow-sm disabled:opacity-50 transition-colors"
+                        >
+                          {avatarUploading
+                            ? <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            : <CameraIcon className="w-3.5 h-3.5" />}
+                        </button>
+                      </>
+                    )}
+                  </div>
 
-            {/* Name / headline / meta */}
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl font-bold text-gray-900 leading-tight">{profile.name}</h1>
-                {profile.openToWork && (
-                  <Badge className="bg-green-50 text-green-700 border-green-200 text-[10px] font-semibold px-2 rounded-full border">Open to Work</Badge>
-                )}
-              </div>
-              {profile.headline && <p className="text-sm text-gray-600 mt-0.5 leading-snug">{profile.headline}</p>}
-              {profile.location && (
-                <p className="flex items-center gap-1 text-xs text-gray-400 mt-1.5">
-                  <MapPinIcon className="w-3.5 h-3.5" /> {profile.location}
-                </p>
-              )}
+                  <div className="flex items-center gap-2 pt-14 flex-wrap justify-end">
+                    {isOwn ? (
+                      <Button variant="outline" size="sm" onClick={() => setModal("info")} className="rounded-full h-9 px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
+                        <PencilIcon className="w-3.5 h-3.5" /> Edit profile
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          size="sm"
+                          variant={isConnected(id) ? "secondary" : "default"}
+                          onClick={() => toggleConnect(id)}
+                          className={`rounded-full h-9 px-5 text-sm font-semibold gap-1.5 ${isConnected(id) ? "bg-primary/10 text-primary border border-primary/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200" : ""}`}
+                        >
+                          {isConnected(id)
+                            ? <><UserCheckIcon className="w-3.5 h-3.5" /> Connected</>
+                            : <><UserPlusIcon className="w-3.5 h-3.5" /> Connect</>}
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={handleMessage} disabled={msgLoading} className="rounded-full h-9 px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
+                          <MessageSquareIcon className="w-3.5 h-3.5" /> {msgLoading ? "Opening…" : "Message"}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
 
-              {/* Links row */}
-              {(profile.website || profile.githubUrl || profile.linkedinUrl || profile.twitterUrl) && (
-                <div className="flex items-center gap-3 mt-2 flex-wrap">
-                  {profile.website && (
-                    <a href={profile.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline">
-                      <GlobeIcon className="w-3 h-3" /> {profile.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
-                    </a>
-                  )}
-                  {profile.githubUrl && (
-                    <a href={profile.githubUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline">
-                      <GithubIcon className="w-3 h-3" /> GitHub
-                    </a>
-                  )}
-                  {profile.linkedinUrl && (
-                    <a href={profile.linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline">
-                      <LinkedinIcon className="w-3 h-3" /> LinkedIn
-                    </a>
-                  )}
-                  {profile.twitterUrl && (
-                    <a href={profile.twitterUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline">
-                      <TwitterIcon className="w-3 h-3" /> Twitter
-                    </a>
+                {/* Name / headline / meta */}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-2xl font-bold text-gray-900 leading-tight">{profile.name}</h1>
+                    {profile.openToWork && (
+                      <Badge className="bg-green-50 text-green-700 border-green-200 text-[10px] font-semibold px-2 rounded-full border">Open to Work</Badge>
+                    )}
+                  </div>
+                  {profile.headline && <p className="text-base text-gray-600 leading-snug">{profile.headline}</p>}
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 pt-1">
+                    {profile.location && (
+                      <span className="flex items-center gap-1">
+                        <MapPinIcon className="w-3.5 h-3.5" /> {profile.location}
+                      </span>
+                    )}
+                    {connectionCount > 0 && (
+                      <Link href="/profiles">
+                        <span className="text-primary font-semibold cursor-pointer hover:underline">
+                          {connectionCount} connection{connectionCount !== 1 ? "s" : ""}
+                        </span>
+                      </Link>
+                    )}
+                  </div>
+
+                  {/* Social links */}
+                  {(profile.website || profile.githubUrl || profile.linkedinUrl || profile.twitterUrl) && (
+                    <div className="flex items-center gap-3 pt-2 flex-wrap">
+                      {profile.website && (
+                        <a href={profile.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline font-medium">
+                          <GlobeIcon className="w-3 h-3" /> {profile.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                        </a>
+                      )}
+                      {profile.githubUrl && (
+                        <a href={profile.githubUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline font-medium">
+                          <GithubIcon className="w-3 h-3" /> GitHub
+                        </a>
+                      )}
+                      {profile.linkedinUrl && (
+                        <a href={profile.linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline font-medium">
+                          <LinkedinIcon className="w-3 h-3" /> LinkedIn
+                        </a>
+                      )}
+                      {profile.twitterUrl && (
+                        <a href={profile.twitterUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline font-medium">
+                          <TwitterIcon className="w-3 h-3" /> Twitter
+                        </a>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* ── About ── */}
-        {(profile.bio || isOwn) && (
-          <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
-            <SectionHeader title="About" icon={UserCheckIcon} isOwn={isOwn} onEdit={() => setModal("info")} />
-            {profile.bio ? (
-              <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{profile.bio}</p>
-            ) : (
-              <p className="text-sm text-gray-400 italic">Add a bio to let others know more about you.</p>
+            {/* Analytics strip — own profile only */}
+            {isOwn && (
+              <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <TrendingUpIcon className="w-4 h-4 text-primary" /> Profile analytics
+                  </h2>
+                  <Link href="/analytics">
+                    <span className="text-xs text-primary font-semibold hover:underline cursor-pointer flex items-center gap-1">
+                      See all analytics <ArrowRightIcon className="w-3 h-3" />
+                    </span>
+                  </Link>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-gray-500">
+                      <EyeIcon className="w-4 h-4" />
+                      <span className="text-xs font-medium">Profile views</span>
+                    </div>
+                    <p className="text-xl font-bold text-gray-900">—</p>
+                    <p className="text-xs text-gray-400">Past 90 days</p>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-gray-500">
+                      <FileTextIcon className="w-4 h-4" />
+                      <span className="text-xs font-medium">Post impressions</span>
+                    </div>
+                    <p className="text-xl font-bold text-gray-900">{profilePosts.reduce((acc: number, p: any) => acc + (p.likesCount ?? 0), 0)}</p>
+                    <p className="text-xs text-gray-400">Total reactions</p>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-gray-500">
+                      <UsersIcon className="w-4 h-4" />
+                      <span className="text-xs font-medium">Connections</span>
+                    </div>
+                    <p className="text-xl font-bold text-gray-900">{connectionCount}</p>
+                    <Link href="/profiles?tab=discover">
+                      <p className="text-xs text-primary cursor-pointer hover:underline">Grow network</p>
+                    </Link>
+                  </div>
+                </div>
+              </div>
             )}
+
+            {/* Activity section */}
+            {(profilePosts.length > 0 || isOwn) && (
+              <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4">
+                <div className="flex items-center justify-between mb-1">
+                  <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <ActivityIcon className="w-4 h-4 text-primary" /> Activity
+                  </h2>
+                  <Link href="/feed">
+                    <span className="text-xs text-primary font-semibold hover:underline cursor-pointer flex items-center gap-1">
+                      See all posts <ArrowRightIcon className="w-3 h-3" />
+                    </span>
+                  </Link>
+                </div>
+                <p className="text-xs text-gray-400 mb-4">{profile.name.split(" ")[0]} has {profilePosts.length} post{profilePosts.length !== 1 ? "s" : ""}</p>
+
+                {/* Posts tab strip */}
+                <div className="flex gap-0 border-b border-gray-100 mb-4">
+                  <button className="px-4 py-2 text-sm font-semibold text-primary border-b-2 border-primary -mb-px">Posts</button>
+                </div>
+
+                {profilePosts.length === 0 ? (
+                  <div className="flex flex-col items-center py-8 text-gray-400 gap-2">
+                    <FileTextIcon className="w-10 h-10 opacity-20" />
+                    <p className="text-sm">{isOwn ? "Share your first post on the feed." : "No posts yet."}</p>
+                    {isOwn && (
+                      <Link href="/feed">
+                        <Button size="sm" className="rounded-full text-xs mt-1">Create a post</Button>
+                      </Link>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {(profilePosts as any[]).slice(0, 4).map((post: any) => {
+                      const totalReactions = Object.values(post.reactionCounts ?? {}).reduce((a: number, b: unknown) => a + (b as number), 0);
+                      return (
+                        <div key={post.id} className="border border-gray-100 rounded-xl p-4 hover:border-primary/20 hover:bg-gray-50/50 transition-colors">
+                          <p className="text-sm text-gray-800 leading-relaxed line-clamp-3 whitespace-pre-line">{post.content}</p>
+                          {post.imageUrl && (
+                            <img src={post.imageUrl} alt="" className="mt-3 rounded-lg max-h-44 w-full object-cover" />
+                          )}
+                          <div className="flex items-center gap-4 mt-3 text-xs text-gray-400 border-t border-gray-100 pt-3">
+                            <span>{formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}</span>
+                            {(totalReactions as number) > 0 && (
+                              <span className="flex items-center gap-1">
+                                <ThumbsUpIcon className="w-3 h-3" /> {totalReactions as number}
+                              </span>
+                            )}
+                            {post.commentsCount > 0 && (
+                              <span className="flex items-center gap-1">
+                                <MessageSquareIcon className="w-3 h-3" /> {post.commentsCount}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {profilePosts.length > 4 && (
+                      <Link href="/feed">
+                        <button className="w-full py-2.5 text-sm font-semibold text-gray-500 hover:text-primary border border-gray-200 hover:border-primary/30 rounded-xl transition-colors">
+                          Show all {profilePosts.length} posts
+                        </button>
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* About */}
+            {(profile.bio || isOwn) && (
+              <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4">
+                <SectionHeader title="About" icon={UserCheckIcon} isOwn={isOwn} onEdit={() => setModal("info")} />
+                {profile.bio ? (
+                  <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{profile.bio}</p>
+                ) : (
+                  <p className="text-sm text-gray-400 italic">Add a bio to let others know more about you.</p>
+                )}
+              </div>
+            )}
+
+            {/* Experience */}
+            <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4">
+              <SectionHeader title="Experience" icon={BriefcaseIcon} isOwn={isOwn} onAdd={() => setModal("exp")} />
+              {(experience as any[]).length === 0 ? (
+                <p className="text-sm text-gray-400 italic">{isOwn ? "Add your work experience." : "No experience listed."}</p>
+              ) : (
+                <div className="space-y-5">
+                  {(experience as any[]).map((exp: any, i: number) => (
+                    <div key={exp.id}>
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <BriefcaseIcon className="w-5 h-5 text-gray-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="font-semibold text-sm text-gray-900">{exp.title}</p>
+                              <p className="text-sm text-primary font-medium">{exp.company}</p>
+                              <p className="text-xs text-gray-400 mt-0.5">
+                                {fmtDate(exp.startDate)} – {exp.current ? "Present" : fmtDate(exp.endDate || "")}
+                                {exp.location && ` · ${exp.location}`}
+                                {exp.remote && <span className="ml-1 text-primary font-medium">· Remote</span>}
+                              </p>
+                            </div>
+                            {isOwn && (
+                              <button onClick={() => deleteExperience.mutate({ profileId: id, id: exp.id }, { onSuccess: () => qc.invalidateQueries({ queryKey: getListExperienceQueryKey(id) }) })}
+                                className="w-7 h-7 flex items-center justify-center rounded-full text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors flex-shrink-0">
+                                <TrashIcon className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                          {exp.description && <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{exp.description}</p>}
+                        </div>
+                      </div>
+                      {i < experience.length - 1 && <Separator className="mt-4" />}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Education */}
+            <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4">
+              <SectionHeader title="Education" icon={GraduationCapIcon} isOwn={isOwn} onAdd={() => setModal("edu")} />
+              {(education as any[]).length === 0 ? (
+                <p className="text-sm text-gray-400 italic">{isOwn ? "Add your education history." : "No education listed."}</p>
+              ) : (
+                <div className="space-y-5">
+                  {(education as any[]).map((edu: any, i: number) => (
+                    <div key={edu.id}>
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <GraduationCapIcon className="w-5 h-5 text-gray-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="font-semibold text-sm text-gray-900">{edu.school}</p>
+                              {edu.degree && <p className="text-sm text-primary font-medium">{edu.degree}{edu.fieldOfStudy ? ` · ${edu.fieldOfStudy}` : ""}</p>}
+                              <p className="text-xs text-gray-400 mt-0.5">{edu.startYear} – {edu.endYear ?? "Present"}</p>
+                            </div>
+                            {isOwn && (
+                              <button onClick={() => deleteEducation.mutate({ profileId: id, id: edu.id }, { onSuccess: () => qc.invalidateQueries({ queryKey: getListEducationQueryKey(id) }) })}
+                                className="w-7 h-7 flex items-center justify-center rounded-full text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors flex-shrink-0">
+                                <TrashIcon className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {i < education.length - 1 && <Separator className="mt-4" />}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Skills */}
+            <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4">
+              <SectionHeader title="Skills" icon={ZapIcon} isOwn={isOwn} onAdd={() => setModal("skill")} />
+              {(skills as any[]).length === 0 ? (
+                <p className="text-sm text-gray-400 italic">{isOwn ? "Add skills to showcase your expertise." : "No skills listed."}</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {(skills as any[]).map((skill: any) => (
+                    <div key={skill.id} className="group flex items-center gap-1 bg-gray-50 hover:bg-primary/5 border border-gray-200 hover:border-primary/30 rounded-full px-3 py-1.5 transition-colors">
+                      <span className="text-xs font-medium text-gray-700">{skill.name}</span>
+                      {skill.level && <span className="text-[10px] text-gray-400">· {skill.level}</span>}
+                      {isOwn && (
+                        <button onClick={() => deleteSkill.mutate({ profileId: id, id: skill.id }, { onSuccess: () => qc.invalidateQueries({ queryKey: getListProfileSkillsQueryKey(id) }) })}
+                          className="ml-1 w-3.5 h-3.5 flex items-center justify-center text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
+                          <XIcon className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
           </div>
-        )}
 
-        {/* ── Experience ── */}
-        <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
-          <SectionHeader title="Experience" icon={BriefcaseIcon} isOwn={isOwn} onAdd={() => setModal("exp")} />
-          {(experience as any[]).length === 0 ? (
-            <p className="text-sm text-gray-400 italic">{isOwn ? "Add your work experience." : "No experience listed."}</p>
-          ) : (
-            <div className="space-y-5">
-              {(experience as any[]).map((exp: any, i: number) => (
-                <div key={exp.id}>
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <BriefcaseIcon className="w-5 h-5 text-gray-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-semibold text-sm text-gray-900">{exp.title}</p>
-                          <p className="text-sm text-primary font-medium">{exp.company}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {fmtDate(exp.startDate)} – {exp.current ? "Present" : fmtDate(exp.endDate || "")}
-                            {exp.location && ` · ${exp.location}`}
-                            {exp.remote && <span className="ml-1 text-primary font-medium">· Remote</span>}
-                          </p>
-                        </div>
-                        {isOwn && (
-                          <button onClick={() => deleteExperience.mutate({ profileId: id, id: exp.id }, { onSuccess: () => qc.invalidateQueries({ queryKey: getListExperienceQueryKey(id) }) })}
-                            className="w-7 h-7 flex items-center justify-center rounded-full text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors flex-shrink-0">
-                            <TrashIcon className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                      {exp.description && <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{exp.description}</p>}
-                    </div>
+          {/* ── Right sidebar ── */}
+          <div className="space-y-3">
+
+            {/* Open to work */}
+            {profile.openToWork && (
+              <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className="w-8 h-8 bg-green-50 rounded-full flex items-center justify-center flex-shrink-0">
+                    <BriefcaseIcon className="w-4 h-4 text-green-600" />
                   </div>
-                  {i < experience.length - 1 && <Separator className="mt-4" />}
+                  <p className="text-sm font-semibold text-gray-900">Open to work</p>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  {isOwn ? "You are visible to recruiters as open to new opportunities." : `${profile.name.split(" ")[0]} is actively exploring remote roles.`}
+                </p>
+              </div>
+            )}
 
-        {/* ── Education ── */}
-        <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
-          <SectionHeader title="Education" icon={GraduationCapIcon} isOwn={isOwn} onAdd={() => setModal("edu")} />
-          {(education as any[]).length === 0 ? (
-            <p className="text-sm text-gray-400 italic">{isOwn ? "Add your education history." : "No education listed."}</p>
-          ) : (
-            <div className="space-y-5">
-              {(education as any[]).map((edu: any, i: number) => (
-                <div key={edu.id}>
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <GraduationCapIcon className="w-5 h-5 text-gray-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-semibold text-sm text-gray-900">{edu.school}</p>
-                          {edu.degree && <p className="text-sm text-primary font-medium">{edu.degree}{edu.fieldOfStudy ? ` · ${edu.fieldOfStudy}` : ""}</p>}
-                          <p className="text-xs text-gray-400 mt-0.5">{edu.startYear} – {edu.endYear ?? "Present"}</p>
-                        </div>
-                        {isOwn && (
-                          <button onClick={() => deleteEducation.mutate({ profileId: id, id: edu.id }, { onSuccess: () => qc.invalidateQueries({ queryKey: getListEducationQueryKey(id) }) })}
-                            className="w-7 h-7 flex items-center justify-center rounded-full text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors flex-shrink-0">
-                            <TrashIcon className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+            {/* Network stats */}
+            <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
+                <UsersIcon className="w-4 h-4 text-primary" /> Network
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {connectionCount}
+                    <span className="text-sm font-normal text-gray-400 ml-1">connection{connectionCount !== 1 ? "s" : ""}</span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <FileTextIcon className="w-3.5 h-3.5" />
+                  <span>{profilePosts.length} post{profilePosts.length !== 1 ? "s" : ""} shared</span>
+                </div>
+              </div>
+              {isOwn && (
+                <Link href="/profiles?tab=discover">
+                  <Button variant="outline" size="sm" className="mt-4 w-full rounded-full text-xs gap-1.5">
+                    <UsersIcon className="w-3.5 h-3.5" /> Grow my network
+                  </Button>
+                </Link>
+              )}
+            </div>
+
+            {/* Top skills */}
+            {(skills as any[]).length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
+                  <ZapIcon className="w-4 h-4 text-primary" /> Top skills
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {(skills as any[]).slice(0, 6).map((skill: any) => (
+                    <span key={skill.id} className="bg-primary/10 text-primary text-xs font-medium px-2.5 py-1 rounded-full border border-primary/20">
+                      {skill.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Latest experience */}
+            {(experience as any[]).length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
+                  <BriefcaseIcon className="w-4 h-4 text-primary" /> Current role
+                </h3>
+                {(() => {
+                  const current = (experience as any[]).find((e: any) => e.current) ?? (experience as any[])[0];
+                  return (
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                        <BriefcaseIcon className="w-4 h-4 text-gray-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{current.title}</p>
+                        <p className="text-xs text-primary font-medium">{current.company}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{current.current ? "Present" : fmtDate(current.endDate || "")}</p>
                       </div>
                     </div>
-                  </div>
-                  {i < education.length - 1 && <Separator className="mt-4" />}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                  );
+                })()}
+              </div>
+            )}
 
-        {/* ── Skills ── */}
-        <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
-          <SectionHeader title="Skills" icon={ZapIcon} isOwn={isOwn} onAdd={() => setModal("skill")} />
-          {(skills as any[]).length === 0 ? (
-            <p className="text-sm text-gray-400 italic">{isOwn ? "Add skills to showcase your expertise." : "No skills listed."}</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {(skills as any[]).map((skill: any) => (
-                <div key={skill.id} className="group flex items-center gap-1 bg-gray-50 hover:bg-primary/5 border border-gray-200 hover:border-primary/30 rounded-full px-3 py-1.5 transition-colors">
-                  <span className="text-xs font-medium text-gray-700">{skill.name}</span>
-                  {skill.level && <span className="text-[10px] text-gray-400">· {skill.level}</span>}
-                  {isOwn && (
-                    <button onClick={() => deleteSkill.mutate({ profileId: id, id: skill.id }, { onSuccess: () => qc.invalidateQueries({ queryKey: getListProfileSkillsQueryKey(id) }) })}
-                      className="ml-1 w-3.5 h-3.5 flex items-center justify-center text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
-                      <XIcon className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+            {/* Latest education */}
+            {(education as any[]).length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
+                  <GraduationCapIcon className="w-4 h-4 text-primary" /> Education
+                </h3>
+                {(() => {
+                  const latest = (education as any[])[0];
+                  return (
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                        <GraduationCapIcon className="w-4 h-4 text-gray-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{latest.school}</p>
+                        {latest.degree && <p className="text-xs text-primary font-medium">{latest.degree}</p>}
+                        <p className="text-xs text-gray-400 mt-0.5">{latest.startYear} – {latest.endYear ?? "Present"}</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
 
+          </div>
+        </div>
       </div>
     </div>
   );
