@@ -624,9 +624,11 @@ export default function ProfileDetail() {
   const deleteSkill = useDeleteProfileSkill();
   const updateProfile = useUpdateProfile();
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   const [modal, setModal] = useState<"info" | "exp" | "edu" | "skill" | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [coverUploading, setCoverUploading] = useState(false);
   const [msgLoading, setMsgLoading] = useState(false);
 
   async function handleMessage() {
@@ -666,6 +668,34 @@ export default function ProfileDetail() {
     if (!file) return;
     setAvatarUploading(true);
     await uploadFile(file);
+    e.target.value = "";
+  }
+
+  const { uploadFile: uploadCover } = useUpload({
+    onSuccess: async (res) => {
+      const coverUrl = `/api/storage${res.objectPath}`;
+      updateProfile.mutate(
+        { id, data: { coverUrl } },
+        {
+          onSuccess: () => {
+            qc.invalidateQueries({ queryKey: getGetProfileQueryKey(id) });
+            toast({ title: "Cover photo updated!" });
+            setCoverUploading(false);
+          },
+        }
+      );
+    },
+    onError: () => {
+      toast({ title: "Upload failed", variant: "destructive" });
+      setCoverUploading(false);
+    },
+  });
+
+  async function handleCoverFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCoverUploading(true);
+    await uploadCover(file);
     e.target.value = "";
   }
 
@@ -746,12 +776,28 @@ export default function ProfileDetail() {
             {/* Profile header card */}
             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
               {/* Banner */}
-              <div className="relative h-40 bg-gradient-to-r from-primary/70 via-primary/45 to-indigo-300/60 group">
+              <div className={`relative h-40 bg-gradient-to-r from-primary/70 via-primary/45 to-indigo-300/60 group transition-opacity ${coverUploading ? "opacity-60" : ""}`}>
                 {profile.coverUrl && <img src={profile.coverUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />}
                 {isOwn && (
-                  <button className="absolute top-3 right-3 w-8 h-8 bg-white/80 hover:bg-white rounded-full flex items-center justify-center text-gray-600 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                    <CameraIcon className="w-4 h-4" />
-                  </button>
+                  <>
+                    <input
+                      ref={coverInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleCoverFile}
+                    />
+                    <button
+                      onClick={() => coverInputRef.current?.click()}
+                      disabled={coverUploading}
+                      title="Upload cover photo"
+                      className="absolute top-3 right-3 w-9 h-9 bg-white/80 hover:bg-white disabled:opacity-50 rounded-full flex items-center justify-center text-gray-600 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      {coverUploading
+                        ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        : <CameraIcon className="w-4 h-4" />}
+                    </button>
+                  </>
                 )}
               </div>
 
