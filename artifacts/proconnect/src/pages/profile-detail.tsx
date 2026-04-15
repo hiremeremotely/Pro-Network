@@ -764,9 +764,9 @@ export default function ProfileDetail() {
               </div>
 
               {/* Action buttons */}
-              <div className="flex items-center gap-2 pt-14">
+              <div className="flex items-center gap-2 pt-14 flex-wrap justify-end">
                 {isOwn ? (
-                  <Button variant="outline" size="sm" onClick={() => setModal("info")} className="rounded-full h-9 px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
+                  <Button variant="outline" size="sm" onClick={() => setModal("info")} className="rounded-full h-9 px-3 sm:px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
                     <PencilIcon className="w-3.5 h-3.5" /> Edit profile
                   </Button>
                 ) : (
@@ -775,7 +775,7 @@ export default function ProfileDetail() {
                       size="sm"
                       variant={isConnected(id) ? "secondary" : "default"}
                       onClick={() => toggleConnect(id)}
-                      className={`rounded-full h-9 px-5 text-sm font-semibold gap-1.5 ${
+                      className={`rounded-full h-9 px-3 sm:px-5 text-sm font-semibold gap-1.5 ${
                         isConnected(id)
                           ? "bg-primary/10 text-primary border border-primary/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200"
                           : ""
@@ -785,7 +785,7 @@ export default function ProfileDetail() {
                         ? <><UserCheckIcon className="w-3.5 h-3.5" /> Connected</>
                         : <><UserPlusIcon className="w-3.5 h-3.5" /> Connect</>}
                     </Button>
-                    <Button variant="outline" size="sm" onClick={handleMessage} disabled={msgLoading} className="rounded-full h-9 px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
+                    <Button variant="outline" size="sm" onClick={handleMessage} disabled={msgLoading} className="rounded-full h-9 px-3 sm:px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
                       <MessageSquareIcon className="w-3.5 h-3.5" /> {msgLoading ? "Opening…" : "Message"}
                     </Button>
                   </>

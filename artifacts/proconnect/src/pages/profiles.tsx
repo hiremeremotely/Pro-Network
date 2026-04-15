@@ -392,7 +392,18 @@ export default function Profiles() {
         </div>
 
         <div className="pb-1">
-          <ViewToggle view={view} onChange={setView} options={["grid", "list", "table"]} />
+          {/* Mobile: grid + list only */}
+          <div className="md:hidden">
+            <ViewToggle
+              view={view === "table" ? "list" : view}
+              onChange={setView}
+              options={["grid", "list"]}
+            />
+          </div>
+          {/* Desktop: all three */}
+          <div className="hidden md:block">
+            <ViewToggle view={view} onChange={setView} options={["grid", "list", "table"]} />
+          </div>
         </div>
       </div>
 
