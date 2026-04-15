@@ -325,7 +325,7 @@ export default function Jobs() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-10 pb-24">
+    <div className="max-w-[1320px] mx-auto px-4 py-10 pb-24">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-1">
           <BriefcaseIcon className="w-7 h-7 text-primary" />

@@ -935,7 +935,7 @@ export default function Home() {
   });
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6 w-full pb-24 md:pb-6">
+    <div className="max-w-[1320px] mx-auto px-4 py-6 w-full pb-24 md:pb-6">
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] gap-4 items-start">
 
         {/* LEFT: Profile summary card */}

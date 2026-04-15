@@ -354,7 +354,7 @@ export default function Profiles() {
   const networkSize = netData?.total ?? 0;
 
   return (
-    <div className="container mx-auto px-4 py-10 pb-24 max-w-5xl">
+    <div className="max-w-[1320px] mx-auto px-4 py-10 pb-24">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-1">

@@ -494,16 +494,17 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen flex flex-col bg-[#f3f2ef]">
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
-          <Link href={user ? homeHref : "/"} className="flex-shrink-0 flex items-center">
-            <img src={logo} alt="Hire Me Remotely" className="h-8 w-auto" />
-          </Link>
+        <div className="max-w-[1320px] mx-auto px-4 h-14 flex items-center">
+          {/* Left: logo + search */}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <Link href={user ? homeHref : "/"} className="flex-shrink-0 flex items-center">
+              <img src={logo} alt="Hire Me Remotely" className="h-8 w-auto" />
+            </Link>
+            <GlobalSearch />
+          </div>
 
-          <GlobalSearch />
-
-          <div className="flex-1" />
-
-          <nav className="hidden md:flex items-stretch h-14">
+          {/* Center: nav items */}
+          <nav className="hidden md:flex flex-1 items-stretch h-14 justify-center">
             {navItems.map((item) => {
               const exactMatch = ["/feed", "/profiles", "/company-dashboard"];
               const isActive = location === item.href || (!exactMatch.includes(item.href) && location.startsWith(item.href));
@@ -533,9 +534,10 @@ export function Layout({ children }: LayoutProps) {
             {user && <NotificationBell profileId={user.id} />}
           </nav>
 
-          <div className="hidden md:block h-8 w-px bg-gray-200 mx-1" />
-
-          <DropdownMenu>
+          {/* Right: divider + avatar */}
+          <div className="flex items-center flex-shrink-0 ml-auto md:ml-0">
+            <div className="hidden md:block h-8 w-px bg-gray-200 mx-1" />
+            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex-shrink-0 flex flex-col items-center gap-1 px-2 text-xs font-medium text-gray-500 hover:text-gray-900 outline-none">
                 <Avatar className="w-7 h-7 border border-gray-300">
@@ -608,6 +610,7 @@ export function Layout({ children }: LayoutProps) {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
       </header>
 
