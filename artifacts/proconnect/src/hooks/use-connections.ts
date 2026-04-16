@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useAppAuth } from "@/contexts/app-auth";
 
 const BASE = import.meta.env.BASE_URL;
@@ -35,6 +35,32 @@ export function useConnections() {
     qc.invalidateQueries({ queryKey: ["connections-network", user.id] });
     qc.invalidateQueries({ queryKey: ["connections-requests", user.id] });
   }, [user, qc]);
+
+  // ── Real-time SSE subscription ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!user?.id) return;
+    const es = new EventSource(`${BASE}api/events?profileId=${user.id}`);
+
+    es.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data) as { type: string };
+        if (data.type === "connection_accepted" || data.type === "connection_removed") {
+          // Immediately refresh all connection state for this user
+          qc.invalidateQueries({ queryKey: ["connections", user.id] });
+          qc.invalidateQueries({ queryKey: ["connections-pending", user.id] });
+          qc.invalidateQueries({ queryKey: ["connections-network", user.id] });
+          qc.invalidateQueries({ queryKey: ["connections-requests", user.id] });
+          qc.invalidateQueries({ queryKey: ["notif-count", user.id] });
+        }
+      } catch { /* ignore parse errors */ }
+    };
+
+    es.onerror = () => {
+      // EventSource auto-reconnects; no action needed
+    };
+
+    return () => es.close();
+  }, [user?.id, qc]);
 
   const sendRequest = useCallback(async (targetId: number, message?: string) => {
     if (!user) return;

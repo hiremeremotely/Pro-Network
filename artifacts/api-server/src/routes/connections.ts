@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, connectionsTable, profilesTable } from "@workspace/db";
 import { notificationsTable } from "@workspace/db";
 import { eq, and, inArray, notInArray, ne, or, sql, desc } from "drizzle-orm";
+import { emitToUser } from "./events";
 
 const router = Router();
 
@@ -231,6 +232,10 @@ router.patch("/connections/accept", async (req, res): Promise<void> => {
     });
   }
 
+  // Push real-time event to both sides so they refresh without a page reload
+  emitToUser(followerId,  { type: "connection_accepted", withProfileId: followingId });
+  emitToUser(followingId, { type: "connection_accepted", withProfileId: followerId });
+
   res.json(updated);
 });
 
@@ -248,6 +253,10 @@ router.delete("/connections", async (req, res): Promise<void> => {
         and(eq(connectionsTable.followerId, followingId), eq(connectionsTable.followingId, followerId)),
       ),
     );
+
+  // Notify both parties in real-time (covers decline + disconnect cases)
+  emitToUser(followerId,  { type: "connection_removed", withProfileId: followingId });
+  emitToUser(followingId, { type: "connection_removed", withProfileId: followerId });
 
   res.status(204).send();
 });
