@@ -7,37 +7,69 @@ import { useStartChat } from "@/hooks/use-start-chat";
 import { ProfileCard } from "@/components/profile-card";
 import { LoadingState } from "@/components/loading-state";
 import { ViewToggle, type ViewMode } from "@/components/view-toggle";
+import { ConnectModal } from "@/components/connect-modal";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   SearchIcon, UsersIcon, MapPinIcon, XIcon, LoaderIcon,
   UserCheckIcon, UserPlusIcon, MessageSquareIcon, SparklesIcon,
+  ClockIcon, CheckIcon, BellIcon,
 } from "lucide-react";
 import type { Profile } from "@workspace/api-client-react";
+import { formatDistanceToNow } from "date-fns";
 
 const BASE = import.meta.env.BASE_URL;
 
-// ── Action buttons ─────────────────────────────────────────────────────────────
+// ── Connection request row type ────────────────────────────────────────────────
+interface ConnectionRequest {
+  connectionId: number;
+  requestMessage: string | null;
+  createdAt: string;
+  actorId: number;
+  actorName: string;
+  actorHeadline: string | null;
+  actorAvatarUrl: string | null;
+  actorLocation: string | null;
+}
 
-function ConnectButton({ profileId, isConnected, onToggle, accountType, className = "" }: {
-  profileId: number; isConnected: boolean; onToggle: (id: number) => void;
-  accountType?: string | null; className?: string;
+// ── Connect button (3 states) ─────────────────────────────────────────────────
+function ConnectButton({ profile, isConnected, isPending, onConnect, onCancel, onDisconnect, className = "" }: {
+  profile: Profile;
+  isConnected: boolean;
+  isPending: boolean;
+  onConnect: (profile: Profile) => void;
+  onCancel: (id: number) => void;
+  onDisconnect: (id: number) => void;
+  className?: string;
 }) {
+  if (isConnected) {
+    return (
+      <Button size="sm" variant="secondary"
+        onClick={e => { e.preventDefault(); e.stopPropagation(); onDisconnect(profile.id); }}
+        className={`rounded-full px-3 text-xs gap-1 flex-shrink-0 bg-primary/10 text-primary border border-primary/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200 ${className}`}
+      >
+        <UserCheckIcon className="w-3 h-3" /> Connected
+      </Button>
+    );
+  }
+  if (isPending) {
+    return (
+      <Button size="sm" variant="outline"
+        onClick={e => { e.preventDefault(); e.stopPropagation(); onCancel(profile.id); }}
+        className={`rounded-full px-3 text-xs gap-1 flex-shrink-0 border-amber-300 text-amber-600 hover:bg-red-50 hover:text-red-500 hover:border-red-200 ${className}`}
+      >
+        <ClockIcon className="w-3 h-3" /> Pending
+      </Button>
+    );
+  }
   return (
-    <Button size="sm" variant={isConnected ? "secondary" : "outline"}
-      onClick={e => { e.preventDefault(); e.stopPropagation(); onToggle(profileId); }}
-      className={`rounded-full px-3 text-xs gap-1 flex-shrink-0 ${
-        isConnected
-          ? "bg-primary/10 text-primary border-primary/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200"
-          : "border-primary/30 text-primary hover:bg-primary/5"
-      } ${className}`}
+    <Button size="sm" variant="outline"
+      onClick={e => { e.preventDefault(); e.stopPropagation(); onConnect(profile); }}
+      className={`rounded-full px-3 text-xs gap-1 flex-shrink-0 border-primary/30 text-primary hover:bg-primary/5 ${className}`}
     >
-      {isConnected
-        ? <><UserCheckIcon className="w-3 h-3" /> Following</>
-        : accountType === "company"
-          ? <><UserPlusIcon className="w-3 h-3" /> Follow</>
-          : <><UserPlusIcon className="w-3 h-3" /> Connect</>}
+      <UserPlusIcon className="w-3 h-3" />
+      {profile.accountType === "company" ? "Follow" : "Connect"}
     </Button>
   );
 }
@@ -55,12 +87,17 @@ function MessageButton({ profileId, onMessage, className = "" }: {
   );
 }
 
-// ── View renderers ─────────────────────────────────────────────────────────────
-
-function ProfileList({ profiles, view, isConnected, onToggle, onMessage, emptySlot }: {
-  profiles: Profile[]; view: ViewMode;
-  isConnected: (id: number) => boolean; onToggle: (id: number) => void;
-  onMessage: (id: number) => void; emptySlot?: React.ReactNode;
+// ── Profile list ───────────────────────────────────────────────────────────────
+function ProfileList({ profiles, view, isConnected, isPending, onConnect, onCancel, onDisconnect, onMessage, emptySlot }: {
+  profiles: Profile[];
+  view: ViewMode;
+  isConnected: (id: number) => boolean;
+  isPending: (id: number) => boolean;
+  onConnect: (p: Profile) => void;
+  onCancel: (id: number) => void;
+  onDisconnect: (id: number) => void;
+  onMessage: (id: number) => void;
+  emptySlot?: React.ReactNode;
 }) {
   if (profiles.length === 0 && emptySlot) return <>{emptySlot}</>;
 
@@ -71,8 +108,18 @@ function ProfileList({ profiles, view, isConnected, onToggle, onMessage, emptySl
           <div key={profile.id} className="flex flex-col">
             <ProfileCard profile={profile} />
             <div className="flex justify-center gap-2 mt-2 px-2">
-              <MessageButton profileId={profile.id} onMessage={onMessage} className="flex-1 justify-center" />
-              <ConnectButton profileId={profile.id} isConnected={isConnected(profile.id)} onToggle={onToggle} accountType={profile.accountType} className="flex-1 justify-center" />
+              {isConnected(profile.id) && (
+                <MessageButton profileId={profile.id} onMessage={onMessage} className="flex-1 justify-center" />
+              )}
+              <ConnectButton
+                profile={profile}
+                isConnected={isConnected(profile.id)}
+                isPending={isPending(profile.id)}
+                onConnect={onConnect}
+                onCancel={onCancel}
+                onDisconnect={onDisconnect}
+                className="flex-1 justify-center"
+              />
             </div>
           </div>
         ))}
@@ -106,8 +153,17 @@ function ProfileList({ profiles, view, isConnected, onToggle, onMessage, emptySl
                   <Badge className="bg-green-50 text-green-600 border-0 text-[10px] font-semibold px-2 rounded-full flex-shrink-0">Open</Badge>
                 )}
                 <div className="hidden sm:flex items-center gap-2">
-                  <MessageButton profileId={profile.id} onMessage={onMessage} />
-                  <ConnectButton profileId={profile.id} isConnected={isConnected(profile.id)} onToggle={onToggle} accountType={profile.accountType} />
+                  {isConnected(profile.id) && (
+                    <MessageButton profileId={profile.id} onMessage={onMessage} />
+                  )}
+                  <ConnectButton
+                    profile={profile}
+                    isConnected={isConnected(profile.id)}
+                    isPending={isPending(profile.id)}
+                    onConnect={onConnect}
+                    onCancel={onCancel}
+                    onDisconnect={onDisconnect}
+                  />
                 </div>
               </div>
             </Link>
@@ -128,7 +184,7 @@ function ProfileList({ profiles, view, isConnected, onToggle, onMessage, emptySl
             <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden lg:table-cell">Industry</th>
             <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Location</th>
             <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Status</th>
-            <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-48">Actions</th>
+            <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-52">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -163,8 +219,17 @@ function ProfileList({ profiles, view, isConnected, onToggle, onMessage, emptySl
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div className="flex items-center gap-2">
-                    <MessageButton profileId={profile.id} onMessage={onMessage} />
-                    <ConnectButton profileId={profile.id} isConnected={isConnected(profile.id)} onToggle={onToggle} accountType={profile.accountType} />
+                    {isConnected(profile.id) && (
+                      <MessageButton profileId={profile.id} onMessage={onMessage} />
+                    )}
+                    <ConnectButton
+                      profile={profile}
+                      isConnected={isConnected(profile.id)}
+                      isPending={isPending(profile.id)}
+                      onConnect={onConnect}
+                      onCancel={onCancel}
+                      onDisconnect={onDisconnect}
+                    />
                   </div>
                 </td>
               </tr>
@@ -176,21 +241,84 @@ function ProfileList({ profiles, view, isConnected, onToggle, onMessage, emptySl
   );
 }
 
-// ── My Network tab ─────────────────────────────────────────────────────────────
-
-function MyNetworkTab({ userId, view, isConnected, onToggle, onMessage }: {
-  userId: number; view: ViewMode;
-  isConnected: (id: number) => boolean; onToggle: (id: number) => void;
-  onMessage: (id: number) => void;
+// ── Incoming connection request card ──────────────────────────────────────────
+function RequestCard({ req, onAccept, onDecline }: {
+  req: ConnectionRequest;
+  onAccept: (id: number) => void;
+  onDecline: (id: number) => void;
 }) {
-  const { data, isLoading } = useQuery<{ profiles: Profile[]; total: number }>({
+  const initials = req.actorName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  return (
+    <div className="flex items-start gap-4 p-4 bg-white rounded-xl border border-primary/20 shadow-sm">
+      <Link href={`/profiles/${req.actorId}`} className="flex-shrink-0">
+        <Avatar className="w-12 h-12 border border-gray-100">
+          <AvatarImage src={req.actorAvatarUrl || undefined} />
+          <AvatarFallback className="font-semibold bg-primary/10 text-primary">{initials}</AvatarFallback>
+        </Avatar>
+      </Link>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <Link href={`/profiles/${req.actorId}`}>
+              <p className="font-semibold text-sm text-gray-900 hover:text-primary transition-colors">{req.actorName}</p>
+            </Link>
+            {req.actorHeadline && <p className="text-xs text-gray-500 truncate">{req.actorHeadline}</p>}
+            {req.actorLocation && (
+              <div className="flex items-center gap-1 text-[11px] text-gray-400 mt-0.5">
+                <MapPinIcon className="w-3 h-3" />{req.actorLocation}
+              </div>
+            )}
+          </div>
+          <span className="text-[11px] text-gray-400 flex-shrink-0">
+            {formatDistanceToNow(new Date(req.createdAt), { addSuffix: true })}
+          </span>
+        </div>
+        {req.requestMessage && (
+          <p className="text-xs text-gray-600 italic mt-2 border-l-2 border-primary/30 pl-2 leading-relaxed">
+            "{req.requestMessage}"
+          </p>
+        )}
+        <div className="flex gap-2 mt-3">
+          <Button size="sm" className="rounded-full gap-1 text-xs h-8 px-4" onClick={() => onAccept(req.actorId)}>
+            <CheckIcon className="w-3 h-3" /> Accept
+          </Button>
+          <Button size="sm" variant="outline" className="rounded-full text-xs h-8 px-4 text-gray-500 hover:text-red-500 hover:border-red-200" onClick={() => onDecline(req.actorId)}>
+            Decline
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── My Network tab ─────────────────────────────────────────────────────────────
+function MyNetworkTab({ userId, view, isConnected, isPending, onConnect, onCancel, onDisconnect, onMessage, onAccept, onDecline }: {
+  userId: number; view: ViewMode;
+  isConnected: (id: number) => boolean;
+  isPending: (id: number) => boolean;
+  onConnect: (p: Profile) => void;
+  onCancel: (id: number) => void;
+  onDisconnect: (id: number) => void;
+  onMessage: (id: number) => void;
+  onAccept: (id: number) => void;
+  onDecline: (id: number) => void;
+}) {
+  const { data: networkData, isLoading: netLoading } = useQuery<{ profiles: Profile[]; total: number }>({
     queryKey: ["connections-network", userId],
     queryFn: () => fetch(`${BASE}api/connections/network?profileId=${userId}`).then(r => r.json()),
     enabled: !!userId,
     staleTime: 30_000,
   });
 
-  const profiles = data?.profiles ?? [];
+  const { data: requests = [], isLoading: reqLoading } = useQuery<ConnectionRequest[]>({
+    queryKey: ["connections-requests", userId],
+    queryFn: () => fetch(`${BASE}api/connections/requests?profileId=${userId}`).then(r => r.json()),
+    enabled: !!userId,
+    staleTime: 0,
+  });
+
+  const profiles = networkData?.profiles ?? [];
+  const isLoading = netLoading || reqLoading;
 
   if (isLoading) return <LoadingState message="Loading your network…" />;
 
@@ -206,29 +334,56 @@ function MyNetworkTab({ userId, view, isConnected, onToggle, onMessage }: {
 
   return (
     <>
+      {/* Incoming requests section */}
+      {requests.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <BellIcon className="w-4 h-4 text-primary" />
+            <p className="text-sm font-semibold text-gray-800">
+              Connection Requests
+              <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold">{requests.length}</span>
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+            {requests.map(req => (
+              <RequestCard key={req.connectionId} req={req} onAccept={onAccept} onDecline={onDecline} />
+            ))}
+          </div>
+          <div className="border-t border-gray-100 mb-6" />
+        </div>
+      )}
+
+      {/* Accepted connections */}
       {profiles.length > 0 && (
         <p className="text-sm text-muted-foreground mb-4">
-          You're following <span className="font-semibold text-gray-700">{profiles.length}</span> {profiles.length === 1 ? "person" : "people"}
+          Connected with <span className="font-semibold text-gray-700">{profiles.length}</span> {profiles.length === 1 ? "person" : "people"}
         </p>
       )}
       <ProfileList
         profiles={profiles}
         view={view}
         isConnected={isConnected}
-        onToggle={onToggle}
+        isPending={isPending}
+        onConnect={onConnect}
+        onCancel={onCancel}
+        onDisconnect={onDisconnect}
         onMessage={onMessage}
-        emptySlot={empty}
+        emptySlot={requests.length === 0 ? empty : undefined}
       />
     </>
   );
 }
 
 // ── Discover tab ───────────────────────────────────────────────────────────────
-
-function DiscoverTab({ userId, view, isConnected, onToggle, onMessage, initialSearch }: {
+function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel, onDisconnect, onMessage, initialSearch }: {
   userId: number | undefined; view: ViewMode;
-  isConnected: (id: number) => boolean; onToggle: (id: number) => void;
-  onMessage: (id: number) => void; initialSearch: string;
+  isConnected: (id: number) => boolean;
+  isPending: (id: number) => boolean;
+  onConnect: (p: Profile) => void;
+  onCancel: (id: number) => void;
+  onDisconnect: (id: number) => void;
+  onMessage: (id: number) => void;
+  initialSearch: string;
 }) {
   const [search, setSearch] = useState(initialSearch);
   const [query, setQuery]   = useState(initialSearch);
@@ -320,7 +475,10 @@ function DiscoverTab({ userId, view, isConnected, onToggle, onMessage, initialSe
             profiles={profiles}
             view={view}
             isConnected={isConnected}
-            onToggle={onToggle}
+            isPending={isPending}
+            onConnect={onConnect}
+            onCancel={onCancel}
+            onDisconnect={onDisconnect}
             onMessage={onMessage}
             emptySlot={empty}
           />
@@ -331,19 +489,29 @@ function DiscoverTab({ userId, view, isConnected, onToggle, onMessage, initialSe
 }
 
 // ── Main page ──────────────────────────────────────────────────────────────────
-
 export default function Profiles() {
   const { user } = useAppAuth();
   const searchString = useSearch();
   const params = new URLSearchParams(searchString);
   const initialSearch = params.get("search") ?? "";
   const initialTab = params.get("tab") === "discover" || !!initialSearch ? "discover" : "network";
-  const { isConnected, toggleConnect } = useConnections();
+  const { isConnected, isPending, sendRequest, cancelRequest, acceptRequest, declineRequest, disconnect } = useConnections();
   const startChat = useStartChat();
   const [, navigate] = useLocation();
 
   const [tab, setTab]   = useState<"network" | "discover">(initialTab as "network" | "discover");
   const [view, setView] = useState<ViewMode>("list");
+  const [connectingProfile, setConnectingProfile] = useState<Profile | null>(null);
+
+  const handleConnect = useCallback((profile: Profile) => {
+    setConnectingProfile(profile);
+  }, []);
+
+  const handleSendRequest = useCallback((message: string) => {
+    if (!connectingProfile) return;
+    sendRequest(connectingProfile.id, message);
+    setConnectingProfile(null);
+  }, [connectingProfile, sendRequest]);
 
   const handleMessage = useCallback(async (profileId: number) => {
     await startChat(profileId);
@@ -356,10 +524,28 @@ export default function Profiles() {
     enabled: !!user?.id,
     staleTime: 30_000,
   });
+
+  const { data: requestsData = [] } = useQuery<ConnectionRequest[]>({
+    queryKey: ["connections-requests", user?.id],
+    queryFn: () => fetch(`${BASE}api/connections/requests?profileId=${user!.id}`).then(r => r.json()),
+    enabled: !!user?.id,
+    staleTime: 0,
+  });
+
   const networkSize = netData?.total ?? 0;
+  const requestCount = requestsData.length;
 
   return (
     <div className="max-w-[1320px] mx-auto px-4 py-10 pb-24">
+      {/* ConnectModal */}
+      {connectingProfile && (
+        <ConnectModal
+          profile={connectingProfile}
+          onSend={handleSendRequest}
+          onClose={() => setConnectingProfile(null)}
+        />
+      )}
+
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-1">
@@ -373,9 +559,9 @@ export default function Profiles() {
       <div className="flex items-center justify-between border-b border-gray-200 mb-6">
         <div className="flex gap-0">
           {([
-            { key: "network" as const, label: "My Network", count: networkSize },
+            { key: "network" as const, label: "My Network", count: networkSize, badge: requestCount },
             { key: "discover" as const, label: "Discover", icon: SparklesIcon },
-          ]).map(({ key, label, count, icon: Icon }) => (
+          ]).map(({ key, label, count, badge, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setTab(key)}
@@ -391,21 +577,20 @@ export default function Profiles() {
                   {count}
                 </span>
               )}
+              {badge !== undefined && badge > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-red-500 text-white">
+                  {badge}
+                </span>
+              )}
               {Icon && <Icon className="w-3.5 h-3.5" />}
             </button>
           ))}
         </div>
 
         <div className="pb-1">
-          {/* Mobile: grid + list only */}
           <div className="md:hidden">
-            <ViewToggle
-              view={view === "table" ? "list" : view}
-              onChange={setView}
-              options={["grid", "list"]}
-            />
+            <ViewToggle view={view === "table" ? "list" : view} onChange={setView} options={["grid", "list"]} />
           </div>
-          {/* Desktop: all three */}
           <div className="hidden md:block">
             <ViewToggle view={view} onChange={setView} options={["grid", "list", "table"]} />
           </div>
@@ -419,8 +604,13 @@ export default function Profiles() {
             userId={user.id}
             view={view}
             isConnected={isConnected}
-            onToggle={toggleConnect}
+            isPending={isPending}
+            onConnect={handleConnect}
+            onCancel={cancelRequest}
+            onDisconnect={disconnect}
             onMessage={handleMessage}
+            onAccept={acceptRequest}
+            onDecline={declineRequest}
           />
         ) : (
           <div className="text-center py-20">
@@ -435,7 +625,10 @@ export default function Profiles() {
           userId={user?.id}
           view={view}
           isConnected={isConnected}
-          onToggle={toggleConnect}
+          isPending={isPending}
+          onConnect={handleConnect}
+          onCancel={cancelRequest}
+          onDisconnect={disconnect}
           onMessage={handleMessage}
           initialSearch={initialSearch}
         />

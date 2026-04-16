@@ -69,7 +69,7 @@ function ChatWindow({
   const [noteInput, setNoteInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const other = conv.otherParticipant;
-  const { isConnected: checkConnected, toggleConnect } = useConnections();
+  const { isConnected: checkConnected, sendRequest: sendConnectionRequest } = useConnections();
 
   const { data: messages = [] } = useQuery<Message[]>({
     queryKey: ["messages", conv.id, myId],
@@ -263,33 +263,20 @@ function ChatWindow({
                   <div className="flex items-center justify-end gap-1.5">
                     {otherId && (
                       <button
-                        onClick={() => toggleConnect(otherId)}
+                        onClick={() => sendConnectionRequest(otherId, "")}
                         className="px-3 py-1 rounded-full border border-gray-400 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
                       >
                         Skip
                       </button>
                     )}
                     <button
-                      disabled={sendMsg.isPending}
                       onClick={() => {
-                        const note = noteInput.trim();
-                        if (note) {
-                          sendMsg.mutate(note, {
-                            onSuccess: () => {
-                              setNoteInput("");
-                              if (otherId) toggleConnect(otherId);
-                            }
-                          });
-                        } else if (otherId) {
-                          toggleConnect(otherId);
-                        }
+                        if (otherId) sendConnectionRequest(otherId, noteInput.trim());
+                        setNoteInput("");
                       }}
-                      className="px-3 py-1 rounded-full bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1"
+                      className="px-3 py-1 rounded-full bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-colors flex items-center gap-1"
                     >
-                      {sendMsg.isPending
-                        ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        : <UserPlusIcon className="w-3 h-3" />
-                      }
+                      <UserPlusIcon className="w-3 h-3" />
                       Send request
                     </button>
                   </div>

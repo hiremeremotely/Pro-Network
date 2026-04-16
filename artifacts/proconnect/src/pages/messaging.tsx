@@ -68,7 +68,7 @@ export default function Messaging() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const { isConnected: checkConnected, toggleConnect } = useConnections();
+  const { isConnected: checkConnected, sendRequest: sendConnectionRequest } = useConnections();
   const [noteInput, setNoteInput] = useState("");
 
   const { data: conversations = [], isLoading: convsLoading } = useQuery<Conversation[]>({
@@ -623,33 +623,20 @@ export default function Messaging() {
                       <div className="flex items-center justify-end gap-2">
                         {otherId && (
                           <button
-                            onClick={() => toggleConnect(otherId)}
+                            onClick={() => sendConnectionRequest(otherId, "")}
                             className="px-4 py-1.5 rounded-full border border-gray-400 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
                           >
                             Skip
                           </button>
                         )}
                         <button
-                          disabled={sendMsg.isPending}
                           onClick={() => {
-                            const note = noteInput.trim();
-                            if (note) {
-                              sendMsg.mutate(note, {
-                                onSuccess: () => {
-                                  setNoteInput("");
-                                  if (otherId) toggleConnect(otherId);
-                                }
-                              });
-                            } else if (otherId) {
-                              toggleConnect(otherId);
-                            }
+                            if (otherId) sendConnectionRequest(otherId, noteInput.trim());
+                            setNoteInput("");
                           }}
-                          className="px-5 py-1.5 rounded-full bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                          className="px-5 py-1.5 rounded-full bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors flex items-center gap-1.5"
                         >
-                          {sendMsg.isPending
-                            ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            : <UserPlusIcon className="w-3.5 h-3.5" />
-                          }
+                          <UserPlusIcon className="w-3.5 h-3.5" />
                           Send request
                         </button>
                       </div>

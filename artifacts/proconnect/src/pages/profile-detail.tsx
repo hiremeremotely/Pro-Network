@@ -32,6 +32,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useListJobs, getListJobsQueryKey } from "@workspace/api-client-react";
 import { useStartChat } from "@/hooks/use-start-chat";
 import { useConnections } from "@/hooks/use-connections";
+import { ConnectModal } from "@/components/connect-modal";
 
 // ── Modal wrapper ─────────────────────────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -618,7 +619,8 @@ export default function ProfileDetail() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const startChat = useStartChat();
-  const { isConnected, toggleConnect } = useConnections();
+  const { isConnected, isPending, sendRequest, cancelRequest, disconnect } = useConnections();
+  const [showConnectModal, setShowConnectModal] = useState(false);
   const deleteExperience = useDeleteExperience();
   const deleteEducation = useDeleteEducation();
   const deleteSkill = useDeleteProfileSkill();
@@ -753,7 +755,11 @@ export default function ProfileDetail() {
           avatarUploading={avatarUploading}
           handleAvatarFile={handleAvatarFile}
           isFollowing={isConnected(id)}
-          onFollow={() => toggleConnect(id)}
+          onFollow={() => {
+            if (isConnected(id)) disconnect(id);
+            else if (isPending(id)) cancelRequest(id);
+            else setShowConnectModal(true);
+          }}
         />
       </>
     );
@@ -766,6 +772,13 @@ export default function ProfileDetail() {
       {modal === "exp"   && <AddExperienceModal profileId={id} onClose={() => setModal(null)} />}
       {modal === "edu"   && <AddEducationModal  profileId={id} onClose={() => setModal(null)} />}
       {modal === "skill" && <AddSkillModal      profileId={id} onClose={() => setModal(null)} />}
+      {showConnectModal && (
+        <ConnectModal
+          profile={profile}
+          onSend={(msg) => { sendRequest(id, msg); setShowConnectModal(false); }}
+          onClose={() => setShowConnectModal(false)}
+        />
+      )}
 
       <div className="max-w-[1320px] mx-auto px-4 pt-6 pb-24 md:pb-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
@@ -833,19 +846,39 @@ export default function ProfileDetail() {
                       </Button>
                     ) : (
                       <>
-                        <Button
-                          size="sm"
-                          variant={isConnected(id) ? "secondary" : "default"}
-                          onClick={() => toggleConnect(id)}
-                          className={`rounded-full h-9 px-5 text-sm font-semibold gap-1.5 ${isConnected(id) ? "bg-primary/10 text-primary border border-primary/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200" : ""}`}
-                        >
-                          {isConnected(id)
-                            ? <><UserCheckIcon className="w-3.5 h-3.5" /> Connected</>
-                            : <><UserPlusIcon className="w-3.5 h-3.5" /> Connect</>}
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={handleMessage} disabled={msgLoading} className="rounded-full h-9 px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
-                          <MessageSquareIcon className="w-3.5 h-3.5" /> {msgLoading ? "Opening…" : "Message"}
-                        </Button>
+                        {isConnected(id) ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => disconnect(id)}
+                            className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5 bg-primary/10 text-primary border border-primary/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200"
+                          >
+                            <UserCheckIcon className="w-3.5 h-3.5" /> Connected
+                          </Button>
+                        ) : isPending(id) ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => cancelRequest(id)}
+                            className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5 border-amber-300 text-amber-600 hover:bg-red-50 hover:text-red-500 hover:border-red-200"
+                          >
+                            <ClockIcon className="w-3.5 h-3.5" /> Pending
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => setShowConnectModal(true)}
+                            className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5"
+                          >
+                            <UserPlusIcon className="w-3.5 h-3.5" /> Connect
+                          </Button>
+                        )}
+                        {isConnected(id) && (
+                          <Button variant="outline" size="sm" onClick={handleMessage} disabled={msgLoading} className="rounded-full h-9 px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
+                            <MessageSquareIcon className="w-3.5 h-3.5" /> {msgLoading ? "Opening…" : "Message"}
+                          </Button>
+                        )}
                       </>
                     )}
                   </div>

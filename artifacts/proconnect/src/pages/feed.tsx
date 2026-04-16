@@ -893,7 +893,7 @@ export default function Home() {
 
   const { data: suggestedProfiles } = useListFeaturedProfiles({ query: { queryKey: getListFeaturedProfilesQueryKey() } });
   const { data: featuredJobs } = useListFeaturedJobs({ query: { queryKey: getListFeaturedJobsQueryKey() } });
-  const { isConnected: isFeedConnected, toggleConnect: feedToggleConnect } = useConnections();
+  const { isConnected: isFeedConnected, isPending: isFeedPending, sendRequest: feedSendRequest, cancelRequest: feedCancelRequest, disconnect: feedDisconnect } = useConnections();
   const startChat = useStartChat();
   const [, navigate] = useLocation();
 
@@ -1442,18 +1442,26 @@ export default function Home() {
                           <Button
                             variant={isFeedConnected(profile.id) ? "secondary" : "outline"}
                             size="sm"
-                            onClick={() => feedToggleConnect(profile.id)}
+                            onClick={() => {
+                              if (isFeedConnected(profile.id)) feedDisconnect(profile.id);
+                              else if (isFeedPending(profile.id)) feedCancelRequest(profile.id);
+                              else feedSendRequest(profile.id, "");
+                            }}
                             className={`text-[10px] rounded-full px-2 py-0.5 h-6 flex-1 justify-center gap-1 ${
                               isFeedConnected(profile.id)
                                 ? "bg-primary/10 text-primary border-primary/20 hover:bg-red-50 hover:text-red-500"
-                                : "border-primary text-primary hover:bg-primary/5"
+                                : isFeedPending(profile.id)
+                                  ? "border-amber-300 text-amber-600 hover:bg-red-50 hover:text-red-500"
+                                  : "border-primary text-primary hover:bg-primary/5"
                             }`}
                           >
                             {isFeedConnected(profile.id)
-                              ? <><UserCheckIcon className="w-2.5 h-2.5" /> Following</>
-                              : profile.accountType === "company"
-                                ? <><UserPlusIcon className="w-2.5 h-2.5" /> Follow</>
-                                : <><UserPlusIcon className="w-2.5 h-2.5" /> Connect</>}
+                              ? <><UserCheckIcon className="w-2.5 h-2.5" /> Connected</>
+                              : isFeedPending(profile.id)
+                                ? <><ClockIcon className="w-2.5 h-2.5" /> Pending</>
+                                : profile.accountType === "company"
+                                  ? <><UserPlusIcon className="w-2.5 h-2.5" /> Follow</>
+                                  : <><UserPlusIcon className="w-2.5 h-2.5" /> Connect</>}
                           </Button>
                         </div>
                       </div>

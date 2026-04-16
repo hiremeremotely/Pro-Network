@@ -39,7 +39,7 @@ export default function Notifications() {
   const { user } = useAppAuth();
   const qc = useQueryClient();
   const BASE = import.meta.env.BASE_URL;
-  const [tab, setTab] = useState<"all" | "posts" | "connections">("all");
+  const [tab, setTab] = useState<"all" | "posts">("all");
 
   const { data: notifications = [], isLoading } = useQuery<AppNotification[]>({
     queryKey: ["notifications", user?.id],
@@ -64,9 +64,7 @@ export default function Notifications() {
 
   const filtered = tab === "posts"
     ? notifications.filter(n => n.postId !== null)
-    : tab === "connections"
-      ? notifications.filter(n => n.type === "connection")
-      : notifications;
+    : notifications;
 
   const hasUnread = notifications.some(n => !n.isRead);
 
@@ -93,7 +91,6 @@ export default function Notifications() {
         <div className="flex gap-1 px-4 border-b border-gray-200">
           {([
             { key: "all", label: "All" },
-            { key: "connections", label: "Connections" },
             { key: "posts", label: "My posts" },
           ] as const).map(({ key, label }) => (
             <button

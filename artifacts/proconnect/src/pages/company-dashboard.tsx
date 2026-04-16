@@ -1501,7 +1501,7 @@ function PostJobModal({ companyName, onClose, onCreated }: { companyName: string
 export default function CompanyDashboard() {
   const { user, logout } = useAppAuth();
   const [location, navigate] = useLocation();
-  const { isConnected, toggleConnect } = useConnections();
+  const { isConnected, isPending, sendRequest, disconnect } = useConnections();
   const qc = useQueryClient();
   const [showPostJob, setShowPostJob] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -2313,10 +2313,15 @@ export default function CompanyDashboard() {
                         <Button
                           size="sm"
                           variant={isConnected(profile.id) ? "secondary" : "outline"}
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleConnect(profile.id); }}
+                          onClick={(e) => {
+                            e.preventDefault(); e.stopPropagation();
+                            if (isConnected(profile.id)) disconnect(profile.id);
+                            else if (isPending(profile.id)) void 0;
+                            else sendRequest(profile.id, "");
+                          }}
                           className="rounded-full px-2.5 text-[10px] flex-shrink-0 hidden group-hover:flex gap-1 border-primary/30 text-primary hover:bg-primary/5"
                         >
-                          Connect
+                          {isConnected(profile.id) ? "Connected" : isPending(profile.id) ? "Pending" : "Connect"}
                         </Button>
                       </div>
                     </Link>
