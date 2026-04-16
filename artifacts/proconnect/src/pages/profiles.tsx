@@ -290,10 +290,10 @@ function RequestCard({ req, onAccept, onDecline }: {
           </p>
         )}
         <div className="flex gap-2 mt-3">
-          <Button size="sm" className="rounded-full gap-1 text-xs h-8 px-4" onClick={() => onAccept(req.actorId)}>
+          <Button size="sm" className="rounded-full gap-1 text-xs h-8 px-4" onClick={e => { e.stopPropagation(); onAccept(req.actorId); }}>
             <CheckIcon className="w-3 h-3" /> Accept
           </Button>
-          <Button size="sm" variant="outline" className="rounded-full text-xs h-8 px-4 text-gray-500 hover:text-red-500 hover:border-red-200" onClick={() => onDecline(req.actorId)}>
+          <Button size="sm" variant="outline" className="rounded-full text-xs h-8 px-4 text-gray-500 hover:text-red-500 hover:border-red-200" onClick={e => { e.stopPropagation(); onDecline(req.actorId); }}>
             Decline
           </Button>
         </div>

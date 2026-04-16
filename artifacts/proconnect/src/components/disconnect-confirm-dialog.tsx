@@ -40,13 +40,13 @@ export function DisconnectConfirmDialog({ open, profileName, onConfirm, onCancel
 
           <div className="flex justify-end gap-2">
             <AlertDialogPrimitive.Cancel
-              onClick={onCancel}
+              onClick={(e) => { e.stopPropagation(); onCancel(); }}
               className={cn(buttonVariants({ variant: "outline" }), "rounded-full")}
             >
               Cancel
             </AlertDialogPrimitive.Cancel>
             <AlertDialogPrimitive.Action
-              onClick={onConfirm}
+              onClick={(e) => { e.stopPropagation(); onConfirm(); }}
               className={cn(buttonVariants(), "rounded-full bg-red-600 hover:bg-red-700 text-white")}
             >
               Remove
