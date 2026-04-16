@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BellIcon, MessageSquareIcon, ThumbsUpIcon, CheckCheckIcon, UserPlusIcon } from "lucide-react";
+import { BellIcon, MessageSquareIcon, ThumbsUpIcon, CheckCheckIcon, UserPlusIcon, UserCheckIcon, HeartIcon, AtSignIcon, BriefcaseIcon } from "lucide-react";
 import { useAppAuth } from "@/contexts/app-auth";
 
 interface AppNotification {
@@ -137,18 +137,28 @@ export default function Notifications() {
               ? REACTION_EMOJIS[n.reactionType] ?? "👍"
               : null;
 
-            const badgeBg = n.type === "comment"
-              ? "bg-green-500"
-              : n.type === "connection"
-                ? "bg-emerald-500"
-                : "bg-[#0a66c2]";
+            const badgeBg =
+              n.type === "comment"            ? "bg-green-500"
+              : n.type === "connection"       ? "bg-emerald-500"
+              : n.type === "connection_accepted" ? "bg-[#0a66c2]"
+              : n.type === "reaction"         ? "bg-[#e7a33e]"
+              : n.type === "mention"          ? "bg-violet-500"
+              : n.type === "job"              ? "bg-orange-500"
+              :                                 "bg-[#0a66c2]";
+
             const badgeContent = emoji
               ? <span className="text-sm leading-none">{emoji}</span>
               : n.type === "comment"
                 ? <MessageSquareIcon className="w-3.5 h-3.5 text-white" />
                 : n.type === "connection"
                   ? <UserPlusIcon className="w-3.5 h-3.5 text-white" />
-                  : <ThumbsUpIcon className="w-3.5 h-3.5 text-white" />;
+                  : n.type === "connection_accepted"
+                    ? <UserCheckIcon className="w-3.5 h-3.5 text-white" />
+                    : n.type === "mention"
+                      ? <AtSignIcon className="w-3.5 h-3.5 text-white" />
+                      : n.type === "job"
+                        ? <BriefcaseIcon className="w-3.5 h-3.5 text-white" />
+                        : <ThumbsUpIcon className="w-3.5 h-3.5 text-white" />;
 
             const row = (
               <div
@@ -186,7 +196,7 @@ export default function Notifications() {
 
             return n.postId ? (
               <Link key={n.id} href="/feed">{row}</Link>
-            ) : n.type === "connection" ? (
+            ) : (n.type === "connection" || n.type === "connection_accepted") ? (
               <Link key={n.id} href={`/profiles/${n.actorProfileId}`}>{row}</Link>
             ) : (
               <div key={n.id}>{row}</div>
