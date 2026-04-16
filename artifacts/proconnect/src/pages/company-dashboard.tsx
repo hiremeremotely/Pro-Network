@@ -1675,14 +1675,14 @@ export default function CompanyDashboard() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-gray-100 min-h-[200px]">
               {[
-                { label: "Applied",   status: "pending",   dot: "bg-yellow-400",  action: "Review",      nextStatus: "reviewing" },
-                { label: "Interview", status: "interview", dot: "bg-purple-400",  action: "Send Offer",  nextStatus: "offer" },
-                { label: "Offer",     status: "offer",     dot: "bg-indigo-400",  action: "Add to Team", nextStatus: "accepted" },
-                { label: "Hired",     status: "accepted",  dot: "bg-green-500",   action: "View",        nextStatus: null },
+                { label: "Applied",   status: "pending",   bg: "bg-yellow-50",  dot: "bg-yellow-400",  action: "Review",   nextStatus: "reviewing" },
+                { label: "Interview", status: "interview", bg: "bg-purple-50",  dot: "bg-purple-400",  action: "Send Offer", nextStatus: "offer" },
+                { label: "Offer",     status: "offer",     bg: "bg-indigo-50",  dot: "bg-indigo-400",  action: "Add to Team", nextStatus: "accepted" },
+                { label: "Hired",     status: "accepted",  bg: "bg-green-50",   dot: "bg-green-500",   action: "View", nextStatus: null },
               ].map(col => {
                 const colApps = companyApps.filter(a => a.status === col.status);
                 return (
-                  <div key={col.label} className="flex flex-col bg-white">
+                  <div key={col.label} className={`flex flex-col ${col.bg}/30`}>
                     <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-100">
                       <span className={`w-2 h-2 rounded-full ${col.dot}`} />
                       <span className="text-xs font-semibold text-gray-700">{col.label}</span>
@@ -1712,7 +1712,13 @@ export default function CompanyDashboard() {
                                 {col.nextStatus ? (
                                   <button
                                     onClick={() => updateAppStatus(app.id, col.nextStatus!)}
-                                    className="w-full text-[10px] font-semibold py-1 rounded-md transition-colors bg-gray-100 hover:bg-gray-200 text-gray-700"
+                                    className={`w-full text-[10px] font-semibold py-1 rounded-md transition-colors ${
+                                      col.status === "offer"
+                                        ? "bg-green-600 hover:bg-green-700 text-white"
+                                        : col.status === "pending"
+                                        ? "bg-primary/10 hover:bg-primary/20 text-primary"
+                                        : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700"
+                                    }`}
                                   >
                                     {col.action}
                                   </button>
@@ -1785,18 +1791,21 @@ export default function CompanyDashboard() {
             <h3 className="font-semibold text-sm text-gray-900 mb-4 flex items-center gap-1.5">
               <UsersIcon className="w-4 h-4 text-primary" /> Team Overview
             </h3>
-            <div className="space-y-1">
+            <div className="space-y-3">
               {[
-                { label: "Total Employees", value: employees.length,  dot: "bg-indigo-400" },
-                { label: "Contractors",     value: contractorCount,   dot: "bg-blue-400"   },
-                { label: "New This Month",  value: newThisMonth,      dot: "bg-green-500"  },
+                { label: "Total Employees", value: employees.length, color: "bg-indigo-50 border-indigo-200", text: "text-indigo-700", dot: "bg-indigo-400" },
+                { label: "Contractors", value: contractorCount, color: "bg-blue-50 border-blue-200", text: "text-blue-700", dot: "bg-blue-400" },
+                { label: "New This Month", value: newThisMonth, color: "bg-green-50 border-green-200", text: "text-green-700", dot: "bg-green-500" },
               ].map(row => (
-                <div key={row.label} className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center gap-2.5">
-                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${row.dot}`} />
-                    <span className="text-sm text-gray-600">{row.label}</span>
+                <div key={row.label} className={`flex items-center justify-between px-3 py-2.5 rounded-lg border ${row.color}`}>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${row.dot}`} />
+                    <span className="text-sm text-gray-700 font-medium">{row.label}</span>
                   </div>
-                  <span className="text-lg font-bold text-gray-900">{row.value}</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-lg font-bold ${row.text}`}>{row.value}</span>
+                    <ArrowRightIcon className="w-3.5 h-3.5 text-gray-300" />
+                  </div>
                 </div>
               ))}
             </div>
@@ -1805,41 +1814,41 @@ export default function CompanyDashboard() {
           {/* Pending Actions */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h3 className="font-semibold text-sm text-gray-900 mb-4 flex items-center gap-1.5">
-              <AlertCircleIcon className="w-4 h-4 text-gray-400" /> Pending Actions
+              <AlertCircleIcon className="w-4 h-4 text-amber-500" /> Pending Actions
             </h3>
-            <div className="space-y-1">
-              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2 h-2 rounded-full bg-yellow-400 flex-shrink-0" />
-                  <p className="text-sm text-gray-600">Offers Awaiting</p>
-                </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 border border-amber-200">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg font-bold text-gray-900">{pendingOffers}</span>
-                  <Link href="/applications">
-                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-primary hover:bg-primary/5 rounded-full">View</Button>
-                  </Link>
+                  <span className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-bold text-amber-700">{pendingOffers}</span>
+                  </span>
+                  <p className="text-sm text-gray-700">Offer Letters Awaiting</p>
                 </div>
+                <Link href="/applications">
+                  <Button size="sm" className="h-7 px-3 text-xs rounded-full bg-primary hover:bg-primary/90">View</Button>
+                </Link>
               </div>
-              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
-                  <p className="text-sm text-gray-600">Onboarding Pending</p>
-                </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-indigo-50 border border-indigo-200">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg font-bold text-gray-900">{pendingOnboarding}</span>
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedEmployee(employees.find(e => {
-                    const p = onboardingProgress[e.id];
-                    return p && p.total > 0 && p.completed < p.total;
-                  }) ?? null)} className="h-6 px-2 text-xs text-primary hover:bg-primary/5 rounded-full">View</Button>
+                  <span className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-bold text-indigo-700">{pendingOnboarding}</span>
+                  </span>
+                  <p className="text-sm text-gray-700">Onboarding Pending</p>
                 </div>
+                <Button size="sm" onClick={() => setSelectedEmployee(employees.find(e => {
+                  const p = onboardingProgress[e.id];
+                  return p && p.total > 0 && p.completed < p.total;
+                }) ?? null)} className="h-7 px-3 text-xs rounded-full bg-primary hover:bg-primary/90">View</Button>
               </div>
               {pendingTimeOff.length > 0 && (
-                <div className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-2 h-2 rounded-full bg-orange-400 flex-shrink-0" />
-                    <p className="text-sm text-gray-600">Time-Off Requests</p>
+                <div className="flex items-center justify-between p-3 rounded-lg bg-orange-50 border border-orange-200">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-orange-700">{pendingTimeOff.length}</span>
+                    </span>
+                    <p className="text-sm text-gray-700">Time-Off Requests</p>
                   </div>
-                  <span className="text-lg font-bold text-gray-900">{pendingTimeOff.length}</span>
+                  <CalendarIcon className="w-4 h-4 text-orange-400" />
                 </div>
               )}
             </div>
@@ -2001,13 +2010,13 @@ export default function CompanyDashboard() {
 
           {/* Contract Renewals */}
           {renewals.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <div className="bg-white rounded-xl border border-amber-200 overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-amber-100 bg-amber-50/60">
                 <div className="flex items-center gap-2">
-                  <AlertCircleIcon className="w-4 h-4 text-gray-400" />
+                  <AlertCircleIcon className="w-4 h-4 text-amber-600" />
                   <div>
                     <h2 className="font-semibold text-gray-900 text-sm">Upcoming Contract Renewals</h2>
-                    <p className="text-xs text-gray-400">{renewals.length} contract{renewals.length !== 1 ? "s" : ""} expiring within 30 days</p>
+                    <p className="text-xs text-amber-600">{renewals.length} contract{renewals.length !== 1 ? "s" : ""} expiring within 30 days</p>
                   </div>
                 </div>
               </div>
@@ -2017,8 +2026,8 @@ export default function CompanyDashboard() {
                   const emp = employees.find(e => e.id === renewal.employee?.id);
                   return (
                     <div key={renewal.id} className="flex items-center gap-4 px-5 py-3.5">
-                      <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                        <FileTextIcon className="w-4 h-4 text-gray-400" />
+                      <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                        <FileTextIcon className="w-4 h-4 text-amber-600" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">{renewal.employee?.role ?? "Unknown role"}</p>
