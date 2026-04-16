@@ -20,6 +20,8 @@ import {
   LoaderIcon,
   ThumbsUpIcon,
   MessageSquareIcon,
+  ClipboardListIcon,
+  BarChart2Icon as BarChart2NavIcon,
 
   BuildingIcon,
   BarChart2Icon,
@@ -484,12 +486,21 @@ export function Layout({ children }: LayoutProps) {
   }
 
   const homeHref = user?.accountType === "company" ? "/company-dashboard" : "/feed";
-  const navItems = [
-    { href: homeHref, label: "Home", icon: HomeIcon },
-    { href: "/profiles", label: "Network", icon: UsersIcon },
-    { href: "/jobs", label: "Jobs", icon: BriefcaseIcon },
-    { href: "/messaging", label: "Messaging", icon: MessageSquareIcon },
-  ];
+  const isCompany = user?.accountType === "company";
+
+  const navItems = isCompany
+    ? [
+        { href: "/company-dashboard", label: "Dashboard",   icon: HomeIcon           },
+        { href: "/profiles",          label: "Talent",       icon: UsersIcon          },
+        { href: "/applications",      label: "Hiring",       icon: ClipboardListIcon  },
+        { href: "/messaging",         label: "Messaging",    icon: MessageSquareIcon  },
+      ]
+    : [
+        { href: "/feed",      label: "Home",      icon: HomeIcon        },
+        { href: "/profiles",  label: "Network",   icon: UsersIcon       },
+        { href: "/jobs",      label: "Jobs",       icon: BriefcaseIcon   },
+        { href: "/messaging", label: "Messaging", icon: MessageSquareIcon },
+      ];
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f3f2ef]">
@@ -506,7 +517,7 @@ export function Layout({ children }: LayoutProps) {
           {/* Center: nav items */}
           <nav className="hidden md:flex flex-1 items-stretch h-14 justify-center">
             {navItems.map((item) => {
-              const exactMatch = ["/feed", "/profiles", "/company-dashboard"];
+              const exactMatch = ["/feed", "/profiles", "/company-dashboard", "/applications"];
               const isActive = location === item.href || (!exactMatch.includes(item.href) && location.startsWith(item.href));
               const isMsgItem = item.href === "/messaging";
               return (
@@ -624,7 +635,7 @@ export function Layout({ children }: LayoutProps) {
       <div className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-white shadow-lg">
         <nav className="flex items-stretch h-14">
           {navItems.slice(0, 3).map((item) => {
-            const exactMatch = ["/feed", "/profiles", "/company-dashboard"];
+            const exactMatch = ["/feed", "/profiles", "/company-dashboard", "/applications"];
             const isActive = location === item.href || (!exactMatch.includes(item.href) && location.startsWith(item.href));
             return (
               <Link
