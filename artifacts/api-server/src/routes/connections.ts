@@ -5,17 +5,31 @@ import { eq, and, inArray, notInArray, ne, or, sql, desc } from "drizzle-orm";
 
 const router = Router();
 
-// ── GET /connections?profileId=:id — accepted followingIds ───────────────────
+// Helper: accepted condition for a profile in either direction
+const acceptedWith = (profileId: number) =>
+  and(
+    or(
+      eq(connectionsTable.followerId, profileId),
+      eq(connectionsTable.followingId, profileId),
+    ),
+    eq(connectionsTable.status, "accepted"),
+  );
+
+// Helper: partner ID expression (the other side of the relationship)
+const partnerIdExpr = (profileId: number) =>
+  sql<number>`CASE WHEN ${connectionsTable.followerId} = ${profileId} THEN ${connectionsTable.followingId} ELSE ${connectionsTable.followerId} END`;
+
+// ── GET /connections?profileId=:id — accepted partner IDs (both directions) ──
 router.get("/connections", async (req, res): Promise<void> => {
   const profileId = parseInt(req.query.profileId as string, 10);
   if (!profileId) { res.status(400).json({ error: "profileId required" }); return; }
 
   const rows = await db
-    .select({ followingId: connectionsTable.followingId })
+    .select({ partnerId: partnerIdExpr(profileId) })
     .from(connectionsTable)
-    .where(and(eq(connectionsTable.followerId, profileId), eq(connectionsTable.status, "accepted")));
+    .where(acceptedWith(profileId));
 
-  res.json(rows.map(r => r.followingId));
+  res.json(rows.map(r => r.partnerId));
 });
 
 // ── GET /connections/pending?profileId=:id — outgoing pending request IDs ────
@@ -55,26 +69,26 @@ router.get("/connections/requests", async (req, res): Promise<void> => {
   res.json(rows);
 });
 
-// ── GET /connections/network?profileId=:id — full profiles I'm connected with ─
+// ── GET /connections/network?profileId=:id — full profiles connected (both dirs)
 router.get("/connections/network", async (req, res): Promise<void> => {
   const profileId = parseInt(req.query.profileId as string, 10);
   if (!profileId) { res.status(400).json({ error: "profileId required" }); return; }
 
-  const followingRows = await db
-    .select({ followingId: connectionsTable.followingId, createdAt: connectionsTable.createdAt })
+  const rows = await db
+    .select({ partnerId: partnerIdExpr(profileId), createdAt: connectionsTable.createdAt })
     .from(connectionsTable)
-    .where(and(eq(connectionsTable.followerId, profileId), eq(connectionsTable.status, "accepted")))
+    .where(acceptedWith(profileId))
     .orderBy(desc(connectionsTable.createdAt));
 
-  if (followingRows.length === 0) { res.json({ profiles: [], total: 0 }); return; }
+  if (rows.length === 0) { res.json({ profiles: [], total: 0 }); return; }
 
-  const followingIds = followingRows.map(r => r.followingId);
+  const partnerIds = rows.map(r => r.partnerId);
   const profiles = await db
     .select()
     .from(profilesTable)
-    .where(inArray(profilesTable.id, followingIds));
+    .where(inArray(profilesTable.id, partnerIds));
 
-  const orderMap = Object.fromEntries(followingIds.map((id, i) => [id, i]));
+  const orderMap = Object.fromEntries(partnerIds.map((id, i) => [id, i]));
   profiles.sort((a, b) => (orderMap[a.id] ?? 99) - (orderMap[b.id] ?? 99));
 
   res.json({ profiles, total: profiles.length });
@@ -88,11 +102,19 @@ router.get("/connections/recommended", async (req, res): Promise<void> => {
   const [myProfile] = await db.select().from(profilesTable).where(eq(profilesTable.id, profileId));
   if (!myProfile) { res.json({ profiles: [] }); return; }
 
+  // Exclude everyone already connected (both directions) or pending
   const connectionRows = await db
-    .select({ followingId: connectionsTable.followingId })
+    .select({ partnerId: partnerIdExpr(profileId) })
     .from(connectionsTable)
-    .where(eq(connectionsTable.followerId, profileId));
-  const excludeIds = [profileId, ...connectionRows.map(r => r.followingId)];
+    .where(
+      and(
+        or(
+          eq(connectionsTable.followerId, profileId),
+          eq(connectionsTable.followingId, profileId),
+        ),
+      ),
+    );
+  const excludeIds = [profileId, ...connectionRows.map(r => r.partnerId)];
 
   const myIndustry  = myProfile.industry ?? "";
   const myInterests = (myProfile.interests ?? []) as string[];
@@ -136,12 +158,12 @@ router.get("/connections/count", async (req, res): Promise<void> => {
   const profileId = parseInt(req.query.profileId as string, 10);
   if (!profileId) { res.status(400).json({ error: "profileId required" }); return; }
 
-  const [followingRows, followerRows] = await Promise.all([
-    db.select({ id: connectionsTable.id }).from(connectionsTable).where(and(eq(connectionsTable.followerId, profileId), eq(connectionsTable.status, "accepted"))),
-    db.select({ id: connectionsTable.id }).from(connectionsTable).where(and(eq(connectionsTable.followingId, profileId), eq(connectionsTable.status, "accepted"))),
-  ]);
+  const rows = await db
+    .select({ id: connectionsTable.id })
+    .from(connectionsTable)
+    .where(acceptedWith(profileId));
 
-  res.json({ following: followingRows.length, followers: followerRows.length });
+  res.json({ connections: rows.length });
 });
 
 // ── POST /connections — send connection request ───────────────────────────────
@@ -212,14 +234,20 @@ router.patch("/connections/accept", async (req, res): Promise<void> => {
   res.json(updated);
 });
 
-// ── DELETE /connections — decline or withdraw ─────────────────────────────────
+// ── DELETE /connections — disconnect or decline (finds record in either direction)
 router.delete("/connections", async (req, res): Promise<void> => {
   const { followerId, followingId } = req.body as { followerId: number; followingId: number };
   if (!followerId || !followingId) { res.status(400).json({ error: "followerId and followingId required" }); return; }
 
+  // Delete regardless of which side created the record (bidirectional search)
   await db
     .delete(connectionsTable)
-    .where(and(eq(connectionsTable.followerId, followerId), eq(connectionsTable.followingId, followingId)));
+    .where(
+      or(
+        and(eq(connectionsTable.followerId, followerId), eq(connectionsTable.followingId, followingId)),
+        and(eq(connectionsTable.followerId, followingId), eq(connectionsTable.followingId, followerId)),
+      ),
+    );
 
   res.status(204).send();
 });
