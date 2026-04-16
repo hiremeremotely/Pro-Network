@@ -20,6 +20,9 @@ import {
   LoaderIcon,
   ThumbsUpIcon,
   MessageSquareIcon,
+  UserPlusIcon,
+  UserCheckIcon,
+  AtSignIcon,
   ClipboardListIcon,
   BarChart2Icon as BarChart2NavIcon,
 
@@ -275,6 +278,33 @@ function NotificationBell({ profileId }: { profileId: number }) {
     navigate("/notifications");
   }
 
+  function getNotifHref(n: AppNotification): string {
+    if (n.postId) return "/feed";
+    switch (n.type) {
+      case "connection_request":  return "/profiles";
+      case "connection_accepted": return `/profiles/${n.actorProfileId}`;
+      case "comment":
+      case "reaction":
+      case "mention":             return "/feed";
+      case "job":                 return "/jobs";
+      default:                    return n.actorProfileId ? `/profiles/${n.actorProfileId}` : "/feed";
+    }
+  }
+
+  function handleNotifClick(n: AppNotification) {
+    if (!n.isRead) {
+      qc.setQueryData<AppNotification[]>(["notifications", profileId], old =>
+        (old ?? []).map(item => item.id === n.id ? { ...item, isRead: true } : item)
+      );
+      qc.setQueryData<{ count: number }>(["notif-count", profileId], old =>
+        ({ count: Math.max(0, (old?.count ?? 1) - 1) })
+      );
+      fetch(`${BASE}api/notifications/${n.id}/mark-read`, { method: "PATCH" });
+    }
+    setOpen(false);
+    navigate(getNotifHref(n));
+  }
+
   // Close on outside click
   useEffect(() => {
     function onDown(e: MouseEvent) {
@@ -384,26 +414,41 @@ function NotificationBell({ profileId }: { profileId: number }) {
                 ? REACTION_EMOJIS[n.reactionType] ?? "👍"
                 : null;
 
+              const badgeBg =
+                n.type === "comment"              ? "bg-green-500"
+                : n.type === "connection_request" ? "bg-emerald-500"
+                : n.type === "connection_accepted" ? "bg-[#0a66c2]"
+                : n.type === "reaction"            ? "bg-[#e7a33e]"
+                : n.type === "mention"             ? "bg-violet-500"
+                : n.type === "job"                 ? "bg-orange-500"
+                :                                    "bg-[#0a66c2]";
+
               const badgeContent = emoji
                 ? <span className="text-sm leading-none">{emoji}</span>
                 : n.type === "comment"
                   ? <MessageSquareIcon className="w-3 h-3 text-white" />
-                  : <ThumbsUpIcon className="w-3 h-3 text-white" />;
+                  : n.type === "connection_request"
+                    ? <UserPlusIcon className="w-3 h-3 text-white" />
+                    : n.type === "connection_accepted"
+                      ? <UserCheckIcon className="w-3 h-3 text-white" />
+                      : n.type === "mention"
+                        ? <AtSignIcon className="w-3 h-3 text-white" />
+                        : n.type === "job"
+                          ? <BriefcaseIcon className="w-3 h-3 text-white" />
+                          : <ThumbsUpIcon className="w-3 h-3 text-white" />;
 
-              const badgeBg = n.type === "comment" ? "bg-green-500" : "bg-[#0a66c2]";
-
-              const row = (
+              return (
                 <div
-                  className={`relative flex items-start gap-3 px-5 py-3.5 cursor-pointer transition-colors hover:bg-[#f3f2ef] ${
+                  key={n.id}
+                  onClick={() => handleNotifClick(n)}
+                  className={`relative flex items-start gap-3 px-5 py-3.5 cursor-pointer transition-colors hover:bg-[#f3f2ef] group ${
                     !n.isRead ? "bg-[#eef3fb]" : "bg-white"
                   }`}
                 >
-                  {/* Unread dot on left edge */}
                   <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-2 h-2">
                     {!n.isRead && <div className="w-2 h-2 rounded-full bg-[#0a66c2]" />}
                   </div>
 
-                  {/* Avatar + type badge */}
                   <div className="relative flex-shrink-0 ml-2">
                     <Avatar className="w-12 h-12 border border-gray-200">
                       <AvatarImage src={n.actorAvatarUrl || undefined} />
@@ -414,7 +459,6 @@ function NotificationBell({ profileId }: { profileId: number }) {
                     </span>
                   </div>
 
-                  {/* Text */}
                   <div className="flex-1 min-w-0 pt-0.5">
                     <p className="text-sm text-gray-600 leading-snug">
                       <NotifMessage message={n.message} actorName={n.actorName} />
@@ -424,12 +468,6 @@ function NotificationBell({ profileId }: { profileId: number }) {
                     </p>
                   </div>
                 </div>
-              );
-
-              return n.postId ? (
-                <Link key={n.id} href="/feed" onClick={() => setOpen(false)}>{row}</Link>
-              ) : (
-                <div key={n.id}>{row}</div>
               );
             })}
           </div>

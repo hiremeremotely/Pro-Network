@@ -50,6 +50,14 @@ router.get("/notifications/unread-count", async (req, res): Promise<void> => {
   res.json({ count: rows.length });
 });
 
+// ── PATCH /notifications/:id/mark-read — mark single notification read ────────
+router.patch("/notifications/:id/mark-read", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!id || isNaN(id)) { res.status(400).json({ error: "id required" }); return; }
+  await db.update(notificationsTable).set({ isRead: true }).where(eq(notificationsTable.id, id));
+  res.json({ success: true });
+});
+
 // ── PATCH /notifications/mark-read ───────────────────────────────────────────
 router.patch("/notifications/mark-read", async (req, res): Promise<void> => {
   const { profileId } = req.body;
