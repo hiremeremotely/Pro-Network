@@ -52,6 +52,13 @@ import {
   SendIcon,
   UserPlus2Icon,
   RefreshCwIcon,
+  LayoutDashboardIcon,
+  GraduationCapIcon,
+  Settings2Icon,
+  HelpCircleIcon,
+  LogOutIcon,
+  MenuIcon,
+  XCircleIcon,
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
@@ -1492,11 +1499,12 @@ function PostJobModal({ companyName, onClose, onCreated }: { companyName: string
 }
 
 export default function CompanyDashboard() {
-  const { user } = useAppAuth();
-  const [, navigate] = useLocation();
+  const { user, logout } = useAppAuth();
+  const [location, navigate] = useLocation();
   const { isConnected, toggleConnect } = useConnections();
   const qc = useQueryClient();
   const [showPostJob, setShowPostJob] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord | null>(null);
@@ -1610,45 +1618,149 @@ export default function CompanyDashboard() {
     return months.slice(0, 6).map((m, i) => ({ month: m, salary: Math.round((base * (0.9 + i * 0.02)) / 1000) }));
   })();
 
-  return (
-    <div className="min-h-screen bg-[#f3f2ef]">
-      {/* Company hero banner */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-[1320px] mx-auto px-4 py-8">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-            <div className="w-20 h-20 rounded-2xl bg-primary/10 border-2 border-primary/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
-              {user?.avatarUrl
-                ? <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
-                : <span className="text-2xl font-bold text-primary">{companyInitials}</span>
-              }
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h1 className="text-2xl font-bold text-gray-900">{user?.name ?? "Your Company"}</h1>
-                <Badge className="bg-primary/10 text-primary border-0 text-xs font-semibold rounded-full">Company</Badge>
-              </div>
-              {user?.headline && <p className="text-gray-500 text-sm mb-3">{user.headline}</p>}
-              <div className="flex items-center gap-3 flex-wrap">
-                <Link href={`/profiles/${user?.id}`}>
-                  <Button variant="outline" size="sm" className="rounded-full border-primary/30 text-primary hover:bg-primary/5 text-xs gap-1.5">
-                    <EyeIcon className="w-3.5 h-3.5" /> View Company Page
-                  </Button>
-                </Link>
-                <Link href="/profile/edit">
-                  <Button variant="outline" size="sm" className="rounded-full text-xs gap-1.5">
-                    <PencilIcon className="w-3.5 h-3.5" /> Edit Profile
-                  </Button>
-                </Link>
-              </div>
-            </div>
-            <Button className="rounded-full gap-2 shadow-sm flex-shrink-0" onClick={() => setShowPostJob(true)}>
-              <PlusCircleIcon className="w-4 h-4" /> Post a Job
-            </Button>
+  const sideNav = [
+    { href: "/company-dashboard", label: "Dashboard",   icon: LayoutDashboardIcon },
+    { href: "/applications",      label: "Hiring",      icon: BriefcaseIcon       },
+    { href: "/company-dashboard", label: "Onboarding",  icon: GraduationCapIcon   },
+    { href: "/company-dashboard", label: "Team",        icon: UsersIcon            },
+    { href: "/analytics",         label: "Insights",    icon: BarChart2Icon        },
+    { href: "/profile/edit",      label: "Settings",    icon: Settings2Icon        },
+  ];
+
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full">
+      {/* Company identity */}
+      <div className="px-4 py-5 border-b border-gray-100">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden flex-shrink-0">
+            {user?.avatarUrl
+              ? <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+              : <span className="text-sm font-bold text-primary">{companyInitials}</span>
+            }
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-gray-900 truncate leading-tight">{user?.name ?? "Your Company"}</p>
+            <p className="text-[10px] text-gray-400 truncate">Company Hub</p>
           </div>
         </div>
       </div>
 
-      <div className="max-w-[1320px] mx-auto px-4 py-6 space-y-5">
+      {/* Nav items */}
+      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
+        {sideNav.map(({ href, label, icon: Icon }) => {
+          const active = location === href && (label === "Dashboard" || href !== "/company-dashboard");
+          return (
+            <Link key={label} href={href}>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  active
+                    ? "bg-primary text-white"
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                }`}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                {label}
+              </button>
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Bottom section */}
+      <div className="px-2 py-3 border-t border-gray-100 space-y-0.5">
+        <a href="mailto:support@hiremeremotely.com">
+          <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors">
+            <HelpCircleIcon className="w-4 h-4 flex-shrink-0" />
+            Help
+          </button>
+        </a>
+        <button
+          onClick={() => { logout(); navigate("/login"); setSidebarOpen(false); }}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+        >
+          <LogOutIcon className="w-4 h-4 flex-shrink-0" />
+          Logout
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex min-h-screen bg-[#f3f2ef]">
+
+      {/* ── Desktop sidebar ── */}
+      <aside className="hidden lg:flex flex-col w-56 bg-white border-r border-gray-200 flex-shrink-0 sticky top-0 h-screen overflow-hidden">
+        <SidebarContent />
+      </aside>
+
+      {/* ── Mobile sidebar overlay ── */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
+          <aside className="absolute left-0 top-0 bottom-0 w-56 bg-white shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <span className="text-sm font-bold text-gray-800">Menu</span>
+              <button onClick={() => setSidebarOpen(false)} className="p-1 rounded hover:bg-gray-100">
+                <XCircleIcon className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <SidebarContent />
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* ── Main content ── */}
+      <div className="flex-1 min-w-0">
+
+        {/* Company hero banner */}
+        <div className="bg-white border-b border-gray-200">
+          <div className="px-4 sm:px-6 py-5">
+            <div className="flex items-center gap-3 mb-4">
+              {/* Mobile menu toggle */}
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+              >
+                <MenuIcon className="w-5 h-5" />
+              </button>
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {user?.avatarUrl
+                    ? <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                    : <span className="text-sm font-bold text-primary">{companyInitials}</span>
+                  }
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-lg font-bold text-gray-900">{user?.name ?? "Your Company"}</h1>
+                    <Badge className="bg-primary/10 text-primary border-0 text-xs font-semibold rounded-full">Company</Badge>
+                  </div>
+                  {user?.headline && <p className="text-gray-400 text-xs">{user.headline}</p>}
+                </div>
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <Link href={`/profiles/${user?.id}`}>
+                  <Button variant="outline" size="sm" className="rounded-full border-primary/30 text-primary hover:bg-primary/5 text-xs gap-1.5 hidden sm:flex">
+                    <EyeIcon className="w-3.5 h-3.5" /> View Page
+                  </Button>
+                </Link>
+                <Link href="/profile/edit">
+                  <Button variant="outline" size="sm" className="rounded-full text-xs gap-1.5 hidden sm:flex">
+                    <PencilIcon className="w-3.5 h-3.5" /> Edit
+                  </Button>
+                </Link>
+                <Button className="rounded-full gap-2 shadow-sm text-xs h-8 px-3" onClick={() => setShowPostJob(true)}>
+                  <PlusCircleIcon className="w-3.5 h-3.5" /> Post a Job
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      <div className="px-4 sm:px-6 py-6 space-y-5">
 
         {/* ── Hiring Pipeline + Recent Hires ── */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
@@ -2216,6 +2328,8 @@ export default function CompanyDashboard() {
           </div>
         </div>
       </div>
+      </div>
+      {/* end: flex-1 min-w-0 main content */}
 
       {/* Post job modal */}
       {showPostJob && (
