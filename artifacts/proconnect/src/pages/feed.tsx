@@ -896,6 +896,11 @@ export default function Home() {
   const { isConnected: isFeedConnected, toggleConnect: feedToggleConnect } = useConnections();
   const startChat = useStartChat();
   const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (user?.accountType === "company") navigate("/company-dashboard");
+  }, [user, navigate]);
+
   const handleFeedMessage = useCallback(async (profileId: number) => {
     await startChat(profileId);
     navigate("/messaging");
