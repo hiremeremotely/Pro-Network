@@ -33,6 +33,7 @@ import { useListJobs, getListJobsQueryKey } from "@workspace/api-client-react";
 import { useStartChat } from "@/hooks/use-start-chat";
 import { useConnections } from "@/hooks/use-connections";
 import { ConnectModal } from "@/components/connect-modal";
+import { DisconnectConfirmDialog } from "@/components/disconnect-confirm-dialog";
 
 // ── Modal wrapper ─────────────────────────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -632,6 +633,7 @@ export default function ProfileDetail() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [coverUploading, setCoverUploading] = useState(false);
   const [msgLoading, setMsgLoading] = useState(false);
+  const [disconnectConfirmOpen, setDisconnectConfirmOpen] = useState(false);
 
   async function handleMessage() {
     setMsgLoading(true);
@@ -756,7 +758,7 @@ export default function ProfileDetail() {
           handleAvatarFile={handleAvatarFile}
           isFollowing={isConnected(id)}
           onFollow={() => {
-            if (isConnected(id)) disconnect(id);
+            if (isConnected(id)) setDisconnectConfirmOpen(true);
             else if (isPending(id)) cancelRequest(id);
             else setShowConnectModal(true);
           }}
@@ -779,6 +781,12 @@ export default function ProfileDetail() {
           onClose={() => setShowConnectModal(false)}
         />
       )}
+      <DisconnectConfirmDialog
+        open={disconnectConfirmOpen}
+        profileName={profile.name}
+        onConfirm={() => { setDisconnectConfirmOpen(false); disconnect(id); }}
+        onCancel={() => setDisconnectConfirmOpen(false)}
+      />
 
       <div className="max-w-[1320px] mx-auto px-4 pt-6 pb-24 md:pb-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
@@ -850,7 +858,7 @@ export default function ProfileDetail() {
                           <Button
                             size="sm"
                             variant="secondary"
-                            onClick={() => disconnect(id)}
+                            onClick={() => setDisconnectConfirmOpen(true)}
                             className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5 bg-primary/10 text-primary border border-primary/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200"
                           >
                             <UserCheckIcon className="w-3.5 h-3.5" /> Connected

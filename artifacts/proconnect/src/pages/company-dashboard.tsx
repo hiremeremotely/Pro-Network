@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useConnections } from "@/hooks/use-connections";
+import { DisconnectConfirmDialog } from "@/components/disconnect-confirm-dialog";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { HRInsightsWidget } from "@/components/hr-insights-widget";
 import { useQueryClient } from "@tanstack/react-query";
@@ -1502,6 +1503,7 @@ export default function CompanyDashboard() {
   const { user, logout } = useAppAuth();
   const [location, navigate] = useLocation();
   const { isConnected, isPending, sendRequest, disconnect } = useConnections();
+  const [dashDisconnectTarget, setDashDisconnectTarget] = useState<{ id: number; name: string } | null>(null);
   const qc = useQueryClient();
   const [showPostJob, setShowPostJob] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -1688,6 +1690,12 @@ export default function CompanyDashboard() {
 
   return (
     <div className="flex min-h-screen bg-[#f3f2ef]">
+      <DisconnectConfirmDialog
+        open={!!dashDisconnectTarget}
+        profileName={dashDisconnectTarget?.name}
+        onConfirm={() => { if (dashDisconnectTarget) { disconnect(dashDisconnectTarget.id); setDashDisconnectTarget(null); } }}
+        onCancel={() => setDashDisconnectTarget(null)}
+      />
 
       {/* ── Desktop sidebar ── */}
       <aside className="hidden lg:flex flex-col w-56 bg-white border-r border-gray-200 flex-shrink-0 sticky top-0 h-screen overflow-hidden">
@@ -2315,7 +2323,7 @@ export default function CompanyDashboard() {
                           variant={isConnected(profile.id) ? "secondary" : "outline"}
                           onClick={(e) => {
                             e.preventDefault(); e.stopPropagation();
-                            if (isConnected(profile.id)) disconnect(profile.id);
+                            if (isConnected(profile.id)) setDashDisconnectTarget({ id: profile.id, name: profile.name });
                             else if (isPending(profile.id)) void 0;
                             else sendRequest(profile.id, "");
                           }}

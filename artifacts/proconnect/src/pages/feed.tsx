@@ -43,6 +43,7 @@ import { useUpload } from "@workspace/object-storage-web";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useConnections } from "@/hooks/use-connections";
 import { useStartChat } from "@/hooks/use-start-chat";
+import { DisconnectConfirmDialog } from "@/components/disconnect-confirm-dialog";
 import { useBookmarks } from "@/hooks/use-bookmarks";
 import { useToast } from "@/hooks/use-toast";
 
@@ -907,6 +908,7 @@ export default function Home() {
   }, [startChat, navigate]);
 
   const [visibleCount, setVisibleCount] = useState(10);
+  const [feedDisconnectTarget, setFeedDisconnectTarget] = useState<{ id: number; name: string } | null>(null);
 
   const { data: allPosts = [], isLoading: postsLoading } = useQuery<FeedPost[]>({
     queryKey: ["posts", user?.id],
@@ -941,6 +943,12 @@ export default function Home() {
 
   return (
     <div className="max-w-[1320px] mx-auto px-4 py-6 w-full pb-24 md:pb-6">
+      <DisconnectConfirmDialog
+        open={!!feedDisconnectTarget}
+        profileName={feedDisconnectTarget?.name}
+        onConfirm={() => { if (feedDisconnectTarget) { feedDisconnect(feedDisconnectTarget.id); setFeedDisconnectTarget(null); } }}
+        onCancel={() => setFeedDisconnectTarget(null)}
+      />
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] gap-4 items-start">
 
         {/* LEFT: Profile summary card */}
@@ -1443,7 +1451,7 @@ export default function Home() {
                             variant={isFeedConnected(profile.id) ? "secondary" : "outline"}
                             size="sm"
                             onClick={() => {
-                              if (isFeedConnected(profile.id)) feedDisconnect(profile.id);
+                              if (isFeedConnected(profile.id)) setFeedDisconnectTarget({ id: profile.id, name: profile.name });
                               else if (isFeedPending(profile.id)) feedCancelRequest(profile.id);
                               else feedSendRequest(profile.id, "");
                             }}

@@ -8,6 +8,7 @@ import { ProfileCard } from "@/components/profile-card";
 import { LoadingState } from "@/components/loading-state";
 import { ViewToggle, type ViewMode } from "@/components/view-toggle";
 import { ConnectModal } from "@/components/connect-modal";
+import { DisconnectConfirmDialog } from "@/components/disconnect-confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +34,7 @@ interface ConnectionRequest {
   actorLocation: string | null;
 }
 
-// ── Connect button (3 states) ─────────────────────────────────────────────────
+// ── Connect button (3 states + disconnect confirmation) ───────────────────────
 function ConnectButton({ profile, isConnected, isPending, onConnect, onCancel, onDisconnect, className = "" }: {
   profile: Profile;
   isConnected: boolean;
@@ -43,14 +44,24 @@ function ConnectButton({ profile, isConnected, isPending, onConnect, onCancel, o
   onDisconnect: (id: number) => void;
   className?: string;
 }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
   if (isConnected) {
     return (
-      <Button size="sm" variant="secondary"
-        onClick={e => { e.preventDefault(); e.stopPropagation(); onDisconnect(profile.id); }}
-        className={`rounded-full px-3 text-xs gap-1 flex-shrink-0 bg-primary/10 text-primary border border-primary/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200 ${className}`}
-      >
-        <UserCheckIcon className="w-3 h-3" /> Connected
-      </Button>
+      <>
+        <Button size="sm" variant="secondary"
+          onClick={e => { e.preventDefault(); e.stopPropagation(); setConfirmOpen(true); }}
+          className={`rounded-full px-3 text-xs gap-1 flex-shrink-0 bg-primary/10 text-primary border border-primary/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200 ${className}`}
+        >
+          <UserCheckIcon className="w-3 h-3" /> Connected
+        </Button>
+        <DisconnectConfirmDialog
+          open={confirmOpen}
+          profileName={profile.name}
+          onConfirm={() => { setConfirmOpen(false); onDisconnect(profile.id); }}
+          onCancel={() => setConfirmOpen(false)}
+        />
+      </>
     );
   }
   if (isPending) {
