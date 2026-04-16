@@ -1,10 +1,11 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { useEffect, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
-import { BoAuthProvider } from "@/contexts/bo-auth";
-import { AppAuthProvider } from "@/contexts/app-auth";
+import { BoAuthProvider, useBoAuth } from "@/contexts/bo-auth";
+import { AppAuthProvider, useAppAuth } from "@/contexts/app-auth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Login from "@/pages/login";
@@ -28,41 +29,75 @@ import MyWork from "@/pages/my-work";
 
 const queryClient = new QueryClient();
 
+// ── Auth guards ───────────────────────────────────────────────────────────────
+
+function RequireAuth({ children }: { children: ReactNode }) {
+  const { user } = useAppAuth();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (!user) navigate("/login");
+  }, [user, navigate]);
+
+  if (!user) return null;
+  return <>{children}</>;
+}
+
+function RequireBoAuth({ children }: { children: ReactNode }) {
+  const { session } = useBoAuth();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (!session) navigate("/bo");
+  }, [session, navigate]);
+
+  if (!session) return null;
+  return <>{children}</>;
+}
+
+// ── Router ────────────────────────────────────────────────────────────────────
+
 function Router() {
   return (
     <Switch>
-      {/* Public landing */}
+      {/* Public */}
       <Route path="/" component={Landing} />
-
-      {/* Main app auth */}
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
 
-      {/* Backoffice */}
+      {/* Backoffice login (public) */}
       <Route path="/bo" component={BoLogin} />
-      <Route path="/bo/dashboard" component={Admin} />
 
-      {/* All app pages use the LinkedIn-style Layout */}
+      {/* Backoffice dashboard — requires BO session */}
+      <Route path="/bo/dashboard">
+        <RequireBoAuth>
+          <Admin />
+        </RequireBoAuth>
+      </Route>
+
+      {/* All main-app pages — require user session */}
       <Route>
-        <Layout>
-          <Switch>
-            <Route path="/feed" component={Feed} />
-            <Route path="/company-dashboard" component={CompanyDashboard} />
-            <Route path="/profiles" component={Profiles} />
-            <Route path="/profiles/:id" component={ProfileDetail} />
-            <Route path="/profile/edit" component={ProfileEdit} />
-            <Route path="/jobs" component={Jobs} />
-            <Route path="/jobs/:id" component={JobDetail} />
-            <Route path="/applications" component={Applications} />
-            <Route path="/notifications" component={Notifications} />
-            <Route path="/messaging" component={Messaging} />
-            <Route path="/my-items" component={MyItems} />
-            <Route path="/analytics" component={Analytics} />
-            <Route path="/salary-estimator" component={SalaryEstimator} />
-            <Route path="/my-work" component={MyWork} />
-            <Route component={NotFound} />
-          </Switch>
-        </Layout>
+        <RequireAuth>
+          <Layout>
+            <Switch>
+              <Route path="/feed" component={Feed} />
+              <Route path="/company-dashboard" component={CompanyDashboard} />
+              <Route path="/profiles" component={Profiles} />
+              <Route path="/profiles/:id" component={ProfileDetail} />
+              <Route path="/profile/edit" component={ProfileEdit} />
+              <Route path="/jobs" component={Jobs} />
+              <Route path="/jobs/:id" component={JobDetail} />
+              <Route path="/applications" component={Applications} />
+              <Route path="/notifications" component={Notifications} />
+              <Route path="/messaging" component={Messaging} />
+              <Route path="/my-items" component={MyItems} />
+              <Route path="/analytics" component={Analytics} />
+              <Route path="/salary-estimator" component={SalaryEstimator} />
+              <Route path="/my-work" component={MyWork} />
+              <Route component={NotFound} />
+            </Switch>
+          </Layout>
+        </RequireAuth>
       </Route>
     </Switch>
   );
