@@ -428,7 +428,9 @@ function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel
 
   const isSearching = !!query;
   const isLoading   = isSearching ? searchLoading : recLoading;
-  const profiles    = isSearching ? searchProfiles : recProfiles;
+  const profiles    = isSearching
+    ? searchProfiles.filter(p => !isConnected(p.id) && !isPending(p.id))
+    : recProfiles;
 
   const empty = (
     <div className="flex flex-col items-center py-20 text-muted-foreground gap-3">
