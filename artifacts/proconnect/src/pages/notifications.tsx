@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BellIcon, MessageSquareIcon, ThumbsUpIcon, CheckCheckIcon } from "lucide-react";
+import { BellIcon, MessageSquareIcon, ThumbsUpIcon, CheckCheckIcon, UserPlusIcon } from "lucide-react";
 import { useAppAuth } from "@/contexts/app-auth";
 
 interface AppNotification {
@@ -39,7 +39,7 @@ export default function Notifications() {
   const { user } = useAppAuth();
   const qc = useQueryClient();
   const BASE = import.meta.env.BASE_URL;
-  const [tab, setTab] = useState<"all" | "posts">("all");
+  const [tab, setTab] = useState<"all" | "posts" | "connections">("all");
 
   const { data: notifications = [], isLoading } = useQuery<AppNotification[]>({
     queryKey: ["notifications", user?.id],
@@ -64,7 +64,9 @@ export default function Notifications() {
 
   const filtered = tab === "posts"
     ? notifications.filter(n => n.postId !== null)
-    : notifications;
+    : tab === "connections"
+      ? notifications.filter(n => n.type === "connection")
+      : notifications;
 
   const hasUnread = notifications.some(n => !n.isRead);
 
@@ -89,17 +91,21 @@ export default function Notifications() {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         {/* Filter tabs */}
         <div className="flex gap-1 px-4 border-b border-gray-200">
-          {(["all", "posts"] as const).map(t => (
+          {([
+            { key: "all", label: "All" },
+            { key: "connections", label: "Connections" },
+            { key: "posts", label: "My posts" },
+          ] as const).map(({ key, label }) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={key}
+              onClick={() => setTab(key)}
               className={`px-3 py-3 text-sm font-semibold border-b-2 -mb-px transition-colors ${
-                tab === t
+                tab === key
                   ? "border-primary text-primary"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
-              {t === "all" ? "All" : "My posts"}
+              {label}
             </button>
           ))}
         </div>
@@ -134,12 +140,18 @@ export default function Notifications() {
               ? REACTION_EMOJIS[n.reactionType] ?? "👍"
               : null;
 
-            const badgeBg = n.type === "comment" ? "bg-green-500" : "bg-[#0a66c2]";
+            const badgeBg = n.type === "comment"
+              ? "bg-green-500"
+              : n.type === "connection"
+                ? "bg-emerald-500"
+                : "bg-[#0a66c2]";
             const badgeContent = emoji
               ? <span className="text-sm leading-none">{emoji}</span>
               : n.type === "comment"
                 ? <MessageSquareIcon className="w-3.5 h-3.5 text-white" />
-                : <ThumbsUpIcon className="w-3.5 h-3.5 text-white" />;
+                : n.type === "connection"
+                  ? <UserPlusIcon className="w-3.5 h-3.5 text-white" />
+                  : <ThumbsUpIcon className="w-3.5 h-3.5 text-white" />;
 
             const row = (
               <div
@@ -177,6 +189,8 @@ export default function Notifications() {
 
             return n.postId ? (
               <Link key={n.id} href="/feed">{row}</Link>
+            ) : n.type === "connection" ? (
+              <Link key={n.id} href={`/profiles/${n.actorProfileId}`}>{row}</Link>
             ) : (
               <div key={n.id}>{row}</div>
             );

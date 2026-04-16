@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { db, connectionsTable, profilesTable } from "@workspace/db";
+import { notificationsTable } from "@workspace/db";
 import { eq, and, inArray, notInArray, ne, or, sql, desc } from "drizzle-orm";
 
 const router = Router();
@@ -126,6 +127,24 @@ router.post("/connections", async (req, res): Promise<void> => {
     .values({ followerId, followingId })
     .onConflictDoNothing()
     .returning();
+
+  // Only notify when a new connection was actually inserted (not a duplicate)
+  if (row) {
+    const [actor] = await db
+      .select({ name: profilesTable.name })
+      .from(profilesTable)
+      .where(eq(profilesTable.id, followerId));
+
+    if (actor) {
+      await db.insert(notificationsTable).values({
+        recipientProfileId: followingId,
+        actorProfileId: followerId,
+        type: "connection",
+        message: `${actor.name} started following you`,
+        isRead: false,
+      });
+    }
+  }
 
   res.status(201).json(row ?? { followerId, followingId });
 });
