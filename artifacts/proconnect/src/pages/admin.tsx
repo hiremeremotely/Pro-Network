@@ -401,6 +401,7 @@ function UsersSection() {
   const filtered = (data?.profiles ?? []).filter((p: any) =>
     !search ||
     p.name.toLowerCase().includes(search.toLowerCase()) ||
+    (p.email ?? "").toLowerCase().includes(search.toLowerCase()) ||
     (p.headline ?? "").toLowerCase().includes(search.toLowerCase()) ||
     (p.location ?? "").toLowerCase().includes(search.toLowerCase())
   );
@@ -416,7 +417,7 @@ function UsersSection() {
             <div className="flex items-center gap-2 flex-wrap">
               <div className="relative">
                 <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                <Input className="pl-8 h-8 text-xs w-56" placeholder="Search name, role, location..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                <Input className="pl-8 h-8 text-xs w-64" placeholder="Search name, email, location..." value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
               <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
                 {["all", "individual", "company"].map((f) => (
@@ -434,14 +435,14 @@ function UsersSection() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50">
-                    {["User", "Type", "Location", "Status", "Plan", "Joined", ""].map((h) => (
+                    {["User", "Email", "Type", "Location", "Status", "Plan", "Joined", ""].map((h) => (
                       <th key={h} className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.length === 0 ? (
-                    <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-400">No users found</td></tr>
+                    <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">No users found</td></tr>
                   ) : filtered.map((p: any, i: number) => {
                     const initials = p.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
                     const plan = p.accountType === "company" ? "Enterprise" : "Free";
@@ -458,6 +459,9 @@ function UsersSection() {
                               <p className="text-xs text-gray-400 truncate max-w-[180px]">{p.headline}</p>
                             </div>
                           </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs text-gray-600 font-medium">{p.email || "—"}</span>
                         </td>
                         <td className="px-4 py-3">
                           <Badge className={`text-[10px] font-semibold px-2 rounded-full border-0 capitalize ${p.accountType === "company" ? "bg-violet-50 text-violet-700" : "bg-blue-50 text-blue-700"}`}>{p.accountType}</Badge>
