@@ -2162,6 +2162,9 @@ export default function CompanyDashboard() {
             </div>
           )}
 
+          {/* Market Insights — fills empty space below team list */}
+          {user?.id && <HRInsightsWidget companyProfileId={user.id} />}
+
           {/* Pending Time-Off Approvals */}
           {pendingTimeOff.length > 0 && (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -2322,8 +2325,6 @@ export default function CompanyDashboard() {
               </div>
             </div>
 
-            {/* HR Insights Widget */}
-            {user?.id && <HRInsightsWidget companyProfileId={user.id} />}
 
           </div>
         </div>

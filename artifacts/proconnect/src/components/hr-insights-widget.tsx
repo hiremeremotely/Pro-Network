@@ -110,8 +110,8 @@ export function HRInsightsWidget({ companyProfileId }: Props) {
       </div>
 
       <div className="p-4 space-y-3">
-        {/* Compact inline stats */}
-        <div className="grid grid-cols-2 gap-2">
+        {/* Stats + Hiring Activity — side by side on wider layouts */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <div className="bg-gray-50 rounded-lg px-3 py-2.5 flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center flex-shrink-0">
               <BriefcaseIcon className="w-3.5 h-3.5 text-gray-500" />
@@ -127,29 +127,26 @@ export function HRInsightsWidget({ companyProfileId }: Props) {
             </div>
             <div>
               <p className="text-base font-bold text-gray-900 leading-tight">{totalApplicants}</p>
-              <p className="text-[10px] text-gray-500 leading-tight">Applicants</p>
+              <p className="text-[10px] text-gray-500 leading-tight">Total applicants</p>
             </div>
           </div>
-        </div>
 
-        {/* Hiring activity — compact row */}
-        <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
+          {/* Hiring activity — third cell on wider screens */}
+          <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 mb-1">
               <TrendIcon className={`w-3.5 h-3.5 ${trendColor} flex-shrink-0`} />
               <span className="text-[11px] font-semibold text-gray-700">Hiring Activity</span>
-              <span className="text-[10px] text-gray-400">(30 days)</span>
+              <span className={`text-[10px] font-bold ${trendColor} ml-auto`}>{trendLabel}</span>
             </div>
-            <span className={`text-[10px] font-bold ${trendColor}`}>{trendLabel}</span>
-          </div>
-          <div className="flex items-end justify-between mt-1.5">
-            <div>
-              <span className={`text-lg font-bold ${trendColor}`}>{hiringTrend.recent}</span>
-              <span className="text-[10px] text-gray-500 ml-1">this month</span>
+            <div className="flex items-end justify-between">
+              <div>
+                <span className={`text-base font-bold ${trendColor}`}>{hiringTrend.recent}</span>
+                <span className="text-[10px] text-gray-500 ml-1">this month</span>
+              </div>
+              {hiringTrend.previous > 0 && (
+                <span className="text-[10px] text-gray-400">{hiringTrend.previous} last mo.</span>
+              )}
             </div>
-            {hiringTrend.previous > 0 && (
-              <span className="text-[10px] text-gray-400">{hiringTrend.previous} last month</span>
-            )}
           </div>
         </div>
 
@@ -186,8 +183,8 @@ export function HRInsightsWidget({ companyProfileId }: Props) {
         {topCandidates.length > 0 && (
           <div>
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Suggested Matches</p>
-            <div className="space-y-1.5">
-              {topCandidates.slice(0, 3).map(candidate => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {topCandidates.slice(0, 4).map(candidate => {
                 const initials = candidate.name
                   .split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
                 return (
