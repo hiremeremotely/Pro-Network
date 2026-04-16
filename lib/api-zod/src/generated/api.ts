@@ -61,6 +61,7 @@ export const ListProfilesQueryParams = zod.object({
   search: zod.coerce.string().optional(),
   limit: zod.coerce.number().default(listProfilesQueryLimitDefault),
   offset: zod.coerce.number().default(listProfilesQueryOffsetDefault),
+  excludeId: zod.coerce.number().optional(),
 });
 
 export const ListProfilesResponse = zod.object({

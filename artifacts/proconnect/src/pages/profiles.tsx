@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useSearch, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { useListProfiles, getListProfilesQueryKey } from "@workspace/api-client-react";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useConnections } from "@/hooks/use-connections";
 import { useStartChat } from "@/hooks/use-start-chat";
@@ -241,11 +240,17 @@ function DiscoverTab({ userId, view, isConnected, onToggle, onMessage, initialSe
     return () => clearTimeout(t);
   }, [search]);
 
-  const { data: searchData, isLoading: searchLoading, isFetching } = useListProfiles(
-    { search: query || undefined, limit: 20, offset: 0 },
-    { query: { queryKey: getListProfilesQueryKey({ search: query || undefined, limit: 20, offset: 0 }), enabled: !!query } }
-  );
-  const searchProfiles = (searchData?.profiles ?? []).filter(p => p.id !== userId);
+  const searchParams = new URLSearchParams({ limit: "20", offset: "0" });
+  if (query) searchParams.set("search", query);
+  if (userId) searchParams.set("excludeId", String(userId));
+
+  const { data: searchData, isLoading: searchLoading, isFetching } = useQuery<{ profiles: Profile[]; total: number }>({
+    queryKey: ["profiles-search", query, userId],
+    queryFn: () => fetch(`${BASE}api/profiles?${searchParams}`).then(r => r.json()),
+    enabled: !!query,
+    staleTime: 30_000,
+  });
+  const searchProfiles = searchData?.profiles ?? [];
 
   const { data: recData, isLoading: recLoading } = useQuery<{ profiles: Profile[] }>({
     queryKey: ["connections-recommended", userId],

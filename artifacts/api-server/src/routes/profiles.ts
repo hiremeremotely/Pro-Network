@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, ilike, or, sql } from "drizzle-orm";
+import { and, eq, ilike, ne, or, sql } from "drizzle-orm";
 import { db, profilesTable, educationTable, experienceTable, portfolioTable, skillsTable } from "@workspace/db";
 import {
   CreateProfileBody,
@@ -18,17 +18,22 @@ router.get("/profiles", async (req, res): Promise<void> => {
     res.status(400).json({ error: query.error.message });
     return;
   }
-  const { search, limit = 20, offset = 0 } = query.data;
+  const { search, limit = 20, offset = 0, excludeId } = query.data;
 
-  let whereClause = undefined;
-  if (search) {
-    whereClause = or(
-      ilike(profilesTable.name, `%${search}%`),
-      ilike(profilesTable.headline, `%${search}%`),
-      ilike(profilesTable.location, `%${search}%`),
-      ilike(profilesTable.email, `%${search}%`),
-    );
-  }
+  const searchClause = search
+    ? or(
+        ilike(profilesTable.name, `%${search}%`),
+        ilike(profilesTable.headline, `%${search}%`),
+        ilike(profilesTable.location, `%${search}%`),
+        ilike(profilesTable.email, `%${search}%`),
+      )
+    : undefined;
+
+  const excludeClause = excludeId ? ne(profilesTable.id, excludeId) : undefined;
+
+  const whereClause = searchClause && excludeClause
+    ? and(searchClause, excludeClause)
+    : searchClause ?? excludeClause;
 
   const [profiles, countResult] = await Promise.all([
     db.select().from(profilesTable).where(whereClause).limit(limit).offset(offset).orderBy(profilesTable.createdAt),
