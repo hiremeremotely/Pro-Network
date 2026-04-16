@@ -138,19 +138,19 @@ export default function Notifications() {
               : null;
 
             const badgeBg =
-              n.type === "comment"            ? "bg-green-500"
-              : n.type === "connection"       ? "bg-emerald-500"
+              n.type === "comment"              ? "bg-green-500"
+              : n.type === "connection_request" ? "bg-emerald-500"
               : n.type === "connection_accepted" ? "bg-[#0a66c2]"
-              : n.type === "reaction"         ? "bg-[#e7a33e]"
-              : n.type === "mention"          ? "bg-violet-500"
-              : n.type === "job"              ? "bg-orange-500"
-              :                                 "bg-[#0a66c2]";
+              : n.type === "reaction"            ? "bg-[#e7a33e]"
+              : n.type === "mention"             ? "bg-violet-500"
+              : n.type === "job"                 ? "bg-orange-500"
+              :                                    "bg-[#0a66c2]";
 
             const badgeContent = emoji
               ? <span className="text-sm leading-none">{emoji}</span>
               : n.type === "comment"
                 ? <MessageSquareIcon className="w-3.5 h-3.5 text-white" />
-                : n.type === "connection"
+                : n.type === "connection_request"
                   ? <UserPlusIcon className="w-3.5 h-3.5 text-white" />
                   : n.type === "connection_accepted"
                     ? <UserCheckIcon className="w-3.5 h-3.5 text-white" />
@@ -196,7 +196,7 @@ export default function Notifications() {
 
             return n.postId ? (
               <Link key={n.id} href="/feed">{row}</Link>
-            ) : (n.type === "connection" || n.type === "connection_accepted") ? (
+            ) : (n.type === "connection_request" || n.type === "connection_accepted") ? (
               <Link key={n.id} href={`/profiles/${n.actorProfileId}`}>{row}</Link>
             ) : (
               <div key={n.id}>{row}</div>
