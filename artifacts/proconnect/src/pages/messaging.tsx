@@ -48,6 +48,16 @@ function extractYouTubeIdFromText(text: string): string | null {
   return m ? m[1] : null;
 }
 
+function extractNonYtUrl(text: string): string | null {
+  const YT = /(?:youtube\.com|youtu\.be)/;
+  const urls = text.match(/https?:\/\/[^\s<>"']+/g) ?? [];
+  return urls.find(u => !YT.test(u)) ?? null;
+}
+
+function isOnlyUrl(text: string): boolean {
+  return /^https?:\/\/\S+$/.test(text.trim());
+}
+
 function formatConvPreview(preview: string | null): string {
   if (!preview) return "";
   if (!preview.startsWith("{")) return preview;
@@ -58,15 +68,71 @@ function formatConvPreview(preview: string | null): string {
   return preview;
 }
 
-function SharedPostCard({ shared, isMine }: { shared: SharedPost; isMine: boolean }) {
-  const [playing, setPlaying] = useState(false);
-  // Check imageUrl first (stored thumbnail), then fall back to detecting YouTube URL in text
-  const ytId = extractYouTubeId(shared.imageUrl) ?? extractYouTubeIdFromText(shared.content);
-  const initials = (shared.authorName ?? "?").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+function SharedLinkPreview({ url }: { url: string }) {
+  const { data, isLoading } = useQuery<{
+    title: string | null; description: string | null; image: string | null;
+    siteName: string | null; domain: string; favicon: string;
+  }>({
+    queryKey: ["msg-link-preview", url],
+    queryFn: () => fetch(`${BASE}api/feed/link-preview?url=${encodeURIComponent(url)}`).then(r => r.json()),
+    staleTime: 10 * 60 * 1000,
+    retry: false,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="mx-3 mb-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2 flex items-center gap-2">
+        <div className="w-6 h-6 rounded bg-gray-200 animate-pulse flex-shrink-0" />
+        <div className="flex-1 space-y-1.5">
+          <div className="h-2.5 bg-gray-200 rounded animate-pulse w-3/4" />
+          <div className="h-2 bg-gray-200 rounded animate-pulse w-full" />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={`rounded-xl overflow-hidden border text-left ${isMine ? "border-blue-300 bg-blue-50" : "border-gray-200 bg-white"} max-w-[280px] shadow-sm`}>
-      {/* Author header */}
+    <a href={url} target="_blank" rel="noopener noreferrer"
+      className="block mx-3 mb-2 rounded-lg border border-gray-200 overflow-hidden bg-white hover:bg-gray-50 transition-colors no-underline"
+      onClick={e => e.stopPropagation()}
+    >
+      {data?.image && (
+        <img src={data.image} alt="" className="w-full object-cover max-h-28" />
+      )}
+      <div className="px-2.5 py-2">
+        {(data?.siteName ?? data?.domain) && (
+          <div className="flex items-center gap-1 mb-0.5">
+            {data?.favicon && <img src={data.favicon} alt="" className="w-3 h-3 flex-shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />}
+            <span className="text-[9px] text-gray-400 uppercase tracking-wide font-medium truncate">{data?.siteName ?? data?.domain}</span>
+          </div>
+        )}
+        {data?.title && <p className="text-xs font-semibold text-gray-900 leading-snug line-clamp-2">{data.title}</p>}
+        {!data?.title && <p className="text-[10px] text-gray-400 truncate">{url}</p>}
+      </div>
+    </a>
+  );
+}
+
+function SharedPostCard({ shared, isMine }: { shared: SharedPost; isMine: boolean }) {
+  const [playing, setPlaying] = useState(false);
+  const ytId = extractYouTubeId(shared.imageUrl) ?? extractYouTubeIdFromText(shared.content);
+  const linkUrl = !ytId ? extractNonYtUrl(shared.content) : null;
+  const initials = (shared.authorName ?? "?").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+
+  // Strip the URL from content if the content is just a URL (or the same URL we're previewing)
+  const displayContent = (() => {
+    const stripped = shared.content.trim();
+    if (isOnlyUrl(stripped)) return null;
+    if (linkUrl) {
+      const withoutUrl = stripped.replace(linkUrl, "").trim();
+      return withoutUrl || null;
+    }
+    return stripped;
+  })();
+
+  return (
+    <div className={`rounded-xl overflow-hidden border text-left shadow-sm ${isMine ? "border-blue-300 bg-blue-50" : "border-gray-200 bg-white"} max-w-[300px]`}>
+      {/* Author row */}
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-1.5">
         <Avatar className="w-7 h-7 border border-gray-200 flex-shrink-0">
           <AvatarImage src={shared.authorAvatar || undefined} />
@@ -80,48 +146,56 @@ function SharedPostCard({ shared, isMine }: { shared: SharedPost; isMine: boolea
         </div>
       </div>
 
-      {/* Post text snippet */}
-      <p className="px-3 pb-2 text-xs text-gray-700 leading-relaxed line-clamp-3">{shared.content}</p>
+      {/* Text content (only if meaningful — not a bare URL) */}
+      {displayContent && (
+        <p className="px-3 pb-2 text-xs text-gray-700 leading-relaxed line-clamp-3">{displayContent}</p>
+      )}
 
-      {/* Media: YouTube or image */}
+      {/* YouTube player */}
       {ytId && (
-        <div className="relative bg-black">
-          {playing ? (
+        playing ? (
+          <div className="bg-black aspect-video">
             <iframe
               src={`https://www.youtube.com/embed/${ytId}?autoplay=1`}
-              allow="autoplay; encrypted-media"
+              allow="autoplay; encrypted-media; picture-in-picture"
               allowFullScreen
-              className="w-full aspect-video"
+              className="w-full h-full"
             />
-          ) : (
-            <button
-              onClick={() => setPlaying(true)}
-              className="relative w-full block group"
-            >
-              <img
-                src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
-                alt="Video thumbnail"
-                className="w-full object-cover max-h-36 opacity-90 group-hover:opacity-100 transition-opacity"
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                  <PlayCircleIcon className="w-5 h-5 text-white fill-white" />
-                </div>
+          </div>
+        ) : (
+          <button onClick={() => setPlaying(true)} className="relative w-full block group bg-black">
+            <img
+              src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
+              alt="Video thumbnail"
+              className="w-full object-cover max-h-40 opacity-90 group-hover:opacity-80 transition-opacity"
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
+                <svg viewBox="0 0 24 24" fill="white" className="w-6 h-6 ml-1">
+                  <polygon points="5,3 19,12 5,21" />
+                </svg>
               </div>
-            </button>
-          )}
-        </div>
-      )}
-      {!ytId && shared.imageUrl && (
-        <img
-          src={shared.imageUrl}
-          alt="Post image"
-          className="w-full object-cover max-h-36"
-        />
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2">
+              <span className="text-white text-[10px] font-semibold flex items-center gap-1">
+                <svg className="w-3 h-3 fill-white flex-shrink-0" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                Click to play
+              </span>
+            </div>
+          </button>
+        )
       )}
 
+      {/* Uploaded image (not YouTube) */}
+      {!ytId && !linkUrl && shared.imageUrl && (
+        <img src={shared.imageUrl} alt="Post image" className="w-full object-cover max-h-40" />
+      )}
+
+      {/* Link preview for non-YouTube URL posts */}
+      {linkUrl && <SharedLinkPreview url={linkUrl} />}
+
       {/* Footer */}
-      <div className={`px-3 py-1.5 text-[10px] font-medium ${isMine ? "text-blue-400" : "text-gray-400"}`}>
+      <div className={`px-3 py-1.5 text-[10px] font-medium border-t ${isMine ? "text-blue-400 border-blue-200" : "text-gray-400 border-gray-100"}`}>
         Shared post
       </div>
     </div>
