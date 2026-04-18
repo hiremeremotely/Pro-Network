@@ -199,6 +199,7 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground tracking-normal;
+    overflow-x: hidden;
   }
 }
 
