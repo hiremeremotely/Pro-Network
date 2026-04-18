@@ -291,14 +291,21 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
   async function handleSend(profileId: number) {
     setSending(profileId);
     const convId = await startChat(profileId);
-    // Send the post content as a message into the conversation
     if (convId && user?.id) {
-      const snippet = post.content.length > 200 ? post.content.slice(0, 200) + "…" : post.content;
-      const msgText = `Shared a post by ${post.profileName}:\n\n"${snippet}"`;
+      // Encode as a structured shared-post message so the chat can render a rich card
+      const payload = JSON.stringify({
+        __type: "shared_post",
+        postId: post.id,
+        authorName: post.profileName,
+        authorAvatar: post.profileAvatarUrl,
+        authorHeadline: post.profileHeadline,
+        content: post.content,
+        imageUrl: post.imageUrl ?? null,
+      });
       await fetch(`${BASE}api/conversations/${convId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ senderProfileId: user.id, content: msgText }),
+        body: JSON.stringify({ senderProfileId: user.id, content: payload }),
       });
     }
     navigate("/messaging");

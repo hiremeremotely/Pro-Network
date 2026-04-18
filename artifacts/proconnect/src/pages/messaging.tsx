@@ -10,10 +10,105 @@ import {
   SearchIcon, SendHorizontalIcon, PencilIcon,
   MoreHorizontalIcon, VideoIcon, InfoIcon,
   UserPlusIcon, CheckCircle2Icon, UsersIcon, MegaphoneIcon, ArrowLeftIcon,
-  TrashIcon, PenLineIcon, CheckIcon, XIcon, Trash2Icon,
+  TrashIcon, PenLineIcon, CheckIcon, XIcon, Trash2Icon, PlayCircleIcon,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL;
+
+// ── Shared-post helpers ───────────────────────────────────────────────────────
+interface SharedPost {
+  __type: "shared_post";
+  postId: number;
+  authorName: string;
+  authorAvatar: string | null;
+  authorHeadline: string | null;
+  content: string;
+  imageUrl: string | null;
+}
+
+function parseSharedPost(content: string): SharedPost | null {
+  if (!content.startsWith("{")) return null;
+  try {
+    const obj = JSON.parse(content);
+    if (obj.__type === "shared_post") return obj as SharedPost;
+  } catch {}
+  return null;
+}
+
+function extractYouTubeId(imageUrl: string | null): string | null {
+  if (!imageUrl) return null;
+  const m = imageUrl.match(/img\.youtube\.com\/vi\/([A-Za-z0-9_-]{11})\//);
+  return m ? m[1] : null;
+}
+
+function SharedPostCard({ shared, isMine }: { shared: SharedPost; isMine: boolean }) {
+  const [playing, setPlaying] = useState(false);
+  const ytId = extractYouTubeId(shared.imageUrl);
+  const initials = (shared.authorName ?? "?").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+
+  return (
+    <div className={`rounded-xl overflow-hidden border text-left ${isMine ? "border-blue-300 bg-blue-50" : "border-gray-200 bg-white"} max-w-[280px] shadow-sm`}>
+      {/* Author header */}
+      <div className="flex items-center gap-2 px-3 pt-2.5 pb-1.5">
+        <Avatar className="w-7 h-7 border border-gray-200 flex-shrink-0">
+          <AvatarImage src={shared.authorAvatar || undefined} />
+          <AvatarFallback className="text-[9px] font-bold bg-primary/10 text-primary">{initials}</AvatarFallback>
+        </Avatar>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-gray-900 leading-tight truncate">{shared.authorName}</p>
+          {shared.authorHeadline && (
+            <p className="text-[10px] text-gray-400 leading-tight truncate">{shared.authorHeadline}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Post text snippet */}
+      <p className="px-3 pb-2 text-xs text-gray-700 leading-relaxed line-clamp-3">{shared.content}</p>
+
+      {/* Media: YouTube or image */}
+      {ytId && (
+        <div className="relative bg-black">
+          {playing ? (
+            <iframe
+              src={`https://www.youtube.com/embed/${ytId}?autoplay=1`}
+              allow="autoplay; encrypted-media"
+              allowFullScreen
+              className="w-full aspect-video"
+            />
+          ) : (
+            <button
+              onClick={() => setPlaying(true)}
+              className="relative w-full block group"
+            >
+              <img
+                src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
+                alt="Video thumbnail"
+                className="w-full object-cover max-h-36 opacity-90 group-hover:opacity-100 transition-opacity"
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                  <PlayCircleIcon className="w-5 h-5 text-white fill-white" />
+                </div>
+              </div>
+            </button>
+          )}
+        </div>
+      )}
+      {!ytId && shared.imageUrl && (
+        <img
+          src={shared.imageUrl}
+          alt="Post image"
+          className="w-full object-cover max-h-36"
+        />
+      )}
+
+      {/* Footer */}
+      <div className={`px-3 py-1.5 text-[10px] font-medium ${isMine ? "text-blue-400" : "text-gray-400"}`}>
+        Shared post
+      </div>
+    </div>
+  );
+}
 
 interface OtherParticipant {
   id: number;
@@ -679,25 +774,40 @@ export default function Messaging() {
                             </button>
                           </div>
                         </div>
-                      ) : (
-                        <div className={`max-w-[75%] md:max-w-[65%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words ${
-                          msg.isDeleted
-                            ? "bg-gray-100 text-gray-400 italic rounded-br-sm border border-gray-200"
-                            : isMine
-                            ? "bg-[#0a66c2] text-white rounded-br-sm"
-                            : isTeamChannel
-                            ? "bg-[#eef3f8] text-gray-900 rounded-bl-sm border border-blue-100"
-                            : "bg-[#f3f2ef] text-gray-900 rounded-bl-sm"
-                        }`}>
-                          {msg.content}
-                          {!isTeamChannel && !msg.isDeleted && (
-                            <div className={`text-[10px] mt-1 flex items-center gap-1 ${isMine ? "justify-end text-blue-100" : "justify-start text-gray-400"}`}>
-                              {msg.editedAt && <span className="italic">edited</span>}
-                              <span>{msgDateLabel(msg.createdAt)}</span>
+                      ) : (() => {
+                        const shared = !msg.isDeleted ? parseSharedPost(msg.content) : null;
+                        if (shared) {
+                          return (
+                            <div className="flex flex-col gap-1">
+                              <SharedPostCard shared={shared} isMine={isMine} />
+                              {!isTeamChannel && (
+                                <div className={`text-[10px] flex items-center gap-1 ${isMine ? "justify-end text-gray-400" : "justify-start text-gray-400"}`}>
+                                  <span>{msgDateLabel(msg.createdAt)}</span>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      )}
+                          );
+                        }
+                        return (
+                          <div className={`max-w-[75%] md:max-w-[65%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words ${
+                            msg.isDeleted
+                              ? "bg-gray-100 text-gray-400 italic rounded-br-sm border border-gray-200"
+                              : isMine
+                              ? "bg-[#0a66c2] text-white rounded-br-sm"
+                              : isTeamChannel
+                              ? "bg-[#eef3f8] text-gray-900 rounded-bl-sm border border-blue-100"
+                              : "bg-[#f3f2ef] text-gray-900 rounded-bl-sm"
+                          }`}>
+                            {msg.content}
+                            {!isTeamChannel && !msg.isDeleted && (
+                              <div className={`text-[10px] mt-1 flex items-center gap-1 ${isMine ? "justify-end text-blue-100" : "justify-start text-gray-400"}`}>
+                                {msg.editedAt && <span className="italic">edited</span>}
+                                <span>{msgDateLabel(msg.createdAt)}</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 );
