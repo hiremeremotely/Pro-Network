@@ -1147,7 +1147,7 @@ export default function Home() {
   const [visibleCount, setVisibleCount] = useState(10);
   const [feedDisconnectTarget, setFeedDisconnectTarget] = useState<{ id: number; name: string } | null>(null);
 
-  const [feedSort, setFeedSort] = useState<"top" | "recent">("top");
+  const [feedSort, setFeedSort] = useState<"top" | "recent">("recent");
 
   const { data: feedData, isLoading: postsLoading } = useQuery<{ posts: FeedPost[]; empty: boolean }>({
     queryKey: ["posts/feed", user?.id, feedSort],
