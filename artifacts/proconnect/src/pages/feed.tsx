@@ -1286,12 +1286,22 @@ export default function Home() {
                 <p className="font-semibold text-sm text-gray-900 leading-snug group-hover:underline">{currentName}</p>
               </Link>
               <p className="text-xs text-gray-500 leading-snug mt-0.5 line-clamp-2">{currentHeadline}</p>
-              <Link
-                href={user ? `/profiles/${user.id}` : "/login"}
-                className="inline-block mt-2 text-xs font-semibold text-primary border border-primary/40 rounded-full px-3 py-0.5 hover:bg-primary/5 transition-colors"
-              >
-                View profile
-              </Link>
+              <div className="flex items-center gap-2 mt-2">
+                <Link
+                  href={user ? `/profiles/${user.id}` : "/login"}
+                  className="text-xs font-semibold text-primary border border-primary/40 rounded-full px-3 py-0.5 hover:bg-primary/5 transition-colors flex-shrink-0"
+                >
+                  View profile
+                </Link>
+                {showCompletionBanner && (
+                  <Link href={`/profiles/${user?.id}`} className="flex items-center gap-1.5 min-w-0 group">
+                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden min-w-[40px]">
+                      <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${completionPct}%` }} />
+                    </div>
+                    <span className="text-[11px] font-semibold text-primary whitespace-nowrap group-hover:underline">{completionPct}%</span>
+                  </Link>
+                )}
+              </div>
             </div>
 
             <Separator />
@@ -1330,59 +1340,6 @@ export default function Home() {
               </Link>
             </div>
           </Card>
-
-          {/* ── Profile completion card ── */}
-          {showCompletionBanner && (
-            <Card className="rounded-xl border border-primary/20 shadow-none bg-white overflow-hidden">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-1">
-                  <p className="text-sm font-semibold text-gray-800">Complete your profile</p>
-                  <button
-                    onClick={dismissProfileBanner}
-                    className="text-gray-400 hover:text-gray-600 -mt-0.5 -mr-0.5 p-0.5 rounded"
-                    title="Dismiss"
-                  >
-                    <XIcon className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <p className="text-[11px] text-gray-400 mb-3">Profiles with complete info get 5× more views</p>
-
-                {/* Progress bar */}
-                <div className="mb-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] text-gray-500 font-medium">{completionPct}% complete</span>
-                    <span className="text-[11px] text-gray-400">{completionSteps.filter(s => s.done).length}/{completionSteps.length} steps</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full transition-all duration-500"
-                      style={{ width: `${completionPct}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Steps */}
-                <div className="space-y-2">
-                  {completionSteps.map(step => (
-                    <Link key={step.label} href={step.href}>
-                      <div className={`flex items-center gap-2 py-1 rounded-lg group cursor-pointer ${step.done ? "opacity-50" : ""}`}>
-                        <div className={`w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-colors ${
-                          step.done
-                            ? "bg-primary border-primary"
-                            : "border-gray-300 group-hover:border-primary"
-                        }`}>
-                          {step.done && <CheckIcon className="w-2.5 h-2.5 text-white" />}
-                        </div>
-                        <span className={`text-xs leading-tight ${step.done ? "text-gray-400 line-through" : "text-gray-700 group-hover:text-primary font-medium"}`}>
-                          {step.label}
-                        </span>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {/* ── My Applications / Hiring widget ── */}
           {user && user.accountType === "individual" && (
