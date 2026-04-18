@@ -61,6 +61,7 @@ export default function Landing() {
       } else {
         sessionStorage.setItem("signup_prefill_email", trimmed);
         sessionStorage.setItem("signup_prefill_type", "individual");
+        sessionStorage.setItem("signup_lock_type", "true");
         navigate("/signup");
       }
     } catch {

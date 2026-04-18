@@ -218,6 +218,12 @@ export default function Signup() {
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
+  const [accountTypeLocked] = useState<boolean>(() => {
+    const locked = sessionStorage.getItem("signup_lock_type") === "true";
+    sessionStorage.removeItem("signup_lock_type");
+    return locked;
+  });
+
   const [accountType, setAccountType] = useState<"individual" | "company">(() => {
     const saved = sessionStorage.getItem("signup_prefill_type");
     if (saved) sessionStorage.removeItem("signup_prefill_type");
@@ -315,23 +321,25 @@ export default function Signup() {
               <h1 className="text-2xl font-bold text-gray-900 mb-1">Make the most of your career</h1>
               <p className="text-sm text-gray-500 mb-6">Create your free account to get started.</p>
 
-              <div className="flex gap-2 mb-5">
-                {(["individual", "company"] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setAccountType(t)}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                      accountType === t
-                        ? "border-primary bg-primary/5 text-primary"
-                        : "border-gray-200 text-gray-500 hover:border-gray-300"
-                    }`}
-                  >
-                    {t === "individual" ? <UserIcon className="w-4 h-4" /> : <BuildingIcon className="w-4 h-4" />}
-                    {t === "individual" ? "Individual" : "Company"}
-                  </button>
-                ))}
-              </div>
+              {!accountTypeLocked && (
+                <div className="flex gap-2 mb-5">
+                  {(["individual", "company"] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setAccountType(t)}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                        accountType === t
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-gray-200 text-gray-500 hover:border-gray-300"
+                      }`}
+                    >
+                      {t === "individual" ? <UserIcon className="w-4 h-4" /> : <BuildingIcon className="w-4 h-4" />}
+                      {t === "individual" ? "Individual" : "Company"}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <form onSubmit={handleStep1} className="space-y-4">
                 <div>
