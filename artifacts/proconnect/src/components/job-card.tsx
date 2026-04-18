@@ -1,9 +1,12 @@
 import { Link } from "wouter";
-import { MapPinIcon, BriefcaseIcon, DollarSignIcon, ClockIcon, ChevronRightIcon, BookmarkIcon, SendHorizontalIcon } from "lucide-react";
+import { MapPinIcon, BriefcaseIcon, DollarSignIcon, ClockIcon, ChevronRightIcon, BookmarkIcon, SendHorizontalIcon, Share2Icon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import type { Job } from "@workspace/api-client-react";
 import { formatDistanceToNow } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
+
+const BASE = import.meta.env.BASE_URL;
 
 interface JobCardProps {
   job: Job;
@@ -14,8 +17,9 @@ interface JobCardProps {
 }
 
 export function JobCard({ job, featured, isBookmarked, onBookmark, onSend }: JobCardProps) {
+  const { toast } = useToast();
   const timeAgo = formatDistanceToNow(new Date(job.createdAt), { addSuffix: true });
-  
+
   const formatSalary = (min?: number | null, max?: number | null, currency: string = "USD") => {
     if (!min && !max) return "Salary unlisted";
     const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD', maximumFractionDigits: 0 });
@@ -24,6 +28,27 @@ export function JobCard({ job, featured, isBookmarked, onBookmark, onSend }: Job
     if (max) return `Up to ${formatter.format(max)}`;
     return "Salary unlisted";
   };
+
+  async function handleShare(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = `${window.location.origin}${BASE}jobs/${job.id}`;
+    const shareData = {
+      title: `${job.title} at ${job.company}`,
+      text: `Check out this remote job: ${job.title} at ${job.company}${job.location ? ` · ${job.location}` : ""}`,
+      url,
+    };
+    if (navigator.share) {
+      try { await navigator.share(shareData); } catch {}
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast({ title: "Link copied", description: "Job link copied to clipboard.", duration: 2000 });
+      } catch {
+        toast({ title: "Could not copy link", variant: "destructive", duration: 2000 });
+      }
+    }
+  }
 
   return (
     <Link href={`/jobs/${job.id}`}>
@@ -61,7 +86,7 @@ export function JobCard({ job, featured, isBookmarked, onBookmark, onSend }: Job
             </div>
           </div>
         </CardHeader>
-        
+
         <CardContent className="flex-1 pb-4 space-y-4">
           <div className="flex flex-wrap gap-y-2 gap-x-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1.5">
@@ -79,7 +104,7 @@ export function JobCard({ job, featured, isBookmarked, onBookmark, onSend }: Job
               </div>
             )}
           </div>
-          
+
           <div className="flex flex-wrap gap-2">
             {job.tags?.slice(0, 4).map((tag) => (
               <Badge key={tag} variant="outline" className="bg-muted/50 text-xs font-normal">{tag}</Badge>
@@ -89,10 +114,17 @@ export function JobCard({ job, featured, isBookmarked, onBookmark, onSend }: Job
             )}
           </div>
         </CardContent>
-        
+
         <CardFooter className="pt-0 flex justify-between items-center border-t mt-auto pt-4 border-border/50 text-sm">
           <span className="text-muted-foreground">{timeAgo}</span>
           <div className="flex items-center gap-1">
+            <button
+              onClick={handleShare}
+              title="Share job"
+              className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+            >
+              <Share2Icon className="w-3.5 h-3.5" />
+            </button>
             {onSend && (
               <button
                 onClick={onSend}

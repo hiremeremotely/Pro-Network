@@ -12,9 +12,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/hooks/use-toast";
 import {
   MapPinIcon, DollarSignIcon, ClockIcon, UsersIcon, ArrowLeftIcon,
-  BriefcaseIcon, CalendarIcon, SendIcon, BuildingIcon
+  BriefcaseIcon, CalendarIcon, SendIcon, BuildingIcon, Share2Icon
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+
+const BASE = import.meta.env.BASE_URL;
 
 const CURRENT_PROFILE_ID = 1;
 
@@ -31,6 +33,26 @@ export default function JobDetail() {
   });
 
   const applyMutation = useApplyToJob();
+
+  async function handleShare() {
+    if (!job) return;
+    const url = `${window.location.origin}${BASE}jobs/${job.id}`;
+    const shareData = {
+      title: `${job.title} at ${job.company}`,
+      text: `Check out this remote job: ${job.title} at ${job.company}${job.location ? ` · ${job.location}` : ""}`,
+      url,
+    };
+    if (navigator.share) {
+      try { await navigator.share(shareData); } catch {}
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast({ title: "Link copied", description: "Job link copied to clipboard.", duration: 2000 });
+      } catch {
+        toast({ title: "Could not copy link", variant: "destructive", duration: 2000 });
+      }
+    }
+  }
 
   function handleApply() {
     applyMutation.mutate(
@@ -159,8 +181,16 @@ export default function JobDetail() {
               >
                 <SendIcon className="w-4 h-4" /> Apply Now
               </Button>
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={handleShare}
+              >
+                <Share2Icon className="w-4 h-4" />
+                {typeof navigator !== "undefined" && navigator.share ? "Share Job" : "Copy Link"}
+              </Button>
               <Link href="/jobs">
-                <Button variant="outline" className="w-full mt-2">Browse More Jobs</Button>
+                <Button variant="outline" className="w-full">Browse More Jobs</Button>
               </Link>
             </CardContent>
           </Card>

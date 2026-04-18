@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   SearchIcon, BriefcaseIcon, XIcon, MapPinIcon,
   DollarSignIcon, BookmarkIcon, BuildingIcon, TagIcon, SparklesIcon,
-  SendHorizontalIcon,
+  SendHorizontalIcon, Share2Icon,
 } from "lucide-react";
 import type { Job } from "@workspace/api-client-react";
 import { useBookmarks } from "@/hooks/use-bookmarks";
@@ -315,9 +315,19 @@ function JobRow({ job, bookmarked, onBookmark, onSend }: {
   onBookmark?: (e: React.MouseEvent) => void;
   onSend?: (e: React.MouseEvent) => void;
 }) {
+  const { toast } = useToast();
   const salary = job.salaryMin && job.salaryMax
     ? `$${(job.salaryMin / 1000).toFixed(0)}k – $${(job.salaryMax / 1000).toFixed(0)}k`
     : null;
+
+  async function handleShare(e: React.MouseEvent) {
+    e.preventDefault(); e.stopPropagation();
+    const url = `${window.location.origin}${BASE}jobs/${job.id}`;
+    const data = { title: `${job.title} at ${job.company}`, text: `Check out this remote job: ${job.title} at ${job.company}`, url };
+    if (navigator.share) { try { await navigator.share(data); } catch {} }
+    else { try { await navigator.clipboard.writeText(url); toast({ title: "Link copied", duration: 2000 }); } catch {} }
+  }
+
   return (
     <Link href={`/jobs/${job.id}`}>
       <div className="flex items-center gap-4 px-4 py-3.5 bg-white rounded-xl border border-gray-200 hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer group">
@@ -344,6 +354,13 @@ function JobRow({ job, bookmarked, onBookmark, onSend }: {
         <Badge className={`text-[10px] font-semibold px-2 rounded-full border-0 flex-shrink-0 hidden sm:inline-flex ${LEVEL_COLORS[job.experienceLevel] || "bg-gray-100 text-gray-500"}`}>
           {job.experienceLevel}
         </Badge>
+        <button
+          onClick={handleShare}
+          title="Share job"
+          className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors flex-shrink-0"
+        >
+          <Share2Icon className="w-4 h-4" />
+        </button>
         {onSend && (
           <button
             onClick={onSend}
@@ -379,6 +396,16 @@ function JobTableRow({ job, index, bookmarked, onBookmark, onSend }: {
   onBookmark?: (e: React.MouseEvent) => void;
   onSend?: (e: React.MouseEvent) => void;
 }) {
+  const { toast } = useToast();
+
+  async function handleShare(e: React.MouseEvent) {
+    e.preventDefault(); e.stopPropagation();
+    const url = `${window.location.origin}${BASE}jobs/${job.id}`;
+    const data = { title: `${job.title} at ${job.company}`, text: `Check out this remote job: ${job.title} at ${job.company}`, url };
+    if (navigator.share) { try { await navigator.share(data); } catch {} }
+    else { try { await navigator.clipboard.writeText(url); toast({ title: "Link copied", duration: 2000 }); } catch {} }
+  }
+
   const salary = job.salaryMin && job.salaryMax
     ? `$${(job.salaryMin / 1000).toFixed(0)}k – $${(job.salaryMax / 1000).toFixed(0)}k`
     : "—";
@@ -400,6 +427,13 @@ function JobTableRow({ job, index, bookmarked, onBookmark, onSend }: {
       <td className="px-4 py-3 text-sm text-gray-500">{salary}</td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleShare}
+            title="Share job"
+            className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+          >
+            <Share2Icon className="w-3.5 h-3.5" />
+          </button>
           {onSend && (
             <button
               onClick={onSend}
