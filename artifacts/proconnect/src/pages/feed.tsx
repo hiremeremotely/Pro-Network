@@ -1092,6 +1092,13 @@ export default function Home() {
       fetch(`${import.meta.env.BASE_URL}api/feed/featured-profiles${user?.id ? `?excludeId=${user.id}` : ""}`)
         .then(r => r.json()),
   });
+  const { data: suggestedCompanies } = useQuery({
+    queryKey: ["featured-companies", user?.id],
+    queryFn: () =>
+      fetch(`${import.meta.env.BASE_URL}api/feed/featured-companies${user?.id ? `?excludeId=${user.id}` : ""}`)
+        .then(r => r.json()),
+    enabled: user?.accountType === "individual",
+  });
   const { data: featuredJobs } = useListFeaturedJobs({ query: { queryKey: getListFeaturedJobsQueryKey() } });
   const { isConnected: isFeedConnected, isPending: isFeedPending, sendRequest: feedSendRequest, cancelRequest: feedCancelRequest, disconnect: feedDisconnect } = useConnections();
   const startChat = useStartChat();
@@ -1676,6 +1683,62 @@ export default function Home() {
                   ))}
                 </div>
                 <Link href="/profiles?tab=discover">
+                  <button className="mt-3 text-xs text-gray-500 hover:text-gray-800 hover:underline w-full text-center flex items-center justify-center gap-1">
+                    Show more <ChevronRightIcon className="w-3 h-3" />
+                  </button>
+                </Link>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Companies to follow */}
+          {suggestedCompanies && suggestedCompanies.length > 0 && (
+            <Card className="rounded-xl border border-gray-200 shadow-none bg-white">
+              <CardContent className="p-4">
+                <p className="text-sm font-semibold text-gray-800 mb-3">Companies to follow</p>
+                <div className="space-y-3">
+                  {suggestedCompanies.slice(0, 4).map((company: any) => (
+                    <div key={company.id} className="flex items-start gap-2.5">
+                      <Link href={`/profiles/${company.id}`}>
+                        <Avatar className="w-9 h-9 border border-gray-200 flex-shrink-0 mt-0.5 rounded-lg">
+                          <AvatarImage src={company.avatarUrl || undefined} />
+                          <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary rounded-lg">
+                            {company.name.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      </Link>
+                      <div className="flex-1 min-w-0">
+                        <Link href={`/profiles/${company.id}`} className="text-xs font-semibold text-gray-900 hover:underline block truncate">
+                          {company.name}
+                        </Link>
+                        <p className="text-[10px] text-gray-400 truncate mb-1.5">{company.headline || company.industry || "Company"}</p>
+                        <Button
+                          variant={isFeedConnected(company.id) ? "secondary" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            if (isFeedConnected(company.id)) setFeedDisconnectTarget({ id: company.id, name: company.name });
+                            else if (isFeedPending(company.id)) feedCancelRequest(company.id);
+                            else feedSendRequest(company.id, "");
+                          }}
+                          className={`text-[10px] rounded-full px-2 py-0.5 h-6 w-full justify-center gap-1 ${
+                            isFeedConnected(company.id)
+                              ? "bg-primary/10 text-primary border-primary/20 hover:bg-red-50 hover:text-red-500"
+                              : isFeedPending(company.id)
+                                ? "border-amber-300 text-amber-600 hover:bg-red-50 hover:text-red-500"
+                                : "border-primary text-primary hover:bg-primary/5"
+                          }`}
+                        >
+                          {isFeedConnected(company.id)
+                            ? <><UserCheckIcon className="w-2.5 h-2.5" /> Following</>
+                            : isFeedPending(company.id)
+                              ? <><ClockIcon className="w-2.5 h-2.5" /> Pending</>
+                              : <><UserPlusIcon className="w-2.5 h-2.5" /> Follow</>}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Link href="/profiles?tab=companies">
                   <button className="mt-3 text-xs text-gray-500 hover:text-gray-800 hover:underline w-full text-center flex items-center justify-center gap-1">
                     Show more <ChevronRightIcon className="w-3 h-3" />
                   </button>

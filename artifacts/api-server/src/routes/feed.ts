@@ -42,6 +42,14 @@ router.get("/feed/featured-profiles", async (req, res): Promise<void> => {
   res.json(profiles);
 });
 
+router.get("/feed/featured-companies", async (req, res): Promise<void> => {
+  const excludeId = parseInt(req.query.excludeId as string, 10);
+  const conditions = [eq(profilesTable.accountType, "company")];
+  if (!isNaN(excludeId)) conditions.push(sql`${profilesTable.id} != ${excludeId}` as any);
+  const companies = await db.select().from(profilesTable).where(sql.join(conditions, sql` AND `)).limit(5).orderBy(desc(profilesTable.createdAt));
+  res.json(companies);
+});
+
 router.get("/feed/featured-jobs", async (_req, res): Promise<void> => {
   const jobs = await db.select().from(jobsTable).where(eq(jobsTable.featured, true)).limit(6).orderBy(desc(jobsTable.createdAt));
   const jobsWithCount = await Promise.all(
