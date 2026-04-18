@@ -501,6 +501,7 @@ export default function Messaging() {
   }, [editingMsgId]);
 
   function handleSelectConv(conv: Conversation) {
+    navigate(`/messaging?conv=${conv.id}`);
     setActiveConvId(conv.id);
     setInput("");
     setNoteInput("");
