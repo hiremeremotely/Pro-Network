@@ -9,7 +9,7 @@ import { useConnections } from "@/hooks/use-connections";
 import {
   SearchIcon, SendHorizontalIcon, PencilIcon,
   MoreHorizontalIcon, VideoIcon, InfoIcon,
-  UserPlusIcon, CheckCircle2Icon, UsersIcon, MegaphoneIcon,
+  UserPlusIcon, CheckCircle2Icon, UsersIcon, MegaphoneIcon, ArrowLeftIcon,
 } from "lucide-react";
 
 interface OtherParticipant {
@@ -65,6 +65,7 @@ export default function Messaging() {
   const [activeConvId, setActiveConvId] = useState<number | null>(null);
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -120,17 +121,14 @@ export default function Messaging() {
     },
   });
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Mark read when opening conversation
   useEffect(() => {
     if (activeConvId) markRead.mutate(activeConvId);
   }, [activeConvId]);
 
-  // For company users: ensure team channel exists when they open messaging
   useEffect(() => {
     if (!user?.id || user.accountType !== "company") return;
     fetch(`${BASE}api/messaging/team-channel?companyProfileId=${user.id}`)
@@ -142,6 +140,11 @@ export default function Messaging() {
     setActiveConvId(conv.id);
     setInput("");
     setNoteInput("");
+    setMobileView("chat");
+  }
+
+  function handleMobileBack() {
+    setMobileView("list");
   }
 
   function handleSend() {
@@ -166,9 +169,18 @@ export default function Messaging() {
   const totalUnread = conversations.reduce((acc, c) => acc + c.unreadCount, 0);
 
   return (
-    <div className="flex-1 flex overflow-hidden" style={{ height: "calc(100vh - 56px)" }}>
-      {/* ── LEFT SIDEBAR ───────────────────────────────────────────────────── */}
-      <aside className="w-[336px] flex-shrink-0 border-r border-gray-200 bg-white flex flex-col">
+    <div
+      className="flex overflow-hidden"
+      style={{ height: "calc(100dvh - 56px)" }}
+    >
+      {/* ── LEFT SIDEBAR ─────────────────────────────────────────────────────── */}
+      <aside
+        className={`
+          ${mobileView === "chat" ? "hidden md:flex" : "flex"}
+          flex-col w-full md:w-[336px] md:flex-shrink-0 border-r border-gray-200 bg-white
+          pb-14 md:pb-0
+        `}
+      >
         {/* Header */}
         <div className="px-4 pt-4 pb-2">
           <div className="flex items-center justify-between mb-3">
@@ -194,7 +206,6 @@ export default function Messaging() {
             </div>
           </div>
 
-          {/* Search */}
           <div className="flex items-center gap-2 bg-[#eef3f8] rounded-full px-3 py-1.5">
             <SearchIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <input
@@ -227,7 +238,6 @@ export default function Messaging() {
             </div>
           )}
 
-          {/* Team channels section */}
           {filteredTeam.length > 0 && (
             <>
               <div className="px-4 py-2 flex items-center gap-1.5">
@@ -279,7 +289,6 @@ export default function Messaging() {
             </>
           )}
 
-          {/* Direct messages section */}
           {filteredDirect.length > 0 && (
             <>
               {filteredTeam.length > 0 && (
@@ -321,7 +330,7 @@ export default function Messaging() {
                         {conv.lastMessagePreview ?? "Start a conversation"}
                       </p>
                       {conv.unreadCount > 0 && (
-                        <span className="inline-block mt-1 min-w-[18px] h-[18px] bg-[#0a66c2] text-white text-[10px] font-bold rounded-full px-1 flex items-center justify-center">
+                        <span className="inline-flex mt-1 min-w-[18px] h-[18px] bg-[#0a66c2] text-white text-[10px] font-bold rounded-full px-1 items-center justify-center">
                           {conv.unreadCount}
                         </span>
                       )}
@@ -334,10 +343,14 @@ export default function Messaging() {
         </div>
       </aside>
 
-      {/* ── MAIN CHAT PANEL ────────────────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col bg-white min-w-0">
+      {/* ── MAIN CHAT PANEL ──────────────────────────────────────────────────── */}
+      <main
+        className={`
+          ${mobileView === "list" ? "hidden md:flex" : "flex"}
+          flex-1 flex-col bg-white min-w-0 pb-14 md:pb-0
+        `}
+      >
         {!activeConv ? (
-          /* Empty state */
           <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
             <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center mb-5">
               <SendHorizontalIcon className="w-12 h-12 text-gray-300" />
@@ -356,13 +369,22 @@ export default function Messaging() {
         ) : (
           <>
             {/* Chat header */}
-            <div className="flex items-center gap-3 px-6 py-3 border-b border-gray-200">
+            <div className="flex items-center gap-2 px-3 md:px-6 py-3 border-b border-gray-200">
+              {/* Back button — mobile only */}
+              <button
+                onClick={handleMobileBack}
+                className="md:hidden w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"
+                aria-label="Back to conversations"
+              >
+                <ArrowLeftIcon className="w-5 h-5" />
+              </button>
+
               {isTeamChannel ? (
-                <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
                   <UsersIcon className="w-5 h-5 text-primary" />
                 </div>
               ) : (
-                <Avatar className="w-12 h-12 border border-gray-200">
+                <Avatar className="w-10 h-10 md:w-12 md:h-12 border border-gray-200 flex-shrink-0">
                   <AvatarImage src={activeConv.otherParticipant?.avatarUrl || undefined} />
                   <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
                     {otherInitials(activeConv.otherParticipant?.name)}
@@ -371,13 +393,13 @@ export default function Messaging() {
               )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-gray-900 text-sm">
+                  <h3 className="font-bold text-gray-900 text-sm truncate">
                     {isTeamChannel
                       ? `${activeConv.otherParticipant?.name ?? "Team"} — Team Channel`
                       : activeConv.otherParticipant?.name}
                   </h3>
                   {isTeamChannel && (
-                    <Badge className="text-[9px] font-bold px-1.5 py-0 rounded-full bg-primary/10 text-primary border-0">
+                    <Badge className="text-[9px] font-bold px-1.5 py-0 rounded-full bg-primary/10 text-primary border-0 flex-shrink-0">
                       Team
                     </Badge>
                   )}
@@ -388,30 +410,29 @@ export default function Messaging() {
                   <p className="text-xs text-gray-500 truncate">{activeConv.otherParticipant.headline}</p>
                 ) : null}
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5 flex-shrink-0">
                 {!isTeamChannel && (
                   <button className="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors">
-                    <VideoIcon className="w-4.5 h-4.5" />
+                    <VideoIcon className="w-4 h-4" />
                   </button>
                 )}
                 <button className="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors">
-                  <InfoIcon className="w-4.5 h-4.5" />
+                  <InfoIcon className="w-4 h-4" />
                 </button>
                 <button className="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors">
-                  <MoreHorizontalIcon className="w-4.5 h-4.5" />
+                  <MoreHorizontalIcon className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-1">
+            <div className="flex-1 overflow-y-auto px-3 md:px-6 py-4 flex flex-col gap-1">
               {msgsLoading && (
                 <div className="flex justify-center py-8">
                   <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 </div>
               )}
 
-              {/* Team channel empty state */}
               {isTeamChannel && messages.length === 0 && !msgsLoading && (
                 <div className="flex flex-col items-center text-center py-10">
                   <div className="w-16 h-16 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center mb-3">
@@ -426,7 +447,6 @@ export default function Messaging() {
                 </div>
               )}
 
-              {/* Direct conv empty state */}
               {!isTeamChannel && messages.length === 0 && !msgsLoading && (() => {
                 const otherId = activeConv.otherParticipant?.id;
                 const connected = activeConv.isConnected || (otherId ? checkConnected(otherId) : false);
@@ -475,7 +495,6 @@ export default function Messaging() {
                       </div>
                     )}
 
-                    {/* In team channels, show sender name above non-mine messages */}
                     {isTeamChannel && !isMine && showAvatar && (
                       <div className="flex items-center gap-2 mb-1 mt-2">
                         <Avatar className="w-6 h-6 border border-gray-200">
@@ -504,7 +523,7 @@ export default function Messaging() {
                       )}
                       {!isMine && isTeamChannel && <div className="w-0" />}
                       <div
-                        className={`max-w-[65%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words ${
+                        className={`max-w-[75%] md:max-w-[65%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words ${
                           isMine
                             ? "bg-[#0a66c2] text-white rounded-br-sm"
                             : isTeamChannel
@@ -528,15 +547,14 @@ export default function Messaging() {
 
             {/* Bottom panel */}
             {isTeamChannel ? (
-              /* Team channel composer */
-              <div className="px-4 py-3 border-t border-gray-200">
+              <div className="px-3 md:px-4 py-3 border-t border-gray-200">
                 {isCompanyUser && (
                   <div className="flex items-center gap-1.5 mb-2">
                     <MegaphoneIcon className="w-3.5 h-3.5 text-primary" />
                     <span className="text-[11px] font-semibold text-primary">Broadcast to team</span>
                   </div>
                 )}
-                <div className="flex items-end gap-2 bg-white border border-gray-300 rounded-2xl px-4 py-2 focus-within:border-[#0a66c2] transition-colors">
+                <div className="flex items-end gap-2 bg-white border border-gray-300 rounded-2xl px-3 md:px-4 py-2 focus-within:border-[#0a66c2] transition-colors">
                   <textarea
                     ref={inputRef}
                     rows={1}
@@ -566,7 +584,6 @@ export default function Messaging() {
                 </div>
               </div>
             ) : (
-              /* Direct message bottom panel — connection-aware */
               (() => {
                 const otherId = activeConv.otherParticipant?.id;
                 const connected = activeConv.isConnected || (otherId ? checkConnected(otherId) : false);
@@ -576,7 +593,7 @@ export default function Messaging() {
 
                 if (!connected && myMsgCount >= 1) {
                   return (
-                    <div className="border-t border-gray-200 px-6 py-5 bg-[#f3f2ef]">
+                    <div className="border-t border-gray-200 px-4 md:px-6 py-4 md:py-5 bg-[#f3f2ef]">
                       <div className="flex items-start gap-3">
                         <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                           <CheckCircle2Icon className="w-5 h-5 text-green-600" />
@@ -594,7 +611,7 @@ export default function Messaging() {
 
                 if (!connected && myMsgCount === 0) {
                   return (
-                    <div className="border-t border-gray-200 bg-[#f3f2ef] px-6 py-4">
+                    <div className="border-t border-gray-200 bg-[#f3f2ef] px-4 md:px-6 py-4">
                       <div className="flex items-center gap-2.5 mb-3">
                         <Avatar className="w-8 h-8 border border-gray-200 flex-shrink-0">
                           <AvatarImage src={activeConv.otherParticipant?.avatarUrl || undefined} />
@@ -645,8 +662,8 @@ export default function Messaging() {
                 }
 
                 return (
-                  <div className="px-4 py-3 border-t border-gray-200">
-                    <div className="flex items-end gap-2 bg-white border border-gray-300 rounded-2xl px-4 py-2 focus-within:border-[#0a66c2] transition-colors">
+                  <div className="px-3 md:px-4 py-3 border-t border-gray-200">
+                    <div className="flex items-end gap-2 bg-white border border-gray-300 rounded-2xl px-3 md:px-4 py-2 focus-within:border-[#0a66c2] transition-colors">
                       <textarea
                         ref={inputRef}
                         rows={1}
