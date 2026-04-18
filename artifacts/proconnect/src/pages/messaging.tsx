@@ -26,6 +26,19 @@ interface SharedPost {
   imageUrl: string | null;
 }
 
+interface SharedJob {
+  __type: "shared_job";
+  jobId: number;
+  title: string;
+  company: string;
+  companyLogo: string | null;
+  location: string | null;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  currency: string;
+  experienceLevel: string;
+}
+
 function parseSharedPost(content: string): SharedPost | null {
   if (!content.startsWith("{")) return null;
   try {
@@ -64,8 +77,80 @@ function formatConvPreview(preview: string | null): string {
   try {
     const obj = JSON.parse(preview);
     if (obj.__type === "shared_post") return `Shared a post by ${obj.authorName ?? "someone"}`;
+    if (obj.__type === "shared_job") return `Shared a job: ${obj.title ?? "a job"} at ${obj.company ?? "a company"}`;
   } catch {}
   return preview;
+}
+
+function parseSharedJob(content: string): SharedJob | null {
+  if (!content.startsWith("{")) return null;
+  try {
+    const obj = JSON.parse(content);
+    if (obj.__type === "shared_job") return obj as SharedJob;
+  } catch {}
+  return null;
+}
+
+function SharedJobCard({ job, isMine }: { job: SharedJob; isMine: boolean }) {
+  const fmt = (min: number | null, max: number | null, currency: string) => {
+    if (!min && !max) return null;
+    const f = new Intl.NumberFormat("en-US", { style: "currency", currency: currency || "USD", maximumFractionDigits: 0 });
+    if (min && max) return `${f.format(min)} – ${f.format(max)}`;
+    if (min) return `${f.format(min)}+`;
+    if (max) return `Up to ${f.format(max)}`;
+    return null;
+  };
+  const salary = fmt(job.salaryMin, job.salaryMax, job.currency);
+
+  return (
+    <a
+      href={`/jobs/${job.jobId}`}
+      onClick={e => e.stopPropagation()}
+      className={`block rounded-xl overflow-hidden border text-left shadow-sm no-underline transition-colors max-w-[300px] ${isMine ? "border-blue-300 bg-blue-50 hover:bg-blue-100/70" : "border-gray-200 bg-white hover:bg-gray-50"}`}
+    >
+      {/* Company logo + title */}
+      <div className="flex items-start gap-3 px-3 pt-3 pb-2">
+        <div className="w-10 h-10 rounded-lg border border-gray-200 bg-white flex items-center justify-center flex-shrink-0 overflow-hidden">
+          {job.companyLogo ? (
+            <img src={job.companyLogo} alt={job.company} className="w-full h-full object-cover" />
+          ) : (
+            <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
+            </svg>
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2">{job.title}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{job.company}</p>
+        </div>
+      </div>
+
+      {/* Details row */}
+      <div className="px-3 pb-2.5 flex flex-wrap gap-x-3 gap-y-1">
+        {job.location && (
+          <span className="text-[11px] text-gray-400 flex items-center gap-1">
+            <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0-1.105-.895-2-2-2s-2 .895-2 2 .895 2 2 2 2-.895 2-2z"/><path strokeLinecap="round" strokeLinejoin="round" d="M10 2C6.686 2 4 4.686 4 8c0 5.25 6 12 6 12s6-6.75 6-12c0-3.314-2.686-6-6-6z"/></svg>
+            {job.location}
+          </span>
+        )}
+        {job.experienceLevel && (
+          <span className="text-[11px] text-gray-400 capitalize">{job.experienceLevel.replace("_", " ")}</span>
+        )}
+        {salary && (
+          <span className="text-[11px] text-gray-400 flex items-center gap-0.5">
+            <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 2v2m0 16v2M6 12H4m16 0h-2M7.757 7.757l-1.414-1.414M17.657 17.657l-1.414-1.414M17.657 7.757l-1.414 1.414M7.757 17.657l-1.414 1.414"/></svg>
+            {salary}
+          </span>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className={`px-3 py-1.5 text-[10px] font-medium border-t ${isMine ? "text-blue-400 border-blue-200" : "text-gray-400 border-gray-100"}`}>
+        Shared job · Tap to view
+      </div>
+    </a>
+  );
 }
 
 function SharedLinkPreview({ url }: { url: string }) {
@@ -868,10 +953,23 @@ export default function Messaging() {
                         </div>
                       ) : (() => {
                         const shared = !msg.isDeleted ? parseSharedPost(msg.content) : null;
+                        const sharedJob = !msg.isDeleted && !shared ? parseSharedJob(msg.content) : null;
                         if (shared) {
                           return (
                             <div className="flex flex-col gap-1">
                               <SharedPostCard shared={shared} isMine={isMine} />
+                              {!isTeamChannel && (
+                                <div className={`text-[10px] flex items-center gap-1 ${isMine ? "justify-end text-gray-400" : "justify-start text-gray-400"}`}>
+                                  <span>{msgDateLabel(msg.createdAt)}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        if (sharedJob) {
+                          return (
+                            <div className="flex flex-col gap-1">
+                              <SharedJobCard job={sharedJob} isMine={isMine} />
                               {!isTeamChannel && (
                                 <div className={`text-[10px] flex items-center gap-1 ${isMine ? "justify-end text-gray-400" : "justify-start text-gray-400"}`}>
                                   <span>{msgDateLabel(msg.createdAt)}</span>

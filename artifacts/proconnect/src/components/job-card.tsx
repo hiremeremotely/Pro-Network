@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { MapPinIcon, BriefcaseIcon, DollarSignIcon, ClockIcon, ChevronRightIcon, BookmarkIcon } from "lucide-react";
+import { MapPinIcon, BriefcaseIcon, DollarSignIcon, ClockIcon, ChevronRightIcon, BookmarkIcon, SendHorizontalIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import type { Job } from "@workspace/api-client-react";
@@ -10,9 +10,10 @@ interface JobCardProps {
   featured?: boolean;
   isBookmarked?: boolean;
   onBookmark?: (e: React.MouseEvent) => void;
+  onSend?: (e: React.MouseEvent) => void;
 }
 
-export function JobCard({ job, featured, isBookmarked, onBookmark }: JobCardProps) {
+export function JobCard({ job, featured, isBookmarked, onBookmark, onSend }: JobCardProps) {
   const timeAgo = formatDistanceToNow(new Date(job.createdAt), { addSuffix: true });
   
   const formatSalary = (min?: number | null, max?: number | null, currency: string = "USD") => {
@@ -91,9 +92,20 @@ export function JobCard({ job, featured, isBookmarked, onBookmark }: JobCardProp
         
         <CardFooter className="pt-0 flex justify-between items-center border-t mt-auto pt-4 border-border/50 text-sm">
           <span className="text-muted-foreground">{timeAgo}</span>
-          <span className="text-primary font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all transform translate-x-[-10px] group-hover:translate-x-0">
-            View Job <ChevronRightIcon className="w-4 h-4" />
-          </span>
+          <div className="flex items-center gap-1">
+            {onSend && (
+              <button
+                onClick={onSend}
+                title="Send to a connection"
+                className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:bg-primary/10 hover:text-primary transition-colors"
+              >
+                <SendHorizontalIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <span className="text-primary font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all transform translate-x-[-10px] group-hover:translate-x-0">
+              View Job <ChevronRightIcon className="w-4 h-4" />
+            </span>
+          </div>
         </CardFooter>
       </Card>
     </Link>

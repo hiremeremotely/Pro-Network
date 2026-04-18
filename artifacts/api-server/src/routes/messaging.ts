@@ -447,6 +447,8 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
     const parsed = JSON.parse(content.trim());
     if (parsed.__type === "shared_post") {
       preview = `Shared a post by ${parsed.authorName ?? "someone"}`;
+    } else if (parsed.__type === "shared_job") {
+      preview = `Shared a job: ${parsed.title ?? "a position"} at ${parsed.company ?? "a company"}`;
     }
   } catch {}
 

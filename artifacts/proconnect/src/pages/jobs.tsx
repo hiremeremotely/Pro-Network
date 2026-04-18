@@ -8,13 +8,17 @@ import { ViewToggle, type ViewMode } from "@/components/view-toggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   SearchIcon, BriefcaseIcon, XIcon, MapPinIcon,
   DollarSignIcon, BookmarkIcon, BuildingIcon, TagIcon, SparklesIcon,
+  SendHorizontalIcon,
 } from "lucide-react";
 import type { Job } from "@workspace/api-client-react";
 import { useBookmarks } from "@/hooks/use-bookmarks";
 import { useAppAuth } from "@/contexts/app-auth";
+import { useStartChat } from "@/hooks/use-start-chat";
+import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -176,12 +180,140 @@ function highlightMatch(text: string, query: string) {
   );
 }
 
+// ── Job send-to-connection modal ───────────────────────────────────────────────
+
+function JobSendModal({ job, onClose }: { job: Job; onClose: () => void }) {
+  const [search, setSearch] = useState("");
+  const [sending, setSending] = useState<number | null>(null);
+  const startChat = useStartChat();
+  const { user } = useAppAuth();
+  const { toast } = useToast();
+
+  const { data } = useQuery({
+    queryKey: ["send-connections", user?.id],
+    queryFn: () =>
+      fetch(`${BASE}api/connections/network?profileId=${user?.id}`).then(r => r.json()),
+    enabled: !!user?.id,
+  });
+  const allConnections: any[] = data?.profiles ?? [];
+
+  const profiles = search.trim()
+    ? allConnections.filter(p =>
+        p.name.toLowerCase().includes(search.toLowerCase()) ||
+        (p.headline ?? "").toLowerCase().includes(search.toLowerCase())
+      )
+    : allConnections;
+
+  async function handleSend(profileId: number, recipientName: string) {
+    setSending(profileId);
+    const convId = await startChat(profileId);
+    if (convId && user?.id) {
+      const payload = JSON.stringify({
+        __type: "shared_job",
+        jobId: job.id,
+        title: job.title,
+        company: job.company,
+        companyLogo: job.companyLogoUrl ?? null,
+        location: job.location ?? null,
+        salaryMin: job.salaryMin ?? null,
+        salaryMax: job.salaryMax ?? null,
+        currency: job.currency ?? "USD",
+        experienceLevel: job.experienceLevel,
+      });
+      await fetch(`${BASE}api/conversations/${convId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ senderProfileId: user.id, content: payload }),
+      });
+    }
+    onClose();
+    toast({
+      title: "Job shared",
+      description: `Sent to ${recipientName}.`,
+      duration: 3000,
+    });
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100">
+          <div className="min-w-0">
+            <h3 className="font-semibold text-gray-900 text-sm">Send job to a connection</h3>
+            <p className="text-xs text-gray-400 truncate mt-0.5">{job.title} · {job.company}</p>
+          </div>
+          <button onClick={onClose} className="ml-3 flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition-colors">
+            <XIcon className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="px-4 pt-3 pb-1">
+          <div className="relative">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search connections…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              autoFocus
+              className="w-full pl-8 pr-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40"
+            />
+          </div>
+        </div>
+
+        {/* Connection list */}
+        <div className="overflow-y-auto max-h-64 px-2 pb-3 mt-1">
+          {profiles.length === 0 && (
+            <p className="text-center text-xs text-gray-400 py-8">
+              {allConnections.length === 0 ? "No connections yet" : "No matches found"}
+            </p>
+          )}
+          {profiles.map((p: any) => {
+            const initials = p.name?.slice(0, 2).toUpperCase() ?? "??";
+            return (
+              <button
+                key={p.id}
+                onClick={() => handleSend(p.id, p.name)}
+                disabled={sending === p.id}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors text-left disabled:opacity-60"
+              >
+                <Avatar className="w-9 h-9 border border-gray-100 flex-shrink-0">
+                  <AvatarImage src={p.avatarUrl || undefined} />
+                  <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">{initials}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
+                  {p.headline && <p className="text-xs text-gray-400 truncate">{p.headline}</p>}
+                </div>
+                {sending === p.id ? (
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                ) : (
+                  <SendHorizontalIcon className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 flex-shrink-0" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Job row & table row ────────────────────────────────────────────────────────
 
-function JobRow({ job, bookmarked, onBookmark }: {
+function JobRow({ job, bookmarked, onBookmark, onSend }: {
   job: Job & { applicationCount?: number };
   bookmarked?: boolean;
   onBookmark?: (e: React.MouseEvent) => void;
+  onSend?: (e: React.MouseEvent) => void;
 }) {
   const salary = job.salaryMin && job.salaryMax
     ? `$${(job.salaryMin / 1000).toFixed(0)}k – $${(job.salaryMax / 1000).toFixed(0)}k`
@@ -212,6 +344,15 @@ function JobRow({ job, bookmarked, onBookmark }: {
         <Badge className={`text-[10px] font-semibold px-2 rounded-full border-0 flex-shrink-0 hidden sm:inline-flex ${LEVEL_COLORS[job.experienceLevel] || "bg-gray-100 text-gray-500"}`}>
           {job.experienceLevel}
         </Badge>
+        {onSend && (
+          <button
+            onClick={onSend}
+            title="Send to a connection"
+            className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-primary/10 hover:text-primary transition-colors flex-shrink-0"
+          >
+            <SendHorizontalIcon className="w-4 h-4" />
+          </button>
+        )}
         {onBookmark && (
           <button
             onClick={onBookmark}
@@ -231,11 +372,12 @@ function JobRow({ job, bookmarked, onBookmark }: {
   );
 }
 
-function JobTableRow({ job, index, bookmarked, onBookmark }: {
+function JobTableRow({ job, index, bookmarked, onBookmark, onSend }: {
   job: Job & { applicationCount?: number };
   index: number;
   bookmarked?: boolean;
   onBookmark?: (e: React.MouseEvent) => void;
+  onSend?: (e: React.MouseEvent) => void;
 }) {
   const salary = job.salaryMin && job.salaryMax
     ? `$${(job.salaryMin / 1000).toFixed(0)}k – $${(job.salaryMax / 1000).toFixed(0)}k`
@@ -258,6 +400,15 @@ function JobTableRow({ job, index, bookmarked, onBookmark }: {
       <td className="px-4 py-3 text-sm text-gray-500">{salary}</td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
+          {onSend && (
+            <button
+              onClick={onSend}
+              title="Send to a connection"
+              className="w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:bg-primary/10 hover:text-primary transition-colors"
+            >
+              <SendHorizontalIcon className="w-3.5 h-3.5" />
+            </button>
+          )}
           {onBookmark && (
             <button
               onClick={onBookmark}
@@ -291,6 +442,7 @@ export default function Jobs() {
 
   const { user } = useAppAuth();
   const { isBookmarked, toggleBookmark } = useBookmarks();
+  const [sendJob, setSendJob] = useState<Job | null>(null);
 
   const params = {
     search: query || undefined,
@@ -321,6 +473,14 @@ export default function Jobs() {
       e.preventDefault();
       e.stopPropagation();
       toggleBookmark("job", jobId);
+    };
+  }
+
+  function handleSendJob(job: Job) {
+    return (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setSendJob(job);
     };
   }
 
@@ -411,6 +571,7 @@ export default function Jobs() {
                   featured={job.featured}
                   isBookmarked={user ? isBookmarked("job", job.id) : undefined}
                   onBookmark={user ? handleBookmark(job.id) : undefined}
+                  onSend={user ? handleSendJob(job) : undefined}
                 />
               ))}
             </div>
@@ -424,6 +585,7 @@ export default function Jobs() {
                   job={job}
                   bookmarked={user ? isBookmarked("job", job.id) : undefined}
                   onBookmark={user ? handleBookmark(job.id) : undefined}
+                  onSend={user ? handleSendJob(job) : undefined}
                 />
               ))}
             </div>
@@ -450,6 +612,7 @@ export default function Jobs() {
                       index={i}
                       bookmarked={user ? isBookmarked("job", job.id) : undefined}
                       onBookmark={user ? handleBookmark(job.id) : undefined}
+                      onSend={user ? handleSendJob(job) : undefined}
                     />
                   ))}
                 </tbody>
@@ -458,6 +621,8 @@ export default function Jobs() {
           )}
         </>
       )}
+
+      {sendJob && <JobSendModal job={sendJob} onClose={() => setSendJob(null)} />}
     </div>
   );
 }
