@@ -173,18 +173,25 @@ router.post("/connections", async (req, res): Promise<void> => {
   if (!followerId || !followingId) { res.status(400).json({ error: "followerId and followingId required" }); return; }
   if (followerId === followingId) { res.status(400).json({ error: "Cannot connect with yourself" }); return; }
 
+  // Companies are followed immediately (no approval needed)
+  const [targetProfile] = await db
+    .select({ accountType: profilesTable.accountType })
+    .from(profilesTable)
+    .where(eq(profilesTable.id, followingId));
+  const isCompanyTarget = targetProfile?.accountType === "company";
+
   const [row] = await db
     .insert(connectionsTable)
     .values({
       followerId,
       followingId,
-      status: "pending",
+      status: isCompanyTarget ? "accepted" : "pending",
       requestMessage: message?.trim() || null,
     })
     .onConflictDoNothing()
     .returning();
 
-  if (row) {
+  if (row && !isCompanyTarget) {
     const [actor] = await db
       .select({ name: profilesTable.name })
       .from(profilesTable)
@@ -201,7 +208,7 @@ router.post("/connections", async (req, res): Promise<void> => {
     }
   }
 
-  res.status(201).json(row ?? { followerId, followingId, status: "pending" });
+  res.status(201).json(row ?? { followerId, followingId, status: isCompanyTarget ? "accepted" : "pending" });
 });
 
 // ── PATCH /connections/accept — accept a pending request ──────────────────────
