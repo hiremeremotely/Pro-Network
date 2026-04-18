@@ -99,11 +99,17 @@ export default function Login() {
             <div className="relative flex justify-center"><span className="px-3 bg-white text-xs text-gray-400">New to Hire Me Remotely?</span></div>
           </div>
 
-          <Link href="/signup">
-            <Button variant="outline" className="w-full h-11 rounded-full font-semibold border-primary text-primary hover:bg-primary/5">
-              Join now
-            </Button>
-          </Link>
+          <Button
+            variant="outline"
+            className="w-full h-11 rounded-full font-semibold border-primary text-primary hover:bg-primary/5"
+            onClick={() => {
+              sessionStorage.setItem("signup_prefill_type", "individual");
+              sessionStorage.setItem("signup_lock_type", "true");
+              navigate("/signup");
+            }}
+          >
+            Join now
+          </Button>
 
           <div className="relative my-5">
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
