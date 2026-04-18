@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { conversationsTable, conversationMembersTable, messagesTable, profilesTable, connectionsTable, employeesTable, notificationsTable } from "@workspace/db";
-import { desc, eq, sql, and, or, count, inArray } from "drizzle-orm";
+import { desc, eq, sql, and, or, count, inArray, isNotNull } from "drizzle-orm";
 
 const router = Router();
 
@@ -247,7 +247,7 @@ router.get("/conversations", async (req, res): Promise<void> => {
   const profileId = Number(req.query.profileId);
   if (!profileId || isNaN(profileId)) { res.status(400).json({ error: "profileId required" }); return; }
 
-  // 1. Direct conversations
+  // 1. Direct conversations — only show ones with at least one message
   const directConvos = await db
     .select()
     .from(conversationsTable)
@@ -256,7 +256,8 @@ router.get("/conversations", async (req, res): Promise<void> => {
         eq(conversationsTable.participant1Id, profileId),
         eq(conversationsTable.participant2Id, profileId),
       ),
-      eq(conversationsTable.type, "direct")
+      eq(conversationsTable.type, "direct"),
+      isNotNull(conversationsTable.lastMessageAt),
     ))
     .orderBy(desc(conversationsTable.lastMessageAt));
 
