@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -337,6 +337,7 @@ function convDateLabel(dateStr: string | null) {
 export default function Messaging() {
   const { user } = useAppAuth();
   const [, navigate] = useLocation();
+  const queryString = useSearch();
   const qc = useQueryClient();
   const [activeConvId, setActiveConvId] = useState<number | null>(null);
   const [input, setInput] = useState("");
@@ -456,6 +457,16 @@ export default function Messaging() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(queryString);
+    const convParam = params.get("conv");
+    if (!convParam) return;
+    const id = Number(convParam);
+    if (!id || isNaN(id)) return;
+    setActiveConvId(id);
+    setMobileView("chat");
+  }, [queryString]);
 
   useEffect(() => {
     if (activeConvId) markRead.mutate(activeConvId);

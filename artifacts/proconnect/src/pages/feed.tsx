@@ -46,6 +46,7 @@ import { useStartChat } from "@/hooks/use-start-chat";
 import { DisconnectConfirmDialog } from "@/components/disconnect-confirm-dialog";
 import { useBookmarks } from "@/hooks/use-bookmarks";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 
 // ── Reaction definitions ─────────────────────────────────────────────────────
 const REACTIONS = [
@@ -339,6 +340,7 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
   const startChat = useStartChat();
   const { user } = useAppAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [sending, setSending] = useState<number | null>(null);
   const BASE = import.meta.env.BASE_URL;
 
@@ -383,6 +385,11 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
       title: "Post sent",
       description: `Your message was sent to ${recipientName}.`,
       duration: 3000,
+      action: convId ? (
+        <ToastAction altText="Open conversation" onClick={() => navigate(`/messaging?conv=${convId}`)}>
+          Open conversation
+        </ToastAction>
+      ) : undefined,
     });
   }
 
