@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { postsTable, postReactionsTable, postCommentsTable, profilesTable, notificationsTable } from "@workspace/db";
-import { desc, eq, sql, inArray } from "drizzle-orm";
+import { desc, eq, sql, inArray, or, and } from "drizzle-orm";
+import { connectionsTable } from "@workspace/db";
 
 const REACTION_LABELS: Record<string, string> = {
   like: "liked",
@@ -81,6 +82,93 @@ router.get("/posts", async (req, res): Promise<void> => {
   }));
 
   res.json(enriched);
+});
+
+// ── GET /posts/feed — personalized ranked feed ────────────────────────────────
+router.get("/posts/feed", async (req, res): Promise<void> => {
+  const viewerId = req.query.viewerId ? Number(req.query.viewerId) : null;
+  const sort = (req.query.sort as string) || "top"; // "top" | "recent"
+
+  // Gather author IDs: viewer + all accepted connections
+  let authorIds: number[] = [];
+  if (viewerId) {
+    const conns = await db
+      .select({ followerId: connectionsTable.followerId, followingId: connectionsTable.followingId })
+      .from(connectionsTable)
+      .where(
+        and(
+          or(eq(connectionsTable.followerId, viewerId), eq(connectionsTable.followingId, viewerId)),
+          eq(connectionsTable.status, "accepted")
+        )
+      );
+    const connectedIds = conns.map(c => (c.followerId === viewerId ? c.followingId : c.followerId));
+    authorIds = Array.from(new Set([viewerId, ...connectedIds]));
+  }
+
+  const posts = await db
+    .select({
+      id: postsTable.id,
+      content: postsTable.content,
+      imageUrl: postsTable.imageUrl,
+      likesCount: postsTable.likesCount,
+      commentsCount: postsTable.commentsCount,
+      createdAt: postsTable.createdAt,
+      profileId: profilesTable.id,
+      profileName: profilesTable.name,
+      profileHeadline: profilesTable.headline,
+      profileAvatarUrl: profilesTable.avatarUrl,
+      profileAccountType: profilesTable.accountType,
+    })
+    .from(postsTable)
+    .innerJoin(profilesTable, eq(postsTable.profileId, profilesTable.id))
+    .where(authorIds.length > 0 ? inArray(postsTable.profileId, authorIds) : undefined)
+    .orderBy(desc(postsTable.createdAt))
+    .limit(150);
+
+  if (posts.length === 0) { res.json({ posts: [], empty: true }); return; }
+
+  const postIds = posts.map(p => p.id);
+
+  // Reaction counts
+  const reactionRows = await db
+    .select({ postId: postReactionsTable.postId, reactionType: postReactionsTable.reactionType, count: sql<number>`count(*)::int` })
+    .from(postReactionsTable)
+    .where(inArray(postReactionsTable.postId, postIds))
+    .groupBy(postReactionsTable.postId, postReactionsTable.reactionType);
+
+  // My reactions
+  const myReactions: Record<number, string> = {};
+  if (viewerId) {
+    const myRows = await db
+      .select({ postId: postReactionsTable.postId, reactionType: postReactionsTable.reactionType })
+      .from(postReactionsTable)
+      .where(sql`${postReactionsTable.postId} = ANY(${sql.raw(`ARRAY[${postIds.join(",")}]::int[]`)}) AND ${postReactionsTable.profileId} = ${viewerId}`);
+    myRows.forEach(r => { myReactions[r.postId] = r.reactionType; });
+  }
+
+  const reactionCounts: Record<number, Record<string, number>> = {};
+  postIds.forEach(id => { reactionCounts[id] = {}; });
+  reactionRows.forEach(r => { reactionCounts[r.postId][r.reactionType] = r.count; });
+
+  // Rank: score = (reactions + comments*2) / (hoursElapsed + 2)^1.5
+  function rankScore(p: typeof posts[0]) {
+    const totalReactions = Object.values(reactionCounts[p.id] ?? {}).reduce((a, b) => a + b, 0);
+    const engagement = totalReactions + p.commentsCount * 2;
+    const hoursElapsed = (Date.now() - new Date(p.createdAt).getTime()) / 3_600_000;
+    return engagement / Math.pow(hoursElapsed + 2, 1.5);
+  }
+
+  const enriched = posts.map(p => ({
+    ...p,
+    reactionCounts: reactionCounts[p.id] ?? {},
+    myReaction: myReactions[p.id] ?? null,
+    isOwn: p.profileId === viewerId,
+    isConnection: viewerId ? authorIds.includes(p.profileId) && p.profileId !== viewerId : false,
+  }));
+
+  if (sort === "top") enriched.sort((a, b) => rankScore(b) - rankScore(a));
+
+  res.json({ posts: enriched.slice(0, 60), empty: false });
 });
 
 // ── POST /posts ─────────────────────────────────────────────────────────────

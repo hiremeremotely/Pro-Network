@@ -1116,16 +1116,19 @@ export default function Home() {
   const [visibleCount, setVisibleCount] = useState(10);
   const [feedDisconnectTarget, setFeedDisconnectTarget] = useState<{ id: number; name: string } | null>(null);
 
-  const { data: allPosts = [], isLoading: postsLoading } = useQuery<FeedPost[]>({
-    queryKey: ["posts", user?.id],
+  const [feedSort, setFeedSort] = useState<"top" | "recent">("top");
+
+  const { data: feedData, isLoading: postsLoading } = useQuery<{ posts: FeedPost[]; empty: boolean }>({
+    queryKey: ["posts/feed", user?.id, feedSort],
     queryFn: async () => {
-      const url = user?.id
-        ? `${import.meta.env.BASE_URL}api/posts?profileId=${user.id}`
-        : `${import.meta.env.BASE_URL}api/posts`;
-      const res = await fetch(url);
+      const params = new URLSearchParams({ sort: feedSort });
+      if (user?.id) params.set("viewerId", String(user.id));
+      const res = await fetch(`${import.meta.env.BASE_URL}api/posts/feed?${params}`);
       return res.json();
     },
   });
+  const allPosts: FeedPost[] = feedData?.posts ?? [];
+  const feedEmpty = feedData?.empty ?? false;
 
   const posts = allPosts.slice(0, visibleCount);
   const hasMore = allPosts.length > visibleCount;
@@ -1587,13 +1590,51 @@ export default function Home() {
           </Card>
 
           {/* Posts */}
+          {/* Sort toggle */}
+          <div className="flex items-center justify-between px-1">
+            <p className="text-xs text-gray-500 font-medium">Your feed</p>
+            <div className="flex items-center gap-1 bg-gray-100 rounded-full p-0.5">
+              <button
+                onClick={() => { setFeedSort("top"); setVisibleCount(10); }}
+                className={`text-xs px-3 py-1 rounded-full font-semibold transition-colors ${feedSort === "top" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                Top
+              </button>
+              <button
+                onClick={() => { setFeedSort("recent"); setVisibleCount(10); }}
+                className={`text-xs px-3 py-1 rounded-full font-semibold transition-colors ${feedSort === "recent" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                Recent
+              </button>
+            </div>
+          </div>
+
           {postsLoading ? (
             <Card className="rounded-xl border border-gray-200 shadow-none bg-white">
               <CardContent className="p-8 text-center text-sm text-gray-400">Loading feed...</CardContent>
             </Card>
           ) : allPosts.length === 0 ? (
             <Card className="rounded-xl border border-gray-200 shadow-none bg-white">
-              <CardContent className="p-8 text-center text-sm text-gray-400">No posts yet. Be the first to share something!</CardContent>
+              <CardContent className="p-8 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                  <UsersIcon className="w-6 h-6 text-primary" />
+                </div>
+                <p className="text-sm font-semibold text-gray-800">
+                  {feedEmpty ? "Your feed is quiet" : "No posts yet"}
+                </p>
+                <p className="text-xs text-gray-400 max-w-xs mx-auto">
+                  {feedEmpty
+                    ? "Connect with professionals and follow companies to see their posts here."
+                    : "Be the first to share something with your network!"}
+                </p>
+                {feedEmpty && (
+                  <Link href="/profiles?tab=discover">
+                    <Button size="sm" variant="outline" className="rounded-full text-xs mt-1">
+                      Discover people to connect with
+                    </Button>
+                  </Link>
+                )}
+              </CardContent>
             </Card>
           ) : (
             <>
