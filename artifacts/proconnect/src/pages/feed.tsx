@@ -337,11 +337,12 @@ function CommentsSection({ postId, currentUserId, currentUserAvatar, currentUser
 // ── Send-to-connection modal ──────────────────────────────────────────────────
 function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void }) {
   const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isSending, setIsSending] = useState(false);
   const startChat = useStartChat();
   const { user } = useAppAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  const [sending, setSending] = useState<number | null>(null);
   const BASE = import.meta.env.BASE_URL;
 
   // Only fetch the current user's accepted connections
@@ -361,41 +362,81 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
       )
     : allConnections;
 
-  async function handleSend(profileId: number, recipientName: string, avatarUrl?: string | null) {
-    setSending(profileId);
-    const convId = await startChat(profileId);
-    if (convId && user?.id) {
-      const payload = JSON.stringify({
-        __type: "shared_post",
-        postId: post.id,
-        authorName: post.profileName,
-        authorAvatar: post.profileAvatarUrl,
-        authorHeadline: post.profileHeadline,
-        content: post.content,
-        imageUrl: post.imageUrl ?? null,
-      });
-      await fetch(`${BASE}api/conversations/${convId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ senderProfileId: user.id, content: payload }),
-      });
-    }
+  function toggleSelect(profileId: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(profileId)) next.delete(profileId);
+      else next.add(profileId);
+      return next;
+    });
+  }
+
+  function buildRecipientLabel(names: string[]): string {
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]} and ${names[1]}`;
+    return `${names[0]}, ${names[1]}, and ${names.length - 2} other${names.length - 2 > 1 ? "s" : ""}`;
+  }
+
+  async function handleSend() {
+    if (selectedIds.size === 0 || isSending) return;
+    setIsSending(true);
+
+    const selected = allConnections.filter(p => selectedIds.has(p.id));
+    const payload = JSON.stringify({
+      __type: "shared_post",
+      postId: post.id,
+      authorName: post.profileName,
+      authorAvatar: post.profileAvatarUrl,
+      authorHeadline: post.profileHeadline,
+      content: post.content,
+      imageUrl: post.imageUrl ?? null,
+    });
+
+    const settled = await Promise.allSettled(
+      selected.map(async p => {
+        const convId = await startChat(p.id);
+        if (convId && user?.id) {
+          await fetch(`${BASE}api/conversations/${convId}/messages`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ senderProfileId: user.id, content: payload }),
+          });
+        }
+        return { convId, name: p.name };
+      })
+    ).finally(() => setIsSending(false));
+
+    const succeeded = settled
+      .filter((r): r is PromiseFulfilledResult<{ convId: number | null; name: string }> => r.status === "fulfilled")
+      .map(r => r.value);
+    const failedCount = settled.length - succeeded.length;
+
     onClose();
-    const initials = recipientName.slice(0, 2).toUpperCase();
+
+    if (succeeded.length === 0) {
+      toast({ title: "Failed to send", description: "Something went wrong. Please try again.", duration: 3000 });
+      return;
+    }
+
+    const names = succeeded.map(r => r.name);
+    const firstConvId = succeeded[0]?.convId;
+    const titleLabel = failedCount > 0
+      ? `Sent to ${succeeded.length} of ${settled.length}`
+      : "Post sent";
+    const descLabel = failedCount > 0
+      ? `Sent to ${buildRecipientLabel(names)}. ${failedCount} failed.`
+      : `Sent to ${buildRecipientLabel(names)}`;
+
     toast({
-      title: "Post sent",
+      title: titleLabel,
       description: (
-        <span className="flex items-center gap-1.5 mt-0.5">
-          <Avatar className="w-5 h-5 border border-gray-200 flex-shrink-0">
-            <AvatarImage src={avatarUrl || undefined} />
-            <AvatarFallback className="text-[9px] font-semibold bg-primary/10 text-primary">{initials}</AvatarFallback>
-          </Avatar>
-          <span className="text-sm text-gray-600">Sent to <span className="font-semibold text-gray-800">{recipientName}</span></span>
+        <span className="text-sm text-gray-600">
+          <span className="font-semibold text-gray-800">{descLabel}</span>
         </span>
       ),
       duration: 3000,
-      action: convId ? (
-        <ToastAction altText="Open conversation" onClick={() => navigate(`/messaging?conv=${convId}`)}>
+      action: firstConvId && succeeded.length === 1 ? (
+        <ToastAction altText="Open conversation" onClick={() => navigate(`/messaging?conv=${firstConvId}`)}>
           Open
         </ToastAction>
       ) : undefined,
@@ -404,9 +445,9 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-900 text-sm">Send to a connection</h3>
+          <h3 className="font-semibold text-gray-900 text-sm">Send to connections</h3>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 transition-colors">
             <XIcon className="w-4 h-4" />
           </button>
@@ -429,7 +470,7 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
           />
         </div>
 
-        <div className="max-h-60 overflow-y-auto px-2 pb-3">
+        <div className="max-h-60 overflow-y-auto px-2">
           {profiles.length === 0 && (
             <p className="text-xs text-gray-400 text-center py-6">
               {allConnections.length === 0 ? "No connections yet — connect with people to share posts." : "No connections match your search."}
@@ -437,12 +478,13 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
           )}
           {profiles.map((p: any) => {
             const initials = p.name.slice(0, 2).toUpperCase();
+            const selected = selectedIds.has(p.id);
             return (
               <button
                 key={p.id}
-                onClick={() => handleSend(p.id, p.name, p.avatarUrl)}
-                disabled={sending === p.id}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors text-left disabled:opacity-60"
+                onClick={() => toggleSelect(p.id)}
+                disabled={isSending}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left disabled:opacity-60 ${selected ? "bg-primary/5" : "hover:bg-gray-50"}`}
               >
                 <Avatar className="w-9 h-9 border border-gray-100 flex-shrink-0">
                   <AvatarImage src={p.avatarUrl || undefined} />
@@ -452,12 +494,25 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
                   <p className="text-sm font-semibold text-gray-900 leading-tight truncate">{p.name}</p>
                   <p className="text-xs text-gray-400 truncate">{p.headline}</p>
                 </div>
-                {sending === p.id
-                  ? <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                  : <SendIcon className="w-4 h-4 text-primary flex-shrink-0" />}
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${selected ? "bg-primary border-primary" : "border-gray-300"}`}>
+                  {selected && <CheckIcon className="w-3 h-3 text-white" />}
+                </div>
               </button>
             );
           })}
+        </div>
+
+        <div className="px-4 py-3 border-t border-gray-100 mt-1">
+          <button
+            onClick={handleSend}
+            disabled={selectedIds.size === 0 || isSending}
+            className="w-full h-10 rounded-xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors"
+          >
+            {isSending
+              ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              : <SendIcon className="w-4 h-4" />}
+            {isSending ? "Sending…" : selectedIds.size > 0 ? `Send to ${selectedIds.size} ${selectedIds.size === 1 ? "person" : "people"}` : "Send"}
+          </button>
         </div>
       </div>
     </div>
