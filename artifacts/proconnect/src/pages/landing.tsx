@@ -62,7 +62,7 @@ export default function Landing() {
                 Sign in
               </Button>
             </Link>
-            <Link href="/signup">
+            <Link href="/company-login">
               <Button variant="outline" size="sm" className="font-semibold rounded-full px-4 border-primary/40 text-primary hover:bg-primary/5 hover:border-primary hidden sm:inline-flex items-center gap-1.5">
                 <BuildingIcon className="w-3.5 h-3.5" />
                 For Companies

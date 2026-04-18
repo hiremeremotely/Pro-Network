@@ -9,6 +9,7 @@ import { AppAuthProvider, useAppAuth } from "@/contexts/app-auth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Login from "@/pages/login";
+import CompanyLogin from "@/pages/company-login";
 import Signup from "@/pages/signup";
 import Feed from "@/pages/feed";
 import Profiles from "@/pages/profiles";
@@ -63,6 +64,7 @@ function Router() {
       {/* Public */}
       <Route path="/" component={Landing} />
       <Route path="/login" component={Login} />
+      <Route path="/company-login" component={CompanyLogin} />
       <Route path="/signup" component={Signup} />
 
       {/* Backoffice login (public) */}
