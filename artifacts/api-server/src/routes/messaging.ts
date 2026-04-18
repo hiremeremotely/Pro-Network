@@ -441,9 +441,18 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
     .values({ conversationId: convId, senderProfileId: Number(senderProfileId), content: content.trim() })
     .returning();
 
+  // Build a human-readable preview — decode shared-post JSON blobs
+  let preview = content.trim().slice(0, 80);
+  try {
+    const parsed = JSON.parse(content.trim());
+    if (parsed.__type === "shared_post") {
+      preview = `Shared a post by ${parsed.authorName ?? "someone"}`;
+    }
+  } catch {}
+
   await db
     .update(conversationsTable)
-    .set({ lastMessageAt: new Date(), lastMessagePreview: content.trim().slice(0, 80) })
+    .set({ lastMessageAt: new Date(), lastMessagePreview: preview })
     .where(eq(conversationsTable.id, convId));
 
   const [enriched] = await db

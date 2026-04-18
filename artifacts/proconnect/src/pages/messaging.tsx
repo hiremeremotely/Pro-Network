@@ -41,9 +41,27 @@ function extractYouTubeId(imageUrl: string | null): string | null {
   return m ? m[1] : null;
 }
 
+function extractYouTubeIdFromText(text: string): string | null {
+  const m = text.match(
+    /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
+  );
+  return m ? m[1] : null;
+}
+
+function formatConvPreview(preview: string | null): string {
+  if (!preview) return "";
+  if (!preview.startsWith("{")) return preview;
+  try {
+    const obj = JSON.parse(preview);
+    if (obj.__type === "shared_post") return `Shared a post by ${obj.authorName ?? "someone"}`;
+  } catch {}
+  return preview;
+}
+
 function SharedPostCard({ shared, isMine }: { shared: SharedPost; isMine: boolean }) {
   const [playing, setPlaying] = useState(false);
-  const ytId = extractYouTubeId(shared.imageUrl);
+  // Check imageUrl first (stored thumbnail), then fall back to detecting YouTube URL in text
+  const ytId = extractYouTubeId(shared.imageUrl) ?? extractYouTubeIdFromText(shared.content);
   const initials = (shared.authorName ?? "?").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
 
   return (
@@ -449,7 +467,7 @@ export default function Messaging() {
                         </span>
                       </div>
                       <p className={`text-xs truncate mt-0.5 ${conv.unreadCount > 0 ? "text-gray-900 font-medium" : "text-gray-500"}`}>
-                        {conv.lastMessagePreview ?? "Team announcements channel"}
+                        {formatConvPreview(conv.lastMessagePreview) || "Team announcements channel"}
                       </p>
                     </div>
                   </button>
@@ -490,7 +508,7 @@ export default function Messaging() {
                         </span>
                       </div>
                       <p className={`text-xs truncate mt-0.5 ${conv.unreadCount > 0 ? "text-gray-900 font-medium" : "text-gray-500"}`}>
-                        {conv.lastMessagePreview ?? "Start a conversation"}
+                        {formatConvPreview(conv.lastMessagePreview) || "Start a conversation"}
                       </p>
                       {conv.unreadCount > 0 && (
                         <span className="inline-flex mt-1 min-w-[18px] h-[18px] bg-[#0a66c2] text-white text-[10px] font-bold rounded-full px-1 items-center justify-center">
