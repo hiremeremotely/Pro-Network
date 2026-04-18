@@ -200,6 +200,7 @@ interface AppNotification {
   id: number;
   type: string;
   postId: number | null;
+  conversationId: number | null;
   reactionType: string | null;
   message: string;
   isRead: boolean;
@@ -279,6 +280,7 @@ function NotificationBell({ profileId }: { profileId: number }) {
   }
 
   function getNotifHref(n: AppNotification): string {
+    if (n.type === "new_message") return n.conversationId ? `/messaging?conv=${n.conversationId}` : "/messaging";
     if (n.postId) return "/feed";
     switch (n.type) {
       case "connection_request":  return "/profiles";
@@ -425,7 +427,7 @@ function NotificationBell({ profileId }: { profileId: number }) {
 
               const badgeContent = emoji
                 ? <span className="text-sm leading-none">{emoji}</span>
-                : n.type === "comment"
+                : n.type === "comment" || n.type === "new_message"
                   ? <MessageSquareIcon className="w-3 h-3 text-white" />
                   : n.type === "connection_request"
                     ? <UserPlusIcon className="w-3 h-3 text-white" />

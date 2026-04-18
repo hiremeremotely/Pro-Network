@@ -69,6 +69,7 @@ export const notificationsTable = pgTable("notifications", {
   actorProfileId: integer("actor_profile_id").notNull(),
   type: varchar("type", { length: 20 }).notNull(),
   postId: integer("post_id"),
+  conversationId: integer("conversation_id"),
   reactionType: varchar("reaction_type", { length: 20 }),
   message: text("message").notNull(),
   isRead: boolean("is_read").notNull().default(false),

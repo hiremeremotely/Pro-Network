@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { conversationsTable, conversationMembersTable, messagesTable, profilesTable, connectionsTable, employeesTable } from "@workspace/db";
+import { conversationsTable, conversationMembersTable, messagesTable, profilesTable, connectionsTable, employeesTable, notificationsTable } from "@workspace/db";
 import { desc, eq, sql, and, or, count, inArray } from "drizzle-orm";
 
 const router = Router();
@@ -456,6 +456,25 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
     .update(conversationsTable)
     .set({ lastMessageAt: new Date(), lastMessagePreview: preview })
     .where(eq(conversationsTable.id, convId));
+
+  // Create a new_message notification for the recipient (direct conversations only)
+  if (conv.type === "direct") {
+    const senderId = Number(senderProfileId);
+    const recipientId = conv.participant1Id === senderId ? conv.participant2Id : conv.participant1Id;
+    const [sender] = await db
+      .select({ name: profilesTable.name })
+      .from(profilesTable)
+      .where(eq(profilesTable.id, senderId))
+      .limit(1);
+
+    await db.insert(notificationsTable).values({
+      recipientProfileId: recipientId,
+      actorProfileId: senderId,
+      type: "new_message",
+      conversationId: convId,
+      message: `${sender?.name ?? "Someone"} sent you a message`,
+    });
+  }
 
   const [enriched] = await db
     .select({

@@ -18,6 +18,7 @@ router.get("/notifications", async (req, res): Promise<void> => {
       id: notificationsTable.id,
       type: notificationsTable.type,
       postId: notificationsTable.postId,
+      conversationId: notificationsTable.conversationId,
       reactionType: notificationsTable.reactionType,
       message: notificationsTable.message,
       isRead: notificationsTable.isRead,

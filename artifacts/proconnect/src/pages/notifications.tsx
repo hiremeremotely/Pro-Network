@@ -12,6 +12,7 @@ interface AppNotification {
   id: number;
   type: string;
   postId: number | null;
+  conversationId: number | null;
   reactionType: string | null;
   message: string;
   isRead: boolean;
@@ -26,6 +27,7 @@ const REACTION_EMOJIS: Record<string, string> = {
 };
 
 function getNotifHref(n: AppNotification): string {
+  if (n.type === "new_message") return n.conversationId ? `/messaging?conv=${n.conversationId}` : "/messaging";
   if (n.postId) return "/feed";
   switch (n.type) {
     case "connection_request":  return "/profiles";
@@ -170,7 +172,7 @@ export default function Notifications() {
 
             const badgeContent = emoji
               ? <span className="text-sm leading-none">{emoji}</span>
-              : n.type === "comment"
+              : n.type === "comment" || n.type === "new_message"
                 ? <MessageSquareIcon className="w-3.5 h-3.5 text-white" />
                 : n.type === "connection_request"
                   ? <UserPlusIcon className="w-3.5 h-3.5 text-white" />
@@ -214,6 +216,7 @@ export default function Notifications() {
                   <p className="text-[10px] mt-1 text-gray-300 group-hover:text-gray-400 transition-colors">
                     {n.type === "connection_request" ? "View request →"
                       : n.type === "connection_accepted" ? "View profile →"
+                      : n.type === "new_message" ? "View message →"
                       : n.postId ? "View post →"
                       : n.type === "job" ? "Browse jobs →"
                       : "View →"}
