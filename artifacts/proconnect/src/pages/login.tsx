@@ -9,7 +9,11 @@ import logo from "@assets/hr_1775483051104.png";
 export default function Login() {
   const { user, login } = useAppAuth();
   const [, navigate] = useLocation();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => {
+    const prefill = sessionStorage.getItem("login_prefill_email") ?? "";
+    sessionStorage.removeItem("login_prefill_email");
+    return prefill;
+  });
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");

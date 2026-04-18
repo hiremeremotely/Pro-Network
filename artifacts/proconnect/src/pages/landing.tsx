@@ -26,27 +26,47 @@ const PREVIEW_JOBS = [
   { title: "Full-Stack Engineer", company: "Vercel", loc: "Remote – Worldwide", badge: "New" },
 ];
 
+const BASE = import.meta.env.BASE_URL;
+
 export default function Landing() {
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [checking, setChecking] = useState(false);
   const [, navigate] = useLocation();
 
-  function handleContinue(e: React.FormEvent) {
+  async function handleContinue(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = email.trim();
     if (!trimmed) {
-      setEmailError("Please enter your email or phone number to continue.");
+      setEmailError("Please enter your email to continue.");
       return;
     }
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
-    const isPhone = /^\+?[\d\s\-().]{7,}$/.test(trimmed);
-    if (!isEmail && !isPhone) {
-      setEmailError("Please enter a valid email address or phone number.");
+    if (!isEmail) {
+      setEmailError("Please enter a valid email address.");
       return;
     }
-    sessionStorage.setItem("signup_prefill_email", trimmed);
-    sessionStorage.setItem("signup_prefill_type", "individual");
-    navigate("/signup");
+    setChecking(true);
+    try {
+      const res = await fetch(`${BASE}api/auth/check-email?email=${encodeURIComponent(trimmed)}`);
+      const data = await res.json();
+      if (data.exists) {
+        if (data.accountType === "company") {
+          setEmailError("This email is registered as a company account. Please use 'For Companies' to sign in.");
+          setChecking(false);
+          return;
+        }
+        sessionStorage.setItem("login_prefill_email", trimmed);
+        navigate("/login");
+      } else {
+        sessionStorage.setItem("signup_prefill_email", trimmed);
+        sessionStorage.setItem("signup_prefill_type", "individual");
+        navigate("/signup");
+      }
+    } catch {
+      setEmailError("Something went wrong. Please try again.");
+    }
+    setChecking(false);
   }
 
   return (
@@ -107,8 +127,13 @@ export default function Landing() {
                   </p>
                 )}
               </div>
-              <Button type="submit" className="w-full h-12 rounded-full font-bold text-base">
-                Continue
+              <Button type="submit" disabled={checking} className="w-full h-12 rounded-full font-bold text-base">
+                {checking ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Checking…
+                  </span>
+                ) : "Continue"}
               </Button>
             </form>
 

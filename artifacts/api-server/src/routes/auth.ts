@@ -47,6 +47,17 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   res.status(201).json({ profile: safe });
 });
 
+router.get("/auth/check-email", async (req, res): Promise<void> => {
+  const { email } = req.query as { email?: string };
+  if (!email) { res.status(400).json({ error: "email is required." }); return; }
+  const [profile] = await db
+    .select({ accountType: profilesTable.accountType })
+    .from(profilesTable)
+    .where(eq(profilesTable.email, email));
+  if (!profile) { res.json({ exists: false }); return; }
+  res.json({ exists: true, accountType: profile.accountType });
+});
+
 router.post("/auth/login", async (req, res): Promise<void> => {
   const { email, password } = req.body as { email?: string; password?: string };
 
