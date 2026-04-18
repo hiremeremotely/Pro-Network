@@ -179,6 +179,7 @@ export default function Landing() {
               className="w-full h-12 rounded-full font-semibold text-sm border-primary/40 text-primary hover:bg-primary/5 hover:border-primary flex items-center gap-3"
               onClick={() => {
                 sessionStorage.setItem("signup_prefill_type", "company");
+                sessionStorage.setItem("signup_lock_type", "true");
                 navigate("/signup");
               }}
             >
