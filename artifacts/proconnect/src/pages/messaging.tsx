@@ -461,7 +461,11 @@ export default function Messaging() {
   useEffect(() => {
     const params = new URLSearchParams(queryString);
     const convParam = params.get("conv");
-    if (!convParam) return;
+    if (!convParam) {
+      setActiveConvId(null);
+      setMobileView("list");
+      return;
+    }
     const id = Number(convParam);
     if (!id || isNaN(id)) return;
     setActiveConvId(id);
@@ -513,6 +517,8 @@ export default function Messaging() {
   function handleMobileBack() {
     setMobileView("list");
     setEditingMsgId(null);
+    setActiveConvId(null);
+    navigate("/messaging");
   }
 
   function handleSend() {
