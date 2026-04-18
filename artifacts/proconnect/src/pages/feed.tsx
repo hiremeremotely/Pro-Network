@@ -265,26 +265,42 @@ function CommentsSection({ postId, currentUserId, currentUserAvatar, currentUser
 // ── Send-to-connection modal ──────────────────────────────────────────────────
 function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void }) {
   const [search, setSearch] = useState("");
-  const [query, setQuery] = useState("");
   const startChat = useStartChat();
+  const { user } = useAppAuth();
   const [, navigate] = useLocation();
   const [sending, setSending] = useState<number | null>(null);
+  const BASE = import.meta.env.BASE_URL;
 
-  useEffect(() => {
-    const t = setTimeout(() => setQuery(search), 300);
-    return () => clearTimeout(t);
-  }, [search]);
-
+  // Only fetch the current user's accepted connections
   const { data } = useQuery({
-    queryKey: ["send-search", query],
+    queryKey: ["send-connections", user?.id],
     queryFn: () =>
-      fetch(`${import.meta.env.BASE_URL}api/profiles?${query ? `search=${encodeURIComponent(query)}&` : ""}limit=8`).then(r => r.json()),
+      fetch(`${BASE}api/connections/network?profileId=${user?.id}`).then(r => r.json()),
+    enabled: !!user?.id,
   });
-  const profiles: any[] = data?.profiles ?? [];
+  const allConnections: any[] = data?.profiles ?? [];
+
+  // Filter locally by search text
+  const profiles = search.trim()
+    ? allConnections.filter(p =>
+        p.name.toLowerCase().includes(search.toLowerCase()) ||
+        (p.headline ?? "").toLowerCase().includes(search.toLowerCase())
+      )
+    : allConnections;
 
   async function handleSend(profileId: number) {
     setSending(profileId);
-    await startChat(profileId);
+    const convId = await startChat(profileId);
+    // Send the post content as a message into the conversation
+    if (convId && user?.id) {
+      const snippet = post.content.length > 200 ? post.content.slice(0, 200) + "…" : post.content;
+      const msgText = `Shared a post by ${post.profileName}:\n\n"${snippet}"`;
+      await fetch(`${BASE}api/conversations/${convId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ senderProfileId: user.id, content: msgText }),
+      });
+    }
     navigate("/messaging");
     onClose();
   }
@@ -318,7 +334,9 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
 
         <div className="max-h-60 overflow-y-auto px-2 pb-3">
           {profiles.length === 0 && (
-            <p className="text-xs text-gray-400 text-center py-6">No people found</p>
+            <p className="text-xs text-gray-400 text-center py-6">
+              {allConnections.length === 0 ? "No connections yet — connect with people to share posts." : "No connections match your search."}
+            </p>
           )}
           {profiles.map((p: any) => {
             const initials = p.name.slice(0, 2).toUpperCase();
