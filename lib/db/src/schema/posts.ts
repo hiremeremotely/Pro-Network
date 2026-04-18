@@ -7,6 +7,7 @@ export const postsTable = pgTable("posts", {
   profileId: integer("profile_id").notNull(),
   content: text("content").notNull(),
   imageUrl: text("image_url"),
+  visibility: varchar("visibility", { length: 20 }).notNull().default("public"),
   likesCount: integer("likes_count").notNull().default(0),
   commentsCount: integer("comments_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

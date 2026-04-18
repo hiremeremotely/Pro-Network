@@ -37,6 +37,8 @@ import {
   VideoIcon,
   NewspaperIcon,
   CameraIcon,
+  GlobeIcon,
+  LockIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useUpload } from "@workspace/object-storage-web";
@@ -175,6 +177,7 @@ interface FeedPost {
   reactionCounts: Record<string, number>;
   myReaction: string | null;
   isRecommended?: boolean;
+  visibility?: string;
 }
 
 // ── Comments Section ─────────────────────────────────────────────────────────
@@ -683,7 +686,13 @@ function PostCard({ post, currentUserId, currentUserAvatar, currentUserName }: {
               {post.profileName}
             </Link>
             <p className="text-xs text-gray-500 leading-snug line-clamp-1">{post.profileHeadline}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{timeAgo}</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <p className="text-xs text-gray-400">{timeAgo}</p>
+              {post.visibility === "connections"
+                ? <LockIcon className="w-3 h-3 text-gray-400" title="Visible to connections only" />
+                : <GlobeIcon className="w-3 h-3 text-gray-400" title="Visible to everyone" />
+              }
+            </div>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             {post.isRecommended && (
@@ -995,6 +1004,7 @@ export default function Home() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [postLink, setPostLink]       = useState("");
+  const [postVisibility, setPostVisibility] = useState<"public" | "connections">("public");
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const resetComposer = () => {
@@ -1004,6 +1014,7 @@ export default function Home() {
     setPostPhoto(null);
     setPhotoPreview(null);
     setPostLink("");
+    setPostVisibility("public");
   };
 
   const uploadPhoto = async (file: File): Promise<string> => {
@@ -1172,11 +1183,11 @@ export default function Home() {
 
 
   const createPostMutation = useMutation({
-    mutationFn: async ({ content, imageUrl }: { content: string; imageUrl?: string }) => {
+    mutationFn: async ({ content, imageUrl, visibility }: { content: string; imageUrl?: string; visibility?: string }) => {
       const res = await fetch(`${import.meta.env.BASE_URL}api/posts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileId: currentId, content, imageUrl }),
+        body: JSON.stringify({ profileId: currentId, content, imageUrl, visibility }),
       });
       return res.json();
     },
@@ -1570,6 +1581,20 @@ export default function Home() {
 
               {postFocused && (
                 <div className="flex justify-end gap-2 mt-2">
+                  {user?.accountType !== "company" && (
+                    <button
+                      type="button"
+                      onClick={() => setPostVisibility(v => v === "public" ? "connections" : "public")}
+                      className={`flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1.5 border transition-colors mr-auto ${
+                        postVisibility === "connections"
+                          ? "border-primary/40 text-primary bg-primary/5 hover:bg-primary/10"
+                          : "border-gray-200 text-gray-500 hover:bg-gray-100"
+                      }`}
+                    >
+                      {postVisibility === "connections" ? <LockIcon className="w-3.5 h-3.5" /> : <GlobeIcon className="w-3.5 h-3.5" />}
+                      {postVisibility === "connections" ? "Connections" : "Everyone"}
+                    </button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1597,7 +1622,7 @@ export default function Home() {
                       const finalContent = postLink
                         ? `${postContent.trim()}\n\n${postLink}`.trim()
                         : postContent.trim();
-                      createPostMutation.mutate({ content: finalContent || " ", imageUrl });
+                      createPostMutation.mutate({ content: finalContent || " ", imageUrl, visibility: postVisibility });
                     }}
                     className="rounded-full text-xs px-5"
                   >

@@ -25,6 +25,7 @@ router.get("/posts", async (req, res): Promise<void> => {
       id: postsTable.id,
       content: postsTable.content,
       imageUrl: postsTable.imageUrl,
+      visibility: postsTable.visibility,
       likesCount: postsTable.likesCount,
       commentsCount: postsTable.commentsCount,
       createdAt: postsTable.createdAt,
@@ -93,6 +94,7 @@ router.get("/posts/feed", async (req, res): Promise<void> => {
     id: postsTable.id,
     content: postsTable.content,
     imageUrl: postsTable.imageUrl,
+    visibility: postsTable.visibility,
     likesCount: postsTable.likesCount,
     commentsCount: postsTable.commentsCount,
     createdAt: postsTable.createdAt,
@@ -130,13 +132,16 @@ router.get("/posts/feed", async (req, res): Promise<void> => {
         .limit(80)
     : [];
 
-  // 2. Recommended posts: outside the network, ordered by engagement proxy
+  // 2. Recommended posts: outside the network, public only, ordered by engagement
   const excludeIds = authorIds.length > 0 ? authorIds : viewerId ? [viewerId] : [];
   const recommendedPosts = await db
     .select(postFields)
     .from(postsTable)
     .innerJoin(profilesTable, eq(postsTable.profileId, profilesTable.id))
-    .where(excludeIds.length > 0 ? notInArray(postsTable.profileId, excludeIds) : undefined)
+    .where(and(
+      excludeIds.length > 0 ? notInArray(postsTable.profileId, excludeIds) : undefined,
+      eq(postsTable.visibility, "public"),
+    ))
     .orderBy(desc(sql`${postsTable.likesCount} + ${postsTable.commentsCount} * 2`), desc(postsTable.createdAt))
     .limit(25);
 
@@ -227,14 +232,18 @@ router.get("/posts/feed", async (req, res): Promise<void> => {
 
 // ── POST /posts ─────────────────────────────────────────────────────────────
 router.post("/posts", async (req, res): Promise<void> => {
-  const { profileId, content, imageUrl } = req.body;
+  const { profileId, content, imageUrl, visibility } = req.body;
   if (!profileId || !content || typeof content !== "string" || content.trim().length === 0) {
     res.status(400).json({ error: "profileId and content are required" });
     return;
   }
+  // Validate visibility; companies always get "public"
+  const [profile] = await db.select({ accountType: profilesTable.accountType }).from(profilesTable).where(eq(profilesTable.id, Number(profileId))).limit(1);
+  const resolvedVisibility = profile?.accountType === "company" ? "public" : (visibility === "connections" ? "connections" : "public");
+
   const [post] = await db
     .insert(postsTable)
-    .values({ profileId: Number(profileId), content: content.trim(), imageUrl: imageUrl ?? null })
+    .values({ profileId: Number(profileId), content: content.trim(), imageUrl: imageUrl ?? null, visibility: resolvedVisibility })
     .returning();
   res.status(201).json(post);
 });
