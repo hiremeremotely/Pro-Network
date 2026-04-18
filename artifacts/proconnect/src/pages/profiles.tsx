@@ -53,7 +53,7 @@ function ConnectButton({ profile, isConnected, isPending, onConnect, onCancel, o
           onClick={e => { e.preventDefault(); e.stopPropagation(); setConfirmOpen(true); }}
           className={`rounded-full px-3 text-xs gap-1 flex-shrink-0 bg-primary/10 text-primary border border-primary/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200 ${className}`}
         >
-          <UserCheckIcon className="w-3 h-3" /> Connected
+          <UserCheckIcon className="w-3 h-3" /> {profile.accountType === "company" ? "Following" : "Connected"}
         </Button>
         <DisconnectConfirmDialog
           open={confirmOpen}
@@ -328,15 +328,17 @@ function MyNetworkTab({ userId, view, isConnected, isPending, onConnect, onCance
     staleTime: 0,
   });
 
-  const profiles = networkData?.profiles ?? [];
-  const isLoading = netLoading || reqLoading;
+  const allProfiles = networkData?.profiles ?? [];
+  const connections = allProfiles.filter(p => p.accountType !== "company");
+  const following   = allProfiles.filter(p => p.accountType === "company");
+  const isLoading   = netLoading || reqLoading;
 
   if (isLoading) return <LoadingState message="Loading your network…" />;
 
-  const empty = (
-    <div className="flex flex-col items-center py-20 text-muted-foreground gap-3">
+  const emptyConnections = (
+    <div className="flex flex-col items-center py-16 text-muted-foreground gap-3">
       <UsersIcon className="w-12 h-12 opacity-20" />
-      <p className="text-lg font-semibold text-gray-700">Your network is empty</p>
+      <p className="text-lg font-semibold text-gray-700">No connections yet</p>
       <p className="text-sm text-gray-400 text-center max-w-xs">
         Head to the Discover tab to search for professionals and start building your network.
       </p>
@@ -345,7 +347,7 @@ function MyNetworkTab({ userId, view, isConnected, isPending, onConnect, onCance
 
   return (
     <>
-      {/* Incoming requests section */}
+      {/* Incoming requests */}
       {requests.length > 0 && (
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-3">
@@ -364,23 +366,49 @@ function MyNetworkTab({ userId, view, isConnected, isPending, onConnect, onCance
         </div>
       )}
 
-      {/* Accepted connections */}
-      {profiles.length > 0 && (
-        <p className="text-sm text-muted-foreground mb-4">
-          Connected with <span className="font-semibold text-gray-700">{profiles.length}</span> {profiles.length === 1 ? "person" : "people"}
+      {/* My Connections (individuals) */}
+      <div className="mb-8">
+        <p className="text-sm font-semibold text-gray-800 mb-4">
+          My Connections
+          {connections.length > 0 && (
+            <span className="ml-2 text-gray-400 font-normal">· {connections.length}</span>
+          )}
         </p>
+        <ProfileList
+          profiles={connections}
+          view={view}
+          isConnected={isConnected}
+          isPending={isPending}
+          onConnect={onConnect}
+          onCancel={onCancel}
+          onDisconnect={onDisconnect}
+          onMessage={onMessage}
+          emptySlot={requests.length === 0 ? emptyConnections : undefined}
+        />
+      </div>
+
+      {/* Following (companies) */}
+      {following.length > 0 && (
+        <>
+          <div className="border-t border-gray-100 mb-6" />
+          <div>
+            <p className="text-sm font-semibold text-gray-800 mb-4">
+              Following
+              <span className="ml-2 text-gray-400 font-normal">· {following.length}</span>
+            </p>
+            <ProfileList
+              profiles={following}
+              view={view}
+              isConnected={isConnected}
+              isPending={isPending}
+              onConnect={onConnect}
+              onCancel={onCancel}
+              onDisconnect={onDisconnect}
+              onMessage={onMessage}
+            />
+          </div>
+        </>
       )}
-      <ProfileList
-        profiles={profiles}
-        view={view}
-        isConnected={isConnected}
-        isPending={isPending}
-        onConnect={onConnect}
-        onCancel={onCancel}
-        onDisconnect={onDisconnect}
-        onMessage={onMessage}
-        emptySlot={requests.length === 0 ? empty : undefined}
-      />
     </>
   );
 }
