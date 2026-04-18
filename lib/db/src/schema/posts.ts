@@ -58,6 +58,8 @@ export const messagesTable = pgTable("messages", {
   senderProfileId: integer("sender_profile_id").notNull(),
   content: text("content").notNull(),
   isRead: boolean("is_read").notNull().default(false),
+  isDeleted: boolean("is_deleted").notNull().default(false),
+  editedAt: timestamp("edited_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

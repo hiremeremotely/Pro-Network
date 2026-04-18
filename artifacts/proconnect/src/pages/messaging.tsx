@@ -10,7 +10,10 @@ import {
   SearchIcon, SendHorizontalIcon, PencilIcon,
   MoreHorizontalIcon, VideoIcon, InfoIcon,
   UserPlusIcon, CheckCircle2Icon, UsersIcon, MegaphoneIcon, ArrowLeftIcon,
+  TrashIcon, PenLineIcon, CheckIcon, XIcon, Trash2Icon,
 } from "lucide-react";
+
+const BASE = import.meta.env.BASE_URL;
 
 interface OtherParticipant {
   id: number;
@@ -36,6 +39,8 @@ interface Message {
   id: number;
   content: string;
   isRead: boolean;
+  isDeleted: boolean;
+  editedAt: string | null;
   createdAt: string;
   senderProfileId: number;
   senderName: string;
@@ -61,13 +66,19 @@ export default function Messaging() {
   const { user } = useAppAuth();
   const [, navigate] = useLocation();
   const qc = useQueryClient();
-  const BASE = import.meta.env.BASE_URL;
   const [activeConvId, setActiveConvId] = useState<number | null>(null);
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  const [editingMsgId, setEditingMsgId] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
+  const [hoveredMsgId, setHoveredMsgId] = useState<number | null>(null);
+  const [showConvMenu, setShowConvMenu] = useState(false);
+  const [showDeleteConvConfirm, setShowDeleteConvConfirm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const editInputRef = useRef<HTMLTextAreaElement>(null);
+  const convMenuRef = useRef<HTMLDivElement>(null);
 
   const { isConnected: checkConnected, sendRequest: sendConnectionRequest } = useConnections();
   const [noteInput, setNoteInput] = useState("");
@@ -107,6 +118,55 @@ export default function Messaging() {
     },
   });
 
+  const editMsg = useMutation({
+    mutationFn: async ({ msgId, content }: { msgId: number; content: string }) => {
+      const res = await fetch(`${BASE}api/conversations/${activeConvId}/messages/${msgId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileId: user?.id, content }),
+      });
+      return res.json();
+    },
+    onSuccess: (updated) => {
+      qc.setQueryData<Message[]>(["messages", activeConvId, user?.id], old =>
+        (old ?? []).map(m => m.id === updated.id ? { ...m, content: updated.content, editedAt: updated.editedAt } : m)
+      );
+      setEditingMsgId(null);
+      setEditText("");
+    },
+  });
+
+  const deleteMsg = useMutation({
+    mutationFn: async (msgId: number) => {
+      await fetch(`${BASE}api/conversations/${activeConvId}/messages/${msgId}?profileId=${user?.id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: (_, msgId) => {
+      qc.setQueryData<Message[]>(["messages", activeConvId, user?.id], old =>
+        (old ?? []).map(m => m.id === msgId ? { ...m, isDeleted: true, content: "This message was deleted." } : m)
+      );
+      qc.invalidateQueries({ queryKey: ["conversations", user?.id] });
+    },
+  });
+
+  const deleteConv = useMutation({
+    mutationFn: async (convId: number) => {
+      await fetch(`${BASE}api/conversations/${convId}?profileId=${user?.id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: (_, convId) => {
+      qc.setQueryData<Conversation[]>(["conversations", user?.id], old =>
+        (old ?? []).filter(c => c.id !== convId)
+      );
+      setActiveConvId(null);
+      setMobileView("list");
+      setShowDeleteConvConfirm(false);
+      setShowConvMenu(false);
+    },
+  });
+
   const markRead = useMutation({
     mutationFn: (convId: number) => fetch(`${BASE}api/conversations/${convId}/read`, {
       method: "PATCH",
@@ -136,15 +196,39 @@ export default function Messaging() {
       .catch(() => null);
   }, [user?.id]);
 
+  // Close conv menu on outside click
+  useEffect(() => {
+    if (!showConvMenu) return;
+    function onDown(e: MouseEvent) {
+      if (convMenuRef.current && !convMenuRef.current.contains(e.target as Node)) {
+        setShowConvMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [showConvMenu]);
+
+  // Auto-resize edit textarea
+  useEffect(() => {
+    if (editingMsgId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.style.height = "auto";
+      editInputRef.current.style.height = `${editInputRef.current.scrollHeight}px`;
+    }
+  }, [editingMsgId]);
+
   function handleSelectConv(conv: Conversation) {
     setActiveConvId(conv.id);
     setInput("");
     setNoteInput("");
     setMobileView("chat");
+    setEditingMsgId(null);
+    setShowConvMenu(false);
   }
 
   function handleMobileBack() {
     setMobileView("list");
+    setEditingMsgId(null);
   }
 
   function handleSend() {
@@ -153,35 +237,34 @@ export default function Messaging() {
     sendMsg.mutate(trimmed);
   }
 
+  function startEdit(msg: Message) {
+    setEditingMsgId(msg.id);
+    setEditText(msg.content);
+    setHoveredMsgId(null);
+  }
+
+  function cancelEdit() {
+    setEditingMsgId(null);
+    setEditText("");
+  }
+
+  function submitEdit() {
+    const trimmed = editText.trim();
+    if (!trimmed || editMsg.isPending) return;
+    editMsg.mutate({ msgId: editingMsgId!, content: trimmed });
+  }
+
   const teamChannels = conversations.filter(c => c.conversationType === "team");
   const directConvs = conversations.filter(c => c.conversationType === "direct");
-
-  const filteredTeam = teamChannels.filter(c =>
-    !search || c.otherParticipant?.name.toLowerCase().includes(search.toLowerCase())
-  );
-  const filteredDirect = directConvs.filter(c =>
-    !search || c.otherParticipant?.name.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const otherInitials = (name?: string | null) =>
-    (name ?? "?").split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
-
+  const filteredTeam = teamChannels.filter(c => !search || c.otherParticipant?.name.toLowerCase().includes(search.toLowerCase()));
+  const filteredDirect = directConvs.filter(c => !search || c.otherParticipant?.name.toLowerCase().includes(search.toLowerCase()));
+  const otherInitials = (name?: string | null) => (name ?? "?").split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   const totalUnread = conversations.reduce((acc, c) => acc + c.unreadCount, 0);
 
   return (
-    <div
-      className="flex overflow-hidden"
-      style={{ height: "calc(100dvh - 56px)" }}
-    >
+    <div className="flex overflow-hidden" style={{ height: "calc(100dvh - 56px)" }}>
       {/* ── LEFT SIDEBAR ─────────────────────────────────────────────────────── */}
-      <aside
-        className={`
-          ${mobileView === "chat" ? "hidden md:flex" : "flex"}
-          flex-col w-full md:w-[336px] md:flex-shrink-0 border-r border-gray-200 bg-white
-          pb-14 md:pb-0
-        `}
-      >
-        {/* Header */}
+      <aside className={`${mobileView === "chat" ? "hidden md:flex" : "flex"} flex-col w-full md:w-[336px] md:flex-shrink-0 border-r border-gray-200 bg-white pb-14 md:pb-0`}>
         <div className="px-4 pt-4 pb-2">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -205,7 +288,6 @@ export default function Messaging() {
               </button>
             </div>
           </div>
-
           <div className="flex items-center gap-2 bg-[#eef3f8] rounded-full px-3 py-1.5">
             <SearchIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
             <input
@@ -218,14 +300,12 @@ export default function Messaging() {
           </div>
         </div>
 
-        {/* Conversation list */}
         <div className="flex-1 overflow-y-auto">
           {convsLoading && (
             <div className="flex justify-center py-8">
               <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
           )}
-
           {!convsLoading && filteredTeam.length === 0 && filteredDirect.length === 0 && (
             <div className="flex flex-col items-center text-center px-8 py-12">
               <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-3">
@@ -248,12 +328,8 @@ export default function Messaging() {
                 const other = conv.otherParticipant;
                 const isActive = conv.id === activeConvId;
                 return (
-                  <button
-                    key={conv.id}
-                    onClick={() => handleSelectConv(conv)}
-                    className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[#f3f2ef] ${
-                      isActive ? "bg-[#dce6f0]" : conv.unreadCount > 0 ? "bg-white" : ""
-                    }`}
+                  <button key={conv.id} onClick={() => handleSelectConv(conv)}
+                    className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[#f3f2ef] ${isActive ? "bg-[#dce6f0]" : ""}`}
                   >
                     <div className="relative flex-shrink-0">
                       <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -271,9 +347,7 @@ export default function Messaging() {
                           <span className={`text-sm truncate ${conv.unreadCount > 0 ? "font-bold text-gray-900" : "font-semibold text-gray-800"}`}>
                             {other?.name ?? "Team"}
                           </span>
-                          <Badge className="text-[9px] font-bold px-1.5 py-0 rounded-full bg-primary/10 text-primary border-0 flex-shrink-0">
-                            Team
-                          </Badge>
+                          <Badge className="text-[9px] font-bold px-1.5 py-0 rounded-full bg-primary/10 text-primary border-0 flex-shrink-0">Team</Badge>
                         </div>
                         <span className={`text-[10px] flex-shrink-0 ${conv.unreadCount > 0 ? "text-primary font-semibold" : "text-gray-400"}`}>
                           {convDateLabel(conv.lastMessageAt)}
@@ -301,19 +375,13 @@ export default function Messaging() {
                 const other = conv.otherParticipant;
                 const isActive = conv.id === activeConvId;
                 return (
-                  <button
-                    key={conv.id}
-                    onClick={() => handleSelectConv(conv)}
-                    className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[#f3f2ef] ${
-                      isActive ? "bg-[#dce6f0]" : conv.unreadCount > 0 ? "bg-white" : ""
-                    }`}
+                  <button key={conv.id} onClick={() => handleSelectConv(conv)}
+                    className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[#f3f2ef] ${isActive ? "bg-[#dce6f0]" : ""}`}
                   >
                     <div className="relative flex-shrink-0">
                       <Avatar className="w-12 h-12 border border-gray-200">
                         <AvatarImage src={other?.avatarUrl || undefined} />
-                        <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">
-                          {otherInitials(other?.name)}
-                        </AvatarFallback>
+                        <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">{otherInitials(other?.name)}</AvatarFallback>
                       </Avatar>
                       <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-white rounded-full" />
                     </div>
@@ -344,12 +412,7 @@ export default function Messaging() {
       </aside>
 
       {/* ── MAIN CHAT PANEL ──────────────────────────────────────────────────── */}
-      <main
-        className={`
-          ${mobileView === "list" ? "hidden md:flex" : "flex"}
-          flex-1 flex-col bg-white min-w-0 pb-14 md:pb-0
-        `}
-      >
+      <main className={`${mobileView === "list" ? "hidden md:flex" : "flex"} flex-1 flex-col bg-white min-w-0 pb-14 md:pb-0`}>
         {!activeConv ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
             <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center mb-5">
@@ -359,10 +422,8 @@ export default function Messaging() {
             <p className="text-sm text-gray-500 max-w-xs leading-relaxed">
               Select a conversation to read messages, or find a connection on the Profiles page and start chatting.
             </p>
-            <button
-              onClick={() => navigate("/profiles")}
-              className="mt-4 px-5 py-2 bg-primary text-white text-sm font-semibold rounded-full hover:bg-primary/90 transition-colors"
-            >
+            <button onClick={() => navigate("/profiles")}
+              className="mt-4 px-5 py-2 bg-primary text-white text-sm font-semibold rounded-full hover:bg-primary/90 transition-colors">
               Find connections
             </button>
           </div>
@@ -370,15 +431,10 @@ export default function Messaging() {
           <>
             {/* Chat header */}
             <div className="flex items-center gap-2 px-3 md:px-6 py-3 border-b border-gray-200">
-              {/* Back button — mobile only */}
-              <button
-                onClick={handleMobileBack}
-                className="md:hidden w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"
-                aria-label="Back to conversations"
-              >
+              <button onClick={handleMobileBack}
+                className="md:hidden w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0">
                 <ArrowLeftIcon className="w-5 h-5" />
               </button>
-
               {isTeamChannel ? (
                 <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
                   <UsersIcon className="w-5 h-5 text-primary" />
@@ -394,14 +450,10 @@ export default function Messaging() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-gray-900 text-sm truncate">
-                    {isTeamChannel
-                      ? `${activeConv.otherParticipant?.name ?? "Team"} — Team Channel`
-                      : activeConv.otherParticipant?.name}
+                    {isTeamChannel ? `${activeConv.otherParticipant?.name ?? "Team"} — Team Channel` : activeConv.otherParticipant?.name}
                   </h3>
                   {isTeamChannel && (
-                    <Badge className="text-[9px] font-bold px-1.5 py-0 rounded-full bg-primary/10 text-primary border-0 flex-shrink-0">
-                      Team
-                    </Badge>
+                    <Badge className="text-[9px] font-bold px-1.5 py-0 rounded-full bg-primary/10 text-primary border-0 flex-shrink-0">Team</Badge>
                   )}
                 </div>
                 {isTeamChannel ? (
@@ -419,11 +471,56 @@ export default function Messaging() {
                 <button className="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors">
                   <InfoIcon className="w-4 h-4" />
                 </button>
-                <button className="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors">
-                  <MoreHorizontalIcon className="w-4 h-4" />
-                </button>
+
+                {/* Conv actions menu */}
+                <div className="relative" ref={convMenuRef}>
+                  <button
+                    onClick={() => setShowConvMenu(v => !v)}
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors"
+                  >
+                    <MoreHorizontalIcon className="w-4 h-4" />
+                  </button>
+                  {showConvMenu && (
+                    <div className="absolute right-0 top-[calc(100%+4px)] w-52 bg-white rounded-lg shadow-lg border border-gray-200 z-50 py-1">
+                      <button
+                        onClick={() => { setShowConvMenu(false); setShowDeleteConvConfirm(true); }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2Icon className="w-4 h-4" />
+                        Delete conversation
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+
+            {/* Delete conversation confirmation */}
+            {showDeleteConvConfirm && (
+              <div className="border-b border-red-100 bg-red-50 px-4 py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Trash2Icon className="w-4 h-4 text-red-500 flex-shrink-0" />
+                  <p className="text-sm text-red-700 font-medium">
+                    Delete this conversation? This cannot be undone.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => setShowDeleteConvConfirm(false)}
+                    className="px-3 py-1 rounded-full text-sm font-semibold text-gray-600 hover:bg-gray-100 border border-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => deleteConv.mutate(activeConvId!)}
+                    disabled={deleteConv.isPending}
+                    className="px-3 py-1 rounded-full text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50"
+                  >
+                    {deleteConv.isPending ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-3 md:px-6 py-4 flex flex-col gap-1">
@@ -471,15 +568,20 @@ export default function Messaging() {
                 const isMine = msg.senderProfileId === user?.id;
                 const prev = messages[i - 1];
                 const showAvatar = !isMine && (!prev || prev.senderProfileId !== msg.senderProfileId);
-                const showDate =
-                  !prev || new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() > 5 * 60 * 1000;
+                const showDate = !prev || new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() > 5 * 60 * 1000;
                 const isFirstMsg = i === 0;
                 const otherId = activeConv.otherParticipant?.id;
                 const connected = activeConv.isConnected || (otherId ? checkConnected(otherId) : false);
                 const isIntroMsg = !isTeamChannel && !connected && isFirstMsg && isMine;
+                const isEditing = editingMsgId === msg.id;
+                const isHovered = hoveredMsgId === msg.id;
 
                 return (
-                  <div key={msg.id}>
+                  <div
+                    key={msg.id}
+                    onMouseEnter={() => setHoveredMsgId(msg.id)}
+                    onMouseLeave={() => setHoveredMsgId(null)}
+                  >
                     {showDate && (
                       <div className="flex items-center justify-center my-3">
                         <span className="text-[11px] text-gray-400 bg-gray-50 px-3 py-0.5 rounded-full">
@@ -522,22 +624,80 @@ export default function Messaging() {
                         </div>
                       )}
                       {!isMine && isTeamChannel && <div className="w-0" />}
-                      <div
-                        className={`max-w-[75%] md:max-w-[65%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words ${
-                          isMine
+
+                      {/* Message action buttons (own non-deleted messages) */}
+                      {isMine && !msg.isDeleted && !isEditing && isHovered && (
+                        <div className="flex items-center gap-1 mb-1 opacity-100 transition-opacity">
+                          <button
+                            onClick={() => startEdit(msg)}
+                            className="w-7 h-7 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-500 hover:text-primary hover:border-primary transition-colors"
+                            title="Edit message"
+                          >
+                            <PenLineIcon className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => deleteMsg.mutate(msg.id)}
+                            disabled={deleteMsg.isPending}
+                            className="w-7 h-7 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-500 hover:text-red-500 hover:border-red-300 transition-colors"
+                            title="Delete message"
+                          >
+                            <TrashIcon className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Bubble */}
+                      {isEditing ? (
+                        <div className="max-w-[75%] md:max-w-[65%] flex flex-col gap-1.5">
+                          <div className="bg-white border border-[#0a66c2] rounded-2xl rounded-br-sm px-3 py-2 focus-within:shadow-sm transition-shadow">
+                            <textarea
+                              ref={editInputRef}
+                              value={editText}
+                              onChange={e => {
+                                setEditText(e.target.value);
+                                const el = e.target;
+                                el.style.height = "auto";
+                                el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+                              }}
+                              onKeyDown={e => {
+                                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitEdit(); }
+                                if (e.key === "Escape") cancelEdit();
+                              }}
+                              rows={1}
+                              className="w-full resize-none bg-transparent text-sm text-gray-900 outline-none leading-relaxed min-h-[20px] max-h-[120px]"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1.5 justify-end">
+                            <span className="text-[10px] text-gray-400">Esc to cancel · Enter to save</span>
+                            <button onClick={cancelEdit}
+                              className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center text-gray-500 hover:bg-gray-100">
+                              <XIcon className="w-3 h-3" />
+                            </button>
+                            <button onClick={submitEdit} disabled={!editText.trim() || editMsg.isPending}
+                              className="w-6 h-6 rounded-full bg-primary border border-primary flex items-center justify-center text-white hover:bg-primary/90 disabled:opacity-40">
+                              <CheckIcon className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={`max-w-[75%] md:max-w-[65%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words ${
+                          msg.isDeleted
+                            ? "bg-gray-100 text-gray-400 italic rounded-br-sm border border-gray-200"
+                            : isMine
                             ? "bg-[#0a66c2] text-white rounded-br-sm"
                             : isTeamChannel
                             ? "bg-[#eef3f8] text-gray-900 rounded-bl-sm border border-blue-100"
                             : "bg-[#f3f2ef] text-gray-900 rounded-bl-sm"
-                        }`}
-                      >
-                        {msg.content}
-                        {!isTeamChannel && (
-                          <div className={`text-[10px] mt-1 text-right ${isMine ? "text-blue-100" : "text-gray-400"}`}>
-                            {msgDateLabel(msg.createdAt)}
-                          </div>
-                        )}
-                      </div>
+                        }`}>
+                          {msg.content}
+                          {!isTeamChannel && !msg.isDeleted && (
+                            <div className={`text-[10px] mt-1 flex items-center gap-1 ${isMine ? "justify-end text-blue-100" : "justify-start text-gray-400"}`}>
+                              {msg.editedAt && <span className="italic">edited</span>}
+                              <span>{msgDateLabel(msg.createdAt)}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -545,7 +705,7 @@ export default function Messaging() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Bottom panel */}
+            {/* Bottom composer panel */}
             {isTeamChannel ? (
               <div className="px-3 md:px-4 py-3 border-t border-gray-200">
                 {isCompanyUser && (
@@ -571,11 +731,8 @@ export default function Messaging() {
                     }}
                     className="flex-1 resize-none bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none leading-relaxed min-h-[24px] max-h-[120px]"
                   />
-                  <button
-                    onClick={handleSend}
-                    disabled={!input.trim() || sendMsg.isPending}
-                    className="flex-shrink-0 w-9 h-9 rounded-full bg-[#0a66c2] flex items-center justify-center text-white disabled:opacity-30 hover:bg-[#004182] transition-colors"
-                  >
+                  <button onClick={handleSend} disabled={!input.trim() || sendMsg.isPending}
+                    className="flex-shrink-0 w-9 h-9 rounded-full bg-[#0a66c2] flex items-center justify-center text-white disabled:opacity-30 hover:bg-[#004182] transition-colors">
                     {sendMsg.isPending
                       ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       : <SendHorizontalIcon className="w-4 h-4" />
@@ -615,9 +772,7 @@ export default function Messaging() {
                       <div className="flex items-center gap-2.5 mb-3">
                         <Avatar className="w-8 h-8 border border-gray-200 flex-shrink-0">
                           <AvatarImage src={activeConv.otherParticipant?.avatarUrl || undefined} />
-                          <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
-                            {otherInitials(fullName)}
-                          </AvatarFallback>
+                          <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">{otherInitials(fullName)}</AvatarFallback>
                         </Avatar>
                         <div>
                           <p className="text-sm font-semibold text-gray-900 leading-tight">Connect with {fullName}</p>
@@ -639,18 +794,13 @@ export default function Messaging() {
                       </div>
                       <div className="flex items-center justify-end gap-2">
                         {otherId && (
-                          <button
-                            onClick={() => sendConnectionRequest(otherId, "")}
-                            className="px-4 py-1.5 rounded-full border border-gray-400 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
-                          >
+                          <button onClick={() => sendConnectionRequest(otherId, "")}
+                            className="px-4 py-1.5 rounded-full border border-gray-400 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors">
                             Skip
                           </button>
                         )}
                         <button
-                          onClick={() => {
-                            if (otherId) sendConnectionRequest(otherId, noteInput.trim());
-                            setNoteInput("");
-                          }}
+                          onClick={() => { if (otherId) sendConnectionRequest(otherId, noteInput.trim()); setNoteInput(""); }}
                           className="px-5 py-1.5 rounded-full bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors flex items-center gap-1.5"
                         >
                           <UserPlusIcon className="w-3.5 h-3.5" />
@@ -680,11 +830,8 @@ export default function Messaging() {
                         }}
                         className="flex-1 resize-none bg-transparent text-sm text-gray-900 placeholder:text-gray-400 outline-none leading-relaxed min-h-[24px] max-h-[120px]"
                       />
-                      <button
-                        onClick={handleSend}
-                        disabled={!input.trim() || sendMsg.isPending}
-                        className="flex-shrink-0 w-9 h-9 rounded-full bg-[#0a66c2] flex items-center justify-center text-white disabled:opacity-30 hover:bg-[#004182] transition-colors"
-                      >
+                      <button onClick={handleSend} disabled={!input.trim() || sendMsg.isPending}
+                        className="flex-shrink-0 w-9 h-9 rounded-full bg-[#0a66c2] flex items-center justify-center text-white disabled:opacity-30 hover:bg-[#004182] transition-colors">
                         {sendMsg.isPending
                           ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                           : <SendHorizontalIcon className="w-4 h-4" />

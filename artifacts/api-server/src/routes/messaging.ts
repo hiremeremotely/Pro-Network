@@ -362,6 +362,8 @@ router.get("/conversations/:id/messages", async (req, res): Promise<void> => {
       id: messagesTable.id,
       content: messagesTable.content,
       isRead: messagesTable.isRead,
+      isDeleted: messagesTable.isDeleted,
+      editedAt: messagesTable.editedAt,
       createdAt: messagesTable.createdAt,
       senderProfileId: messagesTable.senderProfileId,
       senderName: profilesTable.name,
@@ -449,6 +451,8 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
       id: messagesTable.id,
       content: messagesTable.content,
       isRead: messagesTable.isRead,
+      isDeleted: messagesTable.isDeleted,
+      editedAt: messagesTable.editedAt,
       createdAt: messagesTable.createdAt,
       senderProfileId: messagesTable.senderProfileId,
       senderName: profilesTable.name,
@@ -459,6 +463,62 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
     .where(eq(messagesTable.id, msg.id));
 
   res.status(201).json(enriched);
+});
+
+// ── PATCH /conversations/:convId/messages/:msgId — edit a message ─────────────
+router.patch("/conversations/:convId/messages/:msgId", async (req, res): Promise<void> => {
+  const convId = Number(req.params.convId);
+  const msgId = Number(req.params.msgId);
+  const { profileId, content } = req.body;
+  if (!profileId || !content || typeof content !== "string" || content.trim().length === 0) {
+    res.status(400).json({ error: "profileId and content required" }); return;
+  }
+
+  const [msg] = await db.select().from(messagesTable).where(eq(messagesTable.id, msgId)).limit(1);
+  if (!msg) { res.status(404).json({ error: "Message not found" }); return; }
+  if (msg.conversationId !== convId) { res.status(404).json({ error: "Message not in this conversation" }); return; }
+  if (msg.senderProfileId !== Number(profileId)) { res.status(403).json({ error: "Can only edit your own messages" }); return; }
+  if (msg.isDeleted) { res.status(400).json({ error: "Cannot edit a deleted message" }); return; }
+
+  const [updated] = await db
+    .update(messagesTable)
+    .set({ content: content.trim(), editedAt: new Date() })
+    .where(eq(messagesTable.id, msgId))
+    .returning();
+
+  res.json({ ...updated, editedAt: updated.editedAt });
+});
+
+// ── DELETE /conversations/:convId/messages/:msgId — delete a message ──────────
+router.delete("/conversations/:convId/messages/:msgId", async (req, res): Promise<void> => {
+  const convId = Number(req.params.convId);
+  const msgId = Number(req.params.msgId);
+  const profileId = Number(req.query.profileId);
+  if (!profileId) { res.status(400).json({ error: "profileId required" }); return; }
+
+  const [msg] = await db.select().from(messagesTable).where(eq(messagesTable.id, msgId)).limit(1);
+  if (!msg) { res.status(404).json({ error: "Message not found" }); return; }
+  if (msg.conversationId !== convId) { res.status(404).json({ error: "Message not in this conversation" }); return; }
+  if (msg.senderProfileId !== profileId) { res.status(403).json({ error: "Can only delete your own messages" }); return; }
+
+  await db.update(messagesTable).set({ isDeleted: true, content: "This message was deleted." }).where(eq(messagesTable.id, msgId));
+  res.json({ success: true });
+});
+
+// ── DELETE /conversations/:convId — delete an entire conversation ─────────────
+router.delete("/conversations/:convId", async (req, res): Promise<void> => {
+  const convId = Number(req.params.convId);
+  const profileId = Number(req.query.profileId);
+  if (!profileId) { res.status(400).json({ error: "profileId required" }); return; }
+
+  const allowed = await canAccessConversation(convId, profileId);
+  if (!allowed) { res.status(403).json({ error: "Access denied" }); return; }
+
+  // Delete all messages then the conversation
+  await db.delete(messagesTable).where(eq(messagesTable.conversationId, convId));
+  await db.delete(conversationMembersTable).where(eq(conversationMembersTable.conversationId, convId));
+  await db.delete(conversationsTable).where(eq(conversationsTable.id, convId));
+  res.json({ success: true });
 });
 
 // ── PATCH /conversations/:id/read ─────────────────────────────────────────────
