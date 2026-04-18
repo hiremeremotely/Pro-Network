@@ -527,8 +527,8 @@ export default function Profiles() {
   }, [connectingProfile, sendRequest]);
 
   const handleMessage = useCallback(async (profileId: number) => {
-    await startChat(profileId);
-    navigate("/messaging");
+    const convId = await startChat(profileId);
+    navigate(convId ? `/messaging?conv=${convId}` : "/messaging");
   }, [startChat, navigate]);
 
   const { data: netData } = useQuery<{ profiles: Profile[]; total: number }>({

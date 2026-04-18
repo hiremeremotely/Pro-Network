@@ -637,9 +637,9 @@ export default function ProfileDetail() {
 
   async function handleMessage() {
     setMsgLoading(true);
-    await startChat(id);
+    const convId = await startChat(id);
     setMsgLoading(false);
-    navigate("/messaging");
+    navigate(convId ? `/messaging?conv=${convId}` : "/messaging");
   }
 
   const { uploadFile } = useUpload({

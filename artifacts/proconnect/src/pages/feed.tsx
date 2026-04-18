@@ -1033,8 +1033,8 @@ export default function Home() {
   }, [user, navigate]);
 
   const handleFeedMessage = useCallback(async (profileId: number) => {
-    await startChat(profileId);
-    navigate("/messaging");
+    const convId = await startChat(profileId);
+    navigate(convId ? `/messaging?conv=${convId}` : "/messaging");
   }, [startChat, navigate]);
 
   const [visibleCount, setVisibleCount] = useState(10);
