@@ -338,7 +338,7 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
   const [search, setSearch] = useState("");
   const startChat = useStartChat();
   const { user } = useAppAuth();
-  const [, navigate] = useLocation();
+  const { toast } = useToast();
   const [sending, setSending] = useState<number | null>(null);
   const BASE = import.meta.env.BASE_URL;
 
@@ -359,11 +359,10 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
       )
     : allConnections;
 
-  async function handleSend(profileId: number) {
+  async function handleSend(profileId: number, recipientName: string) {
     setSending(profileId);
     const convId = await startChat(profileId);
     if (convId && user?.id) {
-      // Encode as a structured shared-post message so the chat can render a rich card
       const payload = JSON.stringify({
         __type: "shared_post",
         postId: post.id,
@@ -379,8 +378,12 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
         body: JSON.stringify({ senderProfileId: user.id, content: payload }),
       });
     }
-    navigate("/messaging");
     onClose();
+    toast({
+      title: "Post sent",
+      description: `Your message was sent to ${recipientName}.`,
+      duration: 3000,
+    });
   }
 
   return (
@@ -421,7 +424,7 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
             return (
               <button
                 key={p.id}
-                onClick={() => handleSend(p.id)}
+                onClick={() => handleSend(p.id, p.name)}
                 disabled={sending === p.id}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors text-left disabled:opacity-60"
               >
