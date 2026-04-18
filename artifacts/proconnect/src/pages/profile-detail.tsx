@@ -727,14 +727,15 @@ export default function ProfileDetail() {
     staleTime: 30_000,
   });
 
-  const { data: networkData } = useQuery<{ total: number; connections: any[] }>({
+  const { data: networkData } = useQuery<{ total: number; connectionCount: number; followingCount: number; connections: any[]; following: any[] }>({
     queryKey: ["profile-network", id],
     queryFn: () => fetch(`${BASE}api/connections/network?profileId=${id}`).then(r => r.json()),
     enabled: !!id,
     staleTime: 60_000,
   });
 
-  const connectionCount = networkData?.total ?? 0;
+  const connectionCount = networkData?.connectionCount ?? 0;
+  const followingCount  = networkData?.followingCount ?? 0;
 
   if (isLoading) return <LoadingState message="Loading profile..." />;
   if (error) return <ErrorState error={error} retry={refetch} />;
@@ -925,9 +926,16 @@ export default function ProfileDetail() {
                       </span>
                     )}
                     {connectionCount > 0 && (
-                      <Link href="/profiles">
+                      <Link href="/profiles?tab=connections">
                         <span className="text-primary font-semibold cursor-pointer hover:underline">
                           {connectionCount} connection{connectionCount !== 1 ? "s" : ""}
+                        </span>
+                      </Link>
+                    )}
+                    {followingCount > 0 && (
+                      <Link href="/profiles?tab=following">
+                        <span className="text-primary font-semibold cursor-pointer hover:underline">
+                          {followingCount} following
                         </span>
                       </Link>
                     )}
@@ -998,6 +1006,9 @@ export default function ProfileDetail() {
                       <span className="text-xs font-medium">Connections</span>
                     </div>
                     <p className="text-xl font-bold text-gray-900">{connectionCount}</p>
+                    {followingCount > 0 && (
+                      <p className="text-xs text-gray-400">{followingCount} following</p>
+                    )}
                     <Link href="/profiles?tab=discover">
                       <p className="text-xs text-primary cursor-pointer hover:underline">Grow network</p>
                     </Link>
@@ -1212,11 +1223,16 @@ export default function ProfileDetail() {
                 <UsersIcon className="w-4 h-4 text-primary" /> Network
               </h3>
               <div className="space-y-3">
-                <div>
+                <div className="flex flex-col gap-0.5">
                   <p className="text-2xl font-bold text-gray-900">
                     {connectionCount}
                     <span className="text-sm font-normal text-gray-400 ml-1">connection{connectionCount !== 1 ? "s" : ""}</span>
                   </p>
+                  {followingCount > 0 && (
+                    <p className="text-sm text-gray-500">
+                      {followingCount} <span className="text-gray-400">following</span>
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <FileTextIcon className="w-3.5 h-3.5" />

@@ -81,7 +81,7 @@ router.get("/connections/network", async (req, res): Promise<void> => {
     .where(acceptedWith(profileId))
     .orderBy(desc(connectionsTable.createdAt));
 
-  if (rows.length === 0) { res.json({ profiles: [], total: 0 }); return; }
+  if (rows.length === 0) { res.json({ profiles: [], connections: [], following: [], total: 0, connectionCount: 0, followingCount: 0 }); return; }
 
   const partnerIds = rows.map(r => r.partnerId);
   const profiles = await db
@@ -92,7 +92,17 @@ router.get("/connections/network", async (req, res): Promise<void> => {
   const orderMap = Object.fromEntries(partnerIds.map((id, i) => [id, i]));
   profiles.sort((a, b) => (orderMap[a.id] ?? 99) - (orderMap[b.id] ?? 99));
 
-  res.json({ profiles, total: profiles.length });
+  const connections = profiles.filter(p => p.accountType !== "company");
+  const following   = profiles.filter(p => p.accountType === "company");
+
+  res.json({
+    profiles,
+    connections,
+    following,
+    total: profiles.length,
+    connectionCount: connections.length,
+    followingCount: following.length,
+  });
 });
 
 // ── GET /connections/recommended?profileId=:id — smart suggestions ────────────
