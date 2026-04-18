@@ -174,6 +174,7 @@ interface FeedPost {
   profileAccountType: string;
   reactionCounts: Record<string, number>;
   myReaction: string | null;
+  isRecommended?: boolean;
 }
 
 // ── Comments Section ─────────────────────────────────────────────────────────
@@ -685,6 +686,11 @@ function PostCard({ post, currentUserId, currentUserAvatar, currentUserName }: {
             <p className="text-xs text-gray-400 mt-0.5">{timeAgo}</p>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
+            {post.isRecommended && (
+              <Badge variant="outline" className="text-[10px] text-indigo-500 border-indigo-200 bg-indigo-50">
+                Suggested
+              </Badge>
+            )}
             {post.profileAccountType === "company" && (
               <Badge variant="secondary" className="text-[10px]">
                 <BuildingIcon className="w-3 h-3 mr-1" />Company

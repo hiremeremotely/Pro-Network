@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { postsTable, postReactionsTable, postCommentsTable, profilesTable, notificationsTable } from "@workspace/db";
-import { desc, eq, sql, inArray, or, and } from "drizzle-orm";
+import { desc, eq, sql, inArray, notInArray, or, and } from "drizzle-orm";
 import { connectionsTable } from "@workspace/db";
 
 const REACTION_LABELS: Record<string, string> = {
@@ -84,12 +84,26 @@ router.get("/posts", async (req, res): Promise<void> => {
   res.json(enriched);
 });
 
-// ── GET /posts/feed — personalized ranked feed ────────────────────────────────
+// ── GET /posts/feed — personalized ranked feed with recommendations ────────────
 router.get("/posts/feed", async (req, res): Promise<void> => {
   const viewerId = req.query.viewerId ? Number(req.query.viewerId) : null;
-  const sort = (req.query.sort as string) || "top"; // "top" | "recent"
+  const sort = (req.query.sort as string) || "recent"; // "top" | "recent"
 
-  // Gather author IDs: viewer + all accepted connections
+  const postFields = {
+    id: postsTable.id,
+    content: postsTable.content,
+    imageUrl: postsTable.imageUrl,
+    likesCount: postsTable.likesCount,
+    commentsCount: postsTable.commentsCount,
+    createdAt: postsTable.createdAt,
+    profileId: profilesTable.id,
+    profileName: profilesTable.name,
+    profileHeadline: profilesTable.headline,
+    profileAvatarUrl: profilesTable.avatarUrl,
+    profileAccountType: profilesTable.accountType,
+  };
+
+  // Gather network author IDs: viewer + all accepted connections/follows
   let authorIds: number[] = [];
   if (viewerId) {
     const conns = await db
@@ -105,29 +119,35 @@ router.get("/posts/feed", async (req, res): Promise<void> => {
     authorIds = Array.from(new Set([viewerId, ...connectedIds]));
   }
 
-  const posts = await db
-    .select({
-      id: postsTable.id,
-      content: postsTable.content,
-      imageUrl: postsTable.imageUrl,
-      likesCount: postsTable.likesCount,
-      commentsCount: postsTable.commentsCount,
-      createdAt: postsTable.createdAt,
-      profileId: profilesTable.id,
-      profileName: profilesTable.name,
-      profileHeadline: profilesTable.headline,
-      profileAvatarUrl: profilesTable.avatarUrl,
-      profileAccountType: profilesTable.accountType,
-    })
+  // 1. Network posts (self + connections/followed companies)
+  const networkPosts = authorIds.length > 0
+    ? await db
+        .select(postFields)
+        .from(postsTable)
+        .innerJoin(profilesTable, eq(postsTable.profileId, profilesTable.id))
+        .where(inArray(postsTable.profileId, authorIds))
+        .orderBy(desc(postsTable.createdAt))
+        .limit(80)
+    : [];
+
+  // 2. Recommended posts: outside the network, ordered by engagement proxy
+  const excludeIds = authorIds.length > 0 ? authorIds : viewerId ? [viewerId] : [];
+  const recommendedPosts = await db
+    .select(postFields)
     .from(postsTable)
     .innerJoin(profilesTable, eq(postsTable.profileId, profilesTable.id))
-    .where(authorIds.length > 0 ? inArray(postsTable.profileId, authorIds) : undefined)
-    .orderBy(desc(postsTable.createdAt))
-    .limit(150);
+    .where(excludeIds.length > 0 ? notInArray(postsTable.profileId, excludeIds) : undefined)
+    .orderBy(desc(sql`${postsTable.likesCount} + ${postsTable.commentsCount} * 2`), desc(postsTable.createdAt))
+    .limit(25);
 
-  if (posts.length === 0) { res.json({ posts: [], empty: true }); return; }
+  const allPosts = [
+    ...networkPosts.map(p => ({ ...p, isRecommended: false as const })),
+    ...recommendedPosts.map(p => ({ ...p, isRecommended: true as const })),
+  ];
 
-  const postIds = posts.map(p => p.id);
+  if (allPosts.length === 0) { res.json({ posts: [], empty: true }); return; }
+
+  const postIds = allPosts.map(p => p.id);
 
   // Reaction counts
   const reactionRows = await db
@@ -138,7 +158,7 @@ router.get("/posts/feed", async (req, res): Promise<void> => {
 
   // My reactions
   const myReactions: Record<number, string> = {};
-  if (viewerId) {
+  if (viewerId && postIds.length > 0) {
     const myRows = await db
       .select({ postId: postReactionsTable.postId, reactionType: postReactionsTable.reactionType })
       .from(postReactionsTable)
@@ -150,25 +170,59 @@ router.get("/posts/feed", async (req, res): Promise<void> => {
   postIds.forEach(id => { reactionCounts[id] = {}; });
   reactionRows.forEach(r => { reactionCounts[r.postId][r.reactionType] = r.count; });
 
-  // Rank: score = (reactions + comments*2) / (hoursElapsed + 2)^1.5
-  function rankScore(p: typeof posts[0]) {
+  function rankScore(p: (typeof allPosts)[0], isRecommended: boolean) {
     const totalReactions = Object.values(reactionCounts[p.id] ?? {}).reduce((a, b) => a + b, 0);
     const engagement = totalReactions + p.commentsCount * 2;
     const hoursElapsed = (Date.now() - new Date(p.createdAt).getTime()) / 3_600_000;
-    return engagement / Math.pow(hoursElapsed + 2, 1.5);
+    const base = engagement / Math.pow(hoursElapsed + 2, 1.5);
+    // Network posts get a 1.5× boost in "top" ranking
+    return isRecommended ? base : base * 1.5;
   }
 
-  const enriched = posts.map(p => ({
+  const enrichedNetwork = networkPosts.map(p => ({
     ...p,
     reactionCounts: reactionCounts[p.id] ?? {},
     myReaction: myReactions[p.id] ?? null,
     isOwn: p.profileId === viewerId,
     isConnection: viewerId ? authorIds.includes(p.profileId) && p.profileId !== viewerId : false,
+    isRecommended: false,
   }));
 
-  if (sort === "top") enriched.sort((a, b) => rankScore(b) - rankScore(a));
+  const enrichedRecommended = recommendedPosts.map(p => ({
+    ...p,
+    reactionCounts: reactionCounts[p.id] ?? {},
+    myReaction: myReactions[p.id] ?? null,
+    isOwn: false,
+    isConnection: false,
+    isRecommended: true,
+  }));
 
-  res.json({ posts: enriched.slice(0, 60), empty: false });
+  if (sort === "top") {
+    // Mix and rank everything, network posts get a score boost
+    const all = [
+      ...enrichedNetwork.map(p => ({ ...p, _score: rankScore(p, false) })),
+      ...enrichedRecommended.map(p => ({ ...p, _score: rankScore(p, true) })),
+    ];
+    all.sort((a, b) => b._score - a._score);
+    res.json({ posts: all.slice(0, 60), empty: false });
+    return;
+  }
+
+  // "recent" mode: interleave 1 recommended post every 4 network posts
+  const result: typeof enrichedNetwork = [];
+  let ri = 0;
+  for (let i = 0; i < enrichedNetwork.length; i++) {
+    result.push(enrichedNetwork[i]);
+    if ((i + 1) % 4 === 0 && ri < enrichedRecommended.length) {
+      result.push(enrichedRecommended[ri++] as typeof enrichedNetwork[0]);
+    }
+  }
+  // Append any remaining recommended posts at the end
+  while (ri < enrichedRecommended.length) {
+    result.push(enrichedRecommended[ri++] as typeof enrichedNetwork[0]);
+  }
+
+  res.json({ posts: result.slice(0, 60), empty: false });
 });
 
 // ── POST /posts ─────────────────────────────────────────────────────────────
