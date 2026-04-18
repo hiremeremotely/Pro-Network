@@ -1296,9 +1296,14 @@ export default function Home() {
                 {showCompletionBanner && (
                   <Link href={`/profiles/${user?.id}`} className="flex items-center gap-1.5 min-w-0 group">
                     <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden min-w-[40px]">
-                      <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${completionPct}%` }} />
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${completionPct < 60 ? "bg-red-500" : "bg-amber-400"}`}
+                        style={{ width: `${completionPct}%` }}
+                      />
                     </div>
-                    <span className="text-[11px] font-semibold text-primary whitespace-nowrap group-hover:underline">{completionPct}%</span>
+                    <span className={`text-[11px] font-bold whitespace-nowrap group-hover:underline ${completionPct < 60 ? "text-red-500" : "text-amber-500"}`}>
+                      {completionPct < 60 ? "!" : ""}{completionPct}%
+                    </span>
                   </Link>
                 )}
               </div>
