@@ -361,7 +361,7 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
       )
     : allConnections;
 
-  async function handleSend(profileId: number, recipientName: string) {
+  async function handleSend(profileId: number, recipientName: string, avatarUrl?: string | null) {
     setSending(profileId);
     const convId = await startChat(profileId);
     if (convId && user?.id) {
@@ -381,13 +381,22 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
       });
     }
     onClose();
+    const initials = recipientName.slice(0, 2).toUpperCase();
     toast({
       title: "Post sent",
-      description: `Your message was sent to ${recipientName}.`,
+      description: (
+        <span className="flex items-center gap-1.5 mt-0.5">
+          <Avatar className="w-5 h-5 border border-gray-200 flex-shrink-0">
+            <AvatarImage src={avatarUrl || undefined} />
+            <AvatarFallback className="text-[9px] font-semibold bg-primary/10 text-primary">{initials}</AvatarFallback>
+          </Avatar>
+          <span className="text-sm text-gray-600">Sent to <span className="font-semibold text-gray-800">{recipientName}</span></span>
+        </span>
+      ),
       duration: 3000,
       action: convId ? (
         <ToastAction altText="Open conversation" onClick={() => navigate(`/messaging?conv=${convId}`)}>
-          Open conversation
+          Open
         </ToastAction>
       ) : undefined,
     });
@@ -431,7 +440,7 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
             return (
               <button
                 key={p.id}
-                onClick={() => handleSend(p.id, p.name)}
+                onClick={() => handleSend(p.id, p.name, p.avatarUrl)}
                 disabled={sending === p.id}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors text-left disabled:opacity-60"
               >
