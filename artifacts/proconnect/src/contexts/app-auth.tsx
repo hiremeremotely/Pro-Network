@@ -13,7 +13,7 @@ export interface AppUser {
 
 interface AppAuthCtx {
   user: AppUser | null;
-  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  login: (email: string, password: string, allowedAccountType?: string) => Promise<{ ok: boolean; error?: string }>;
   signup: (data: SignupData) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
 }
@@ -44,7 +44,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(loadUser);
   const BASE = import.meta.env.BASE_URL;
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string, allowedAccountType?: string) => {
     try {
       const res = await fetch(`${BASE}api/auth/login`, {
         method: "POST",
@@ -61,6 +61,12 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
           headline: data.profile.headline,
           avatarUrl: data.profile.avatarUrl,
         };
+        if (allowedAccountType && u.accountType !== allowedAccountType) {
+          if (allowedAccountType === "company") {
+            return { ok: false, error: "This is a professional account. Please use the professional sign-in instead." };
+          }
+          return { ok: false, error: "This is a company account. Please use 'For Companies' to sign in." };
+        }
         localStorage.setItem(SESSION_KEY, JSON.stringify(u));
         setUser(u);
         return { ok: true };

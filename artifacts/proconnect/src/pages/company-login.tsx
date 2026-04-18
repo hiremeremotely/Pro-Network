@@ -25,15 +25,9 @@ export default function CompanyLogin() {
     setError("");
     if (!email || !password) { setError("Please enter your email and password."); return; }
     setLoading(true);
-    const result = await login(email, password);
+    const result = await login(email, password, "company");
     setLoading(false);
     if (result.ok) {
-      const stored = localStorage.getItem("app_user_session");
-      const u = stored ? JSON.parse(stored) : null;
-      if (u?.accountType !== "company") {
-        setError("This account is not a company account. Use the professional sign-in instead.");
-        return;
-      }
       navigate("/company-dashboard");
     } else {
       setError(result.error ?? "Login failed.");

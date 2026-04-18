@@ -24,12 +24,10 @@ export default function Login() {
     setError("");
     if (!email || !password) { setError("Please enter your email and password."); return; }
     setLoading(true);
-    const result = await login(email, password);
+    const result = await login(email, password, "individual");
     setLoading(false);
     if (result.ok) {
-      const stored = localStorage.getItem("app_user_session");
-      const u = stored ? JSON.parse(stored) : null;
-      navigate(u?.accountType === "company" ? "/company-dashboard" : "/feed");
+      navigate("/feed");
     } else setError(result.error ?? "Login failed.");
   }
 
