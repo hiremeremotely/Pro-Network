@@ -36,6 +36,7 @@ export default function CompanyLogin() {
 
   function handleRegister() {
     sessionStorage.setItem("signup_prefill_type", "company");
+    sessionStorage.setItem("signup_lock_type", "true");
     navigate("/signup");
   }
 
