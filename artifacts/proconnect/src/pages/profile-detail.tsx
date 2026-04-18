@@ -269,11 +269,12 @@ function AddSkillModal({ profileId, onClose }: { profileId: number; onClose: () 
 }
 
 // ── Company Profile View ──────────────────────────────────────────────────────
-function CompanyProfileView({ profile, id, isOwn, onEditInfo, avatarInputRef, avatarUploading, handleAvatarFile, isFollowing, onFollow }: {
+function CompanyProfileView({ profile, id, isOwn, onEditInfo, avatarInputRef, avatarUploading, handleAvatarFile, isFollowing, isFollowPending, onFollow, onMessage, msgLoading }: {
   profile: any; id: number; isOwn: boolean; onEditInfo: () => void;
   avatarInputRef: React.RefObject<HTMLInputElement>; avatarUploading: boolean;
   handleAvatarFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  isFollowing: boolean; onFollow: () => void;
+  isFollowing: boolean; isFollowPending: boolean; onFollow: () => void;
+  onMessage: () => void; msgLoading: boolean;
 }) {
   const initials = profile.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().substring(0, 2);
 
@@ -330,6 +331,9 @@ function CompanyProfileView({ profile, id, isOwn, onEditInfo, avatarInputRef, av
                   </Button>
                 ) : (
                   <>
+                    <Button variant="outline" size="sm" onClick={onMessage} disabled={msgLoading} className="rounded-full h-9 px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
+                      <MessageSquareIcon className="w-3.5 h-3.5" /> {msgLoading ? "Opening…" : "Message"}
+                    </Button>
                     <Button
                       size="sm"
                       variant={isFollowing ? "secondary" : "default"}
@@ -337,12 +341,16 @@ function CompanyProfileView({ profile, id, isOwn, onEditInfo, avatarInputRef, av
                       className={`rounded-full h-9 px-5 text-sm font-semibold gap-1.5 ${
                         isFollowing
                           ? "bg-primary/10 text-primary border border-primary/20 hover:bg-red-50 hover:text-red-500 hover:border-red-200"
-                          : ""
+                          : isFollowPending
+                            ? "bg-amber-50 text-amber-600 border border-amber-300 hover:bg-red-50 hover:text-red-500 hover:border-red-200"
+                            : ""
                       }`}
                     >
                       {isFollowing
                         ? <><UserCheckIcon className="w-3.5 h-3.5" /> Following</>
-                        : <><StarIcon className="w-3.5 h-3.5" /> Follow</>}
+                        : isFollowPending
+                          ? <><ClockIcon className="w-3.5 h-3.5" /> Pending</>
+                          : <><StarIcon className="w-3.5 h-3.5" /> Follow</>}
                     </Button>
                     {profile.website && (
                       <a href={profile.website} target="_blank" rel="noopener noreferrer">
@@ -748,6 +756,12 @@ export default function ProfileDetail() {
     return (
       <>
         {modal === "info" && <EditInfoModal profile={profile} profileId={id} onClose={() => setModal(null)} />}
+        <DisconnectConfirmDialog
+          open={disconnectConfirmOpen}
+          profileName={profile.name}
+          onConfirm={() => { setDisconnectConfirmOpen(false); disconnect(id); }}
+          onCancel={() => setDisconnectConfirmOpen(false)}
+        />
         <CompanyProfileView
           profile={profile}
           id={id}
@@ -757,11 +771,14 @@ export default function ProfileDetail() {
           avatarUploading={avatarUploading}
           handleAvatarFile={handleAvatarFile}
           isFollowing={isConnected(id)}
+          isFollowPending={isPending(id)}
           onFollow={() => {
             if (isConnected(id)) setDisconnectConfirmOpen(true);
             else if (isPending(id)) cancelRequest(id);
-            else setShowConnectModal(true);
+            else sendRequest(id, "");
           }}
+          onMessage={handleMessage}
+          msgLoading={msgLoading}
         />
       </>
     );
