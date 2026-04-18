@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useGetFeedStats, getGetFeedStatsQueryKey, useListFeaturedProfiles, getListFeaturedProfilesQueryKey, useListFeaturedJobs, getListFeaturedJobsQueryKey } from "@workspace/api-client-react";
+import { useGetFeedStats, getGetFeedStatsQueryKey, useListFeaturedJobs, getListFeaturedJobsQueryKey } from "@workspace/api-client-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -1086,7 +1086,12 @@ export default function Home() {
   }, {});
   const mostRecentApp = myApplications.at(0);
 
-  const { data: suggestedProfiles } = useListFeaturedProfiles({ query: { queryKey: getListFeaturedProfilesQueryKey() } });
+  const { data: suggestedProfiles } = useQuery({
+    queryKey: ["featured-profiles", user?.id],
+    queryFn: () =>
+      fetch(`${import.meta.env.BASE_URL}api/feed/featured-profiles${user?.id ? `?excludeId=${user.id}` : ""}`)
+        .then(r => r.json()),
+  });
   const { data: featuredJobs } = useListFeaturedJobs({ query: { queryKey: getListFeaturedJobsQueryKey() } });
   const { isConnected: isFeedConnected, isPending: isFeedPending, sendRequest: feedSendRequest, cancelRequest: feedCancelRequest, disconnect: feedDisconnect } = useConnections();
   const startChat = useStartChat();

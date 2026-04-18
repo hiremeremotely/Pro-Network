@@ -34,8 +34,11 @@ router.get("/feed/stats", async (_req, res): Promise<void> => {
   });
 });
 
-router.get("/feed/featured-profiles", async (_req, res): Promise<void> => {
-  const profiles = await db.select().from(profilesTable).limit(6).orderBy(desc(profilesTable.createdAt));
+router.get("/feed/featured-profiles", async (req, res): Promise<void> => {
+  const excludeId = parseInt(req.query.excludeId as string, 10);
+  const conditions = [eq(profilesTable.accountType, "individual")];
+  if (!isNaN(excludeId)) conditions.push(sql`${profilesTable.id} != ${excludeId}` as any);
+  const profiles = await db.select().from(profilesTable).where(sql.join(conditions, sql` AND `)).limit(6).orderBy(desc(profilesTable.createdAt));
   res.json(profiles);
 });
 
