@@ -52,4 +52,55 @@ router.get("/feed/featured-jobs", async (_req, res): Promise<void> => {
   res.json(jobsWithCount);
 });
 
+// ── GET /feed/link-preview?url=... — scrape OG/meta tags from a URL ──────────
+router.get("/feed/link-preview", async (req, res): Promise<void> => {
+  const url = (req.query.url as string | undefined)?.trim();
+  if (!url || !/^https?:\/\//i.test(url)) { res.status(400).json({ error: "valid url required" }); return; }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; HireMeRemotelyBot/1.0; +https://hiremere.app)",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+    });
+    clearTimeout(timeout);
+
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!contentType.includes("text/html")) { res.json({}); return; }
+
+    const html = await response.text();
+
+    const getMeta = (props: string[]): string | null => {
+      for (const p of props) {
+        const m =
+          html.match(new RegExp(`<meta[^>]+property=["']${p}["'][^>]+content=["']([^"']+)["']`, "i")) ??
+          html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+property=["']${p}["']`, "i")) ??
+          html.match(new RegExp(`<meta[^>]+name=["']${p}["'][^>]+content=["']([^"']+)["']`, "i")) ??
+          html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+name=["']${p}["']`, "i"));
+        if (m?.[1]) return m[1];
+      }
+      return null;
+    };
+
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const title = getMeta(["og:title", "twitter:title"]) ?? titleMatch?.[1]?.trim() ?? null;
+    const description = getMeta(["og:description", "twitter:description", "description"]);
+    const image = getMeta(["og:image", "twitter:image", "twitter:image:src"]);
+    const siteName = getMeta(["og:site_name"]);
+    const parsedUrl = new URL(url);
+    const domain = parsedUrl.hostname.replace(/^www\./, "");
+    const favicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+
+    res.json({ title, description, image, siteName, domain, favicon, url });
+  } catch (err: any) {
+    if (err?.name === "AbortError") { res.status(504).json({ error: "timeout" }); return; }
+    res.json({});
+  }
+});
+
 export default router;

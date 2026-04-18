@@ -70,6 +70,77 @@ function extractYouTubeId(text: string): string | null {
   return match ? match[1] : null;
 }
 
+// Extract first non-YouTube URL from text
+function extractLinkUrl(text: string): string | null {
+  const YT = /(?:youtube\.com|youtu\.be)/;
+  const match = text.match(/https?:\/\/[^\s<>"']+/g);
+  if (!match) return null;
+  const nonYt = match.find(u => !YT.test(u));
+  return nonYt ?? null;
+}
+
+// ── Link Preview Card component ──────────────────────────────────────────────
+interface LinkPreview {
+  title: string | null;
+  description: string | null;
+  image: string | null;
+  siteName: string | null;
+  domain: string;
+  favicon: string;
+  url: string;
+}
+
+function LinkPreviewCard({ url }: { url: string }) {
+  const BASE = import.meta.env.BASE_URL;
+  const { data, isLoading } = useQuery<LinkPreview>({
+    queryKey: ["link-preview", url],
+    queryFn: () => fetch(`${BASE}api/feed/link-preview?url=${encodeURIComponent(url)}`).then(r => r.json()),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  if (isLoading) {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer"
+        className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors mb-3 no-underline">
+        <div className="w-8 h-8 rounded bg-gray-200 animate-pulse flex-shrink-0" />
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4" />
+          <div className="h-2.5 bg-gray-200 rounded animate-pulse w-full" />
+        </div>
+      </a>
+    );
+  }
+
+  if (!data || !data.domain) return null;
+
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer"
+      className="block rounded-xl border border-gray-200 overflow-hidden bg-white hover:bg-gray-50 transition-colors mb-3 no-underline group"
+      onClick={e => e.stopPropagation()}
+    >
+      {data.image && (
+        <div className="w-full bg-gray-100 overflow-hidden max-h-48">
+          <img src={data.image} alt="" className="w-full object-cover max-h-48 group-hover:scale-[1.01] transition-transform" />
+        </div>
+      )}
+      <div className="px-3 py-2.5">
+        <div className="flex items-center gap-1.5 mb-1">
+          <img src={data.favicon} alt="" className="w-3.5 h-3.5 flex-shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          <span className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">{data.siteName ?? data.domain}</span>
+        </div>
+        {data.title && (
+          <p className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2">{data.title}</p>
+        )}
+        {data.description && (
+          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed line-clamp-2">{data.description}</p>
+        )}
+        <p className="text-[10px] text-gray-400 mt-1 truncate">{url}</p>
+      </div>
+    </a>
+  );
+}
+
 function ytThumb(id: string) {
   return `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
 }
@@ -385,6 +456,7 @@ function PostCard({ post, currentUserId, currentUserAvatar, currentUserName }: {
   const [editYtId, setEditYtId] = useState<string | null>(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentsCount, setCommentsCount] = useState(post.commentsCount);
+  const [ytPlaying, setYtPlaying] = useState(false);
 
   // ── Reactions state ──
   const [myReaction, setMyReaction] = useState<string | null>(post.myReaction);
@@ -660,34 +732,57 @@ function PostCard({ post, currentUserId, currentUserAvatar, currentUserName }: {
           const ytId = extractYouTubeId(post.content);
           const hasYt = Boolean(ytId);
           const thumb = hasYt ? ytThumb(ytId!) : post.imageUrl;
-          if (!thumb) return null;
-          return (
-            <div
-              className="rounded-xl overflow-hidden mb-3 bg-black relative group cursor-pointer"
-              onClick={() => hasYt && window.open(ytUrl(ytId!), "_blank")}
-            >
-              <img
-                src={thumb}
-                alt=""
-                className={`w-full object-cover max-h-72 ${hasYt ? "opacity-85 group-hover:opacity-75 transition-opacity" : ""}`}
-              />
-              {hasYt && (
-                <>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-14 h-14 bg-red-600 rounded-full flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
-                      <PlayCircleIcon className="w-8 h-8 text-white fill-white" />
-                    </div>
+
+          if (hasYt) {
+            return ytPlaying ? (
+              <div className="rounded-xl overflow-hidden mb-3 bg-black aspect-video">
+                <iframe
+                  src={`https://www.youtube.com/embed/${ytId}?autoplay=1`}
+                  allow="autoplay; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full"
+                />
+              </div>
+            ) : (
+              <div
+                className="rounded-xl overflow-hidden mb-3 bg-black relative group cursor-pointer"
+                onClick={() => setYtPlaying(true)}
+              >
+                <img
+                  src={thumb!}
+                  alt=""
+                  className="w-full object-cover max-h-72 opacity-85 group-hover:opacity-75 transition-opacity"
+                />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-16 h-16 bg-red-600 rounded-2xl flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
+                    <svg viewBox="0 0 24 24" fill="white" className="w-8 h-8 ml-1">
+                      <polygon points="5,3 19,12 5,21" />
+                    </svg>
                   </div>
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-4 py-2">
-                    <span className="text-white text-xs font-medium flex items-center gap-1.5">
-                      <svg className="w-3.5 h-3.5 fill-white" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-                      Watch on YouTube
-                    </span>
-                  </div>
-                </>
-              )}
-            </div>
-          );
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-4 py-3">
+                  <span className="text-white text-xs font-semibold flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 fill-white flex-shrink-0" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                    Click to play
+                  </span>
+                </div>
+              </div>
+            );
+          }
+
+          if (thumb) {
+            return (
+              <div className="rounded-xl overflow-hidden mb-3">
+                <img src={thumb} alt="" className="w-full object-cover max-h-72" />
+              </div>
+            );
+          }
+
+          // Non-YouTube link preview
+          const linkUrl = extractLinkUrl(post.content);
+          if (linkUrl) return <LinkPreviewCard url={linkUrl} />;
+
+          return null;
         })()}
 
         {/* Reaction summary row */}
