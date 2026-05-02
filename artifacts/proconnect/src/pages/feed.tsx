@@ -39,6 +39,8 @@ import {
   CameraIcon,
   GlobeIcon,
   LockIcon,
+  MenuIcon,
+  XCircleIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useUpload } from "@workspace/object-storage-web";
@@ -1163,6 +1165,7 @@ export default function Home() {
 
   const [visibleCount, setVisibleCount] = useState(10);
   const [feedDisconnectTarget, setFeedDisconnectTarget] = useState<{ id: number; name: string } | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [feedSort, setFeedSort] = useState<"top" | "recent">("recent");
 
@@ -1206,10 +1209,131 @@ export default function Home() {
         onConfirm={() => { if (feedDisconnectTarget) { feedDisconnect(feedDisconnectTarget.id); setFeedDisconnectTarget(null); } }}
         onCancel={() => setFeedDisconnectTarget(null)}
       />
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] gap-4 items-start">
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
+          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-[#f3f2ef] overflow-y-auto flex flex-col gap-3 p-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-bold text-gray-800">My Profile</span>
+              <button onClick={() => setSidebarOpen(false)} className="p-1 rounded hover:bg-gray-200">
+                <XCircleIcon className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            {/* Profile card (mobile) */}
+            <Card className="rounded-xl overflow-hidden border border-gray-200 shadow-none bg-white">
+              <div className="h-[54px] bg-gradient-to-r from-primary/70 via-primary/45 to-indigo-300/60" />
+              <div className="px-3 -mt-[34px] mb-1">
+                <Avatar className="w-[68px] h-[68px] border-[3px] border-white shadow-sm ring-1 ring-gray-100">
+                  <AvatarImage src={currentAvatar} />
+                  <AvatarFallback className="font-bold text-xl bg-primary/10 text-primary">{currentInitials}</AvatarFallback>
+                </Avatar>
+              </div>
+              <div className="px-3 pb-3">
+                <p className="font-semibold text-sm text-gray-900 leading-snug">{currentName}</p>
+                <p className="text-xs text-gray-500 leading-snug mt-0.5 line-clamp-2">{currentHeadline}</p>
+                <Link
+                  href={user ? `/profiles/${user.id}` : "/login"}
+                  onClick={() => setSidebarOpen(false)}
+                  className="mt-2 inline-flex text-xs font-semibold text-primary border border-primary/40 rounded-full px-3 py-0.5 hover:bg-primary/5 transition-colors"
+                >
+                  View profile
+                </Link>
+              </div>
+              <Separator />
+              <div className="px-3 py-2.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-600 font-medium">Profile viewers</p>
+                    <p className="text-[11px] text-gray-400">Past 90 days</p>
+                  </div>
+                  <span className="text-sm font-bold text-primary">{((currentId * 19 + 47) % 251) + 50}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-gray-600 font-medium">Post impressions</p>
+                    <p className="text-[11px] text-gray-400">Past 7 days · <span className="text-green-600">↑ {((currentId * 7 + 11) % 30) + 5}%</span></p>
+                  </div>
+                  <span className="text-sm font-bold text-primary">{(((currentId * 113 + 283) % 1800) + 400).toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="px-3 pb-2.5">
+                <Link href="/analytics" onClick={() => setSidebarOpen(false)} className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5">
+                  View all analytics <ChevronRightIcon className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+              <Separator />
+              <div className="px-3 py-2.5">
+                <Link href="/my-items" onClick={() => setSidebarOpen(false)} className="flex items-center gap-2.5 group">
+                  <BookmarkIcon className="w-4 h-4 text-gray-500 group-hover:text-primary flex-shrink-0" />
+                  <span className="text-xs font-semibold text-gray-700 group-hover:text-primary group-hover:underline">My items</span>
+                </Link>
+              </div>
+            </Card>
+            {/* Applications (mobile) */}
+            {user && user.accountType === "individual" && (
+              <Card className="rounded-xl border border-gray-200 shadow-none bg-white overflow-hidden">
+                <CardContent className="px-3 py-3 space-y-0">
+                  <div className="flex items-center justify-between mb-2.5">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">My Applications</p>
+                    <span className="text-xs font-bold text-primary bg-primary/8 px-2 py-0.5 rounded-full">{myApplications.length}</span>
+                  </div>
+                  {myApplications.length === 0 ? (
+                    <div className="py-2 text-center">
+                      <FileTextIcon className="w-6 h-6 text-gray-200 mx-auto mb-1.5" />
+                      <p className="text-xs text-gray-400">No applications yet</p>
+                      <Link href="/jobs" onClick={() => setSidebarOpen(false)}>
+                        <p className="text-xs text-primary font-semibold mt-1 hover:underline cursor-pointer">Browse open roles →</p>
+                      </Link>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {[
+                          { key: "pending",   label: "Submitted", color: "bg-amber-50 text-amber-700" },
+                          { key: "reviewing", label: "Reviewing", color: "bg-blue-50 text-blue-700" },
+                          { key: "interview", label: "Interview", color: "bg-purple-50 text-purple-700" },
+                          { key: "offer",     label: "Offer",     color: "bg-green-50 text-green-700" },
+                        ]
+                          .filter(s => appStatusCounts[s.key])
+                          .map(s => (
+                            <span key={s.key} className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${s.color}`}>
+                              {appStatusCounts[s.key]} {s.label}
+                            </span>
+                          ))
+                        }
+                      </div>
+                      {mostRecentApp && (
+                        <Link href="/applications" onClick={() => setSidebarOpen(false)}>
+                          <div className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 hover:bg-primary/5 transition-colors cursor-pointer -mx-0.5">
+                            <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <BriefcaseIcon className="w-3 h-3 text-primary" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-semibold text-gray-800 truncate leading-tight">{mostRecentApp.job?.title}</p>
+                              <p className="text-[10px] text-gray-400 truncate">{mostRecentApp.job?.company}</p>
+                            </div>
+                          </div>
+                        </Link>
+                      )}
+                    </>
+                  )}
+                  <div className="pt-2.5">
+                    <Link href="/applications" onClick={() => setSidebarOpen(false)} className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5">
+                      View all applications <ChevronRightIcon className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </aside>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)] lg:grid-cols-[240px_minmax(0,2fr)_minmax(0,1fr)] gap-4 items-start">
 
         {/* LEFT: Profile summary card */}
-        <aside className="hidden lg:flex flex-col gap-3 sticky top-20">
+        <aside className="hidden md:flex flex-col gap-3 sticky top-20">
 
           {/* ── LinkedIn-style profile card ── */}
           <Card className="rounded-xl overflow-hidden border border-gray-200 shadow-none bg-white">
@@ -1460,6 +1584,25 @@ export default function Home() {
 
         {/* CENTER: Feed */}
         <div className="flex flex-col gap-4 min-w-0">
+          {/* Mobile profile bar — only visible on small screens */}
+          <div className="flex items-center gap-3 md:hidden bg-white rounded-xl border border-gray-200 px-3 py-2.5 shadow-none">
+            <Avatar className="w-9 h-9 border border-gray-200 flex-shrink-0">
+              <AvatarImage src={currentAvatar} />
+              <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">{currentInitials}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate leading-tight">{currentName}</p>
+              <p className="text-xs text-gray-400 truncate">{currentHeadline || "View your profile"}</p>
+            </div>
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors flex-shrink-0"
+              title="My profile"
+            >
+              <MenuIcon className="w-4 h-4" />
+            </button>
+          </div>
+
           {/* Post composer */}
           <Card className="rounded-xl border border-gray-200 shadow-none bg-white">
             <CardContent className="p-4">
