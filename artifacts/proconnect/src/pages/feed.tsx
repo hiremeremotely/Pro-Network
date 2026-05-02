@@ -1166,6 +1166,7 @@ export default function Home() {
   const [visibleCount, setVisibleCount] = useState(10);
   const [feedDisconnectTarget, setFeedDisconnectTarget] = useState<{ id: number; name: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
   const [feedSort, setFeedSort] = useState<"top" | "recent">("recent");
 
@@ -1184,6 +1185,21 @@ export default function Home() {
   const posts = allPosts.slice(0, visibleCount);
   const hasMore = allPosts.length > visibleCount;
 
+  // Infinite scroll: load more posts when sentinel scrolls into view
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel || !hasMore) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount(c => c + 10);
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore]);
 
   const createPostMutation = useMutation({
     mutationFn: async ({ content, imageUrl, visibility }: { content: string; imageUrl?: string; visibility?: string }) => {
@@ -1868,12 +1884,9 @@ export default function Home() {
                 />
               ))}
               {hasMore && (
-                <button
-                  onClick={() => setVisibleCount(c => c + 10)}
-                  className="w-full py-3 text-sm font-semibold text-primary border border-primary/30 rounded-xl bg-white hover:bg-primary/5 transition-colors"
-                >
-                  Load more posts
-                </button>
+                <div ref={loadMoreSentinelRef} className="flex items-center justify-center py-6">
+                  <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
               )}
               {!hasMore && allPosts.length > 0 && (
                 <p className="text-center text-xs text-gray-400 py-4">You're all caught up!</p>
