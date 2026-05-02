@@ -26,7 +26,6 @@ export interface Profile {
   githubUrl?: string | null;
   twitterUrl?: string | null;
   openToWork: boolean;
-  accountType?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -164,6 +163,7 @@ export interface Job {
 export interface CreateJobBody {
   title: string;
   company: string;
+  companyProfileId?: number | null;
   companyLogoUrl?: string | null;
   location?: string | null;
   description: string;
@@ -251,6 +251,7 @@ export type ListJobsParams = {
   search?: string;
   category?: string;
   experienceLevel?: string;
+  companyProfileId?: number;
   limit?: number;
   offset?: number;
 };

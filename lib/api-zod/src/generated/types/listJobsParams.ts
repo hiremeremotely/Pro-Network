@@ -10,6 +10,7 @@ export type ListJobsParams = {
   search?: string;
   category?: string;
   experienceLevel?: string;
+  companyProfileId?: number;
   limit?: number;
   offset?: number;
 };

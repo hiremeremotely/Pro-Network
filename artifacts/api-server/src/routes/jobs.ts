@@ -18,7 +18,7 @@ router.get("/jobs", async (req, res): Promise<void> => {
     res.status(400).json({ error: query.error.message });
     return;
   }
-  const { search, category, experienceLevel, limit = 20, offset = 0 } = query.data;
+  const { search, category, experienceLevel, companyProfileId, limit = 20, offset = 0 } = query.data;
 
   // Build each condition independently then AND them all together
   const clauses: ReturnType<typeof eq | typeof or | typeof and>[] = [];
@@ -39,6 +39,7 @@ router.get("/jobs", async (req, res): Promise<void> => {
   // Exact-match filters — applied as AND on top of the search
   if (category) clauses.push(eq(jobsTable.category, category));
   if (experienceLevel) clauses.push(eq(jobsTable.experienceLevel, experienceLevel));
+  if (companyProfileId) clauses.push(eq(jobsTable.companyProfileId, companyProfileId));
 
   const whereClause = clauses.length === 0
     ? undefined

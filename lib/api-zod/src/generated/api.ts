@@ -61,7 +61,6 @@ export const ListProfilesQueryParams = zod.object({
   search: zod.coerce.string().optional(),
   limit: zod.coerce.number().default(listProfilesQueryLimitDefault),
   offset: zod.coerce.number().default(listProfilesQueryOffsetDefault),
-  excludeId: zod.coerce.number().optional(),
 });
 
 export const ListProfilesResponse = zod.object({
@@ -491,6 +490,7 @@ export const ListJobsQueryParams = zod.object({
   search: zod.coerce.string().optional(),
   category: zod.coerce.string().optional(),
   experienceLevel: zod.coerce.string().optional(),
+  companyProfileId: zod.coerce.number().optional(),
   limit: zod.coerce.number().default(listJobsQueryLimitDefault),
   offset: zod.coerce.number().default(listJobsQueryOffsetDefault),
 });
@@ -525,6 +525,7 @@ export const ListJobsResponse = zod.object({
 export const CreateJobBody = zod.object({
   title: zod.string(),
   company: zod.string(),
+  companyProfileId: zod.number().nullish(),
   companyLogoUrl: zod.string().nullish(),
   location: zod.string().nullish(),
   description: zod.string(),
@@ -573,6 +574,7 @@ export const UpdateJobParams = zod.object({
 export const UpdateJobBody = zod.object({
   title: zod.string(),
   company: zod.string(),
+  companyProfileId: zod.number().nullish(),
   companyLogoUrl: zod.string().nullish(),
   location: zod.string().nullish(),
   description: zod.string(),

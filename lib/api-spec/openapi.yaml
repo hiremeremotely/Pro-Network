@@ -570,6 +570,10 @@ paths:
           in: query
           schema:
             type: string
+        - name: companyProfileId
+          in: query
+          schema:
+            type: integer
         - name: limit
           in: query
           schema:
@@ -1152,6 +1156,9 @@ components:
           type: string
         company:
           type: string
+        companyProfileId:
+          type: integer
+          nullable: true
         companyLogoUrl:
           type: string
           nullable: true

@@ -9,6 +9,7 @@
 export interface CreateJobBody {
   title: string;
   company: string;
+  companyProfileId?: number | null;
   companyLogoUrl?: string | null;
   location?: string | null;
   description: string;

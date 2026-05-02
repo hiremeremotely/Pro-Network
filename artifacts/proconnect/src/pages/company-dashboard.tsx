@@ -1499,7 +1499,7 @@ function CandidateOfferModal({
 const JOB_CATEGORIES = ["Engineering", "Design", "Product", "Data", "Marketing", "Sales", "Operations", "Customer Support"];
 const JOB_LEVELS     = ["Entry", "Mid-level", "Senior", "Staff", "Manager", "Director"];
 
-function PostJobModal({ companyName, onClose, onCreated }: { companyName: string; onClose: () => void; onCreated: () => void }) {
+function PostJobModal({ companyName, companyProfileId, onClose, onCreated }: { companyName: string; companyProfileId?: number; onClose: () => void; onCreated: () => void }) {
   const BASE = import.meta.env.BASE_URL;
   const { toast } = useToast();
   const [form, setForm] = useState({
@@ -1523,6 +1523,7 @@ function PostJobModal({ companyName, onClose, onCreated }: { companyName: string
       const body = {
         title: form.title.trim(),
         company: companyName,
+        companyProfileId: companyProfileId ?? null,
         description: form.description.trim(),
         category: form.category,
         experienceLevel: form.experienceLevel,
@@ -1645,9 +1646,10 @@ export default function CompanyDashboard() {
     if (!user) navigate("/login");
   }, [user, navigate]);
 
+  const companyJobsParams = { companyProfileId: user?.id ?? 0, limit: 100, offset: 0 };
   const { data: jobsData } = useListJobs(
-    { limit: 5, offset: 0 },
-    { query: { queryKey: getListJobsQueryKey({ limit: 5, offset: 0 }) } }
+    companyJobsParams,
+    { query: { queryKey: getListJobsQueryKey(companyJobsParams), enabled: !!user?.id } }
   );
 
   const { data: talentData } = useListProfiles(
@@ -1757,8 +1759,8 @@ export default function CompanyDashboard() {
   }, [user?.id, fetchData]);
 
   const openToWork = (talentData?.profiles ?? []).filter(p => p.openToWork && p.accountType !== "company");
-  const myJobs = (jobsData?.jobs ?? []).filter(j => j.companyProfileId === user?.id);
-  const recentJobs = jobsData?.jobs ?? [];
+  const myJobs = jobsData?.jobs ?? [];
+  const recentJobs = myJobs;
 
   const companyInitials = user?.name
     ? user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
@@ -2952,8 +2954,9 @@ export default function CompanyDashboard() {
       {showPostJob && (
         <PostJobModal
           companyName={user?.name ?? "Our Company"}
+          companyProfileId={user?.id}
           onClose={() => setShowPostJob(false)}
-          onCreated={() => qc.invalidateQueries({ queryKey: getListJobsQueryKey({ limit: 5, offset: 0 }) })}
+          onCreated={() => qc.invalidateQueries({ queryKey: getListJobsQueryKey(companyJobsParams) })}
         />
       )}
 
