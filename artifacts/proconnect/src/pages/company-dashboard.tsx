@@ -1157,6 +1157,7 @@ function TeamMemberModal({
   onUpdate,
   onRemove,
   onProgressUpdate,
+  initialTab,
 }: {
   emp: EmployeeRecord;
   companyId: number;
@@ -1165,8 +1166,9 @@ function TeamMemberModal({
   onUpdate: (updated: EmployeeRecord) => void;
   onRemove: (id: number) => void;
   onProgressUpdate: (empId: number, completed: number, total: number) => void;
+  initialTab?: "details" | "offer" | "onboarding" | "contract" | "attendance";
 }) {
-  const [tab, setTab] = useState<"details" | "offer" | "onboarding" | "contract" | "attendance">("details");
+  const [tab, setTab] = useState<"details" | "offer" | "onboarding" | "contract" | "attendance">(initialTab ?? "details");
   const [role, setRole] = useState(emp.role);
   const [salary, setSalary] = useState(emp.salary ? String(emp.salary) : "");
   const [status, setStatus] = useState<EmployeeStatus>(emp.status);
@@ -1380,6 +1382,119 @@ function TeamMemberModal({
   );
 }
 
+// ── Candidate Offer Modal ─────────────────────────────────────────────────────
+function CandidateOfferModal({
+  app,
+  companyName,
+  onClose,
+  onSent,
+}: {
+  app: EnrichedApplication;
+  companyName: string;
+  onClose: () => void;
+  onSent: () => void;
+}) {
+  const [selectedTemplate, setSelectedTemplate] = useState<OfferTemplateId | null>(null);
+  const [sending, setSending] = useState(false);
+  const { toast } = useToast();
+
+  const offerData: OfferData = {
+    employeeName: app.profile?.name ?? "Candidate",
+    role: app.job?.title ?? "Position",
+    salary: null,
+    currency: "USD",
+    startDate: new Date(Date.now() + 14 * 86400000).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+    companyName,
+  };
+
+  const handleSend = async () => {
+    if (!selectedTemplate) return;
+    setSending(true);
+    try {
+      await fetch(`${BASE}api/applications/${app.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "offer", companyProfileId: app.job?.companyProfileId }),
+      });
+      downloadOfferLetter(selectedTemplate, offerData);
+      onSent();
+      toast({ title: "Offer letter sent!", description: `${offerData.employeeName} has been moved to the Offer stage.` });
+      onClose();
+    } catch {
+      toast({ title: "Error", description: "Could not send offer.", variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+          <div>
+            <h2 className="text-base font-bold text-gray-900">Send Offer Letter</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              To <span className="font-semibold text-gray-600">{offerData.employeeName}</span> for <span className="font-semibold text-gray-600">{offerData.role}</span>
+            </p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
+            <XIcon className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          <div className="space-y-3">
+            {OFFER_TEMPLATES.map(tmpl => (
+              <button
+                key={tmpl.id}
+                onClick={() => setSelectedTemplate(tmpl.id)}
+                className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
+                  selectedTemplate === tmpl.id
+                    ? tmpl.color + " border-current ring-1 ring-current"
+                    : "border-gray-200 hover:border-gray-300 bg-white"
+                }`}
+              >
+                <FileTextIcon className="w-5 h-5 flex-shrink-0 text-gray-500" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900">{tmpl.label}</p>
+                  <p className="text-xs text-gray-500">{tmpl.desc}</p>
+                </div>
+                {selectedTemplate === tmpl.id && <CheckCircleIcon className="w-4 h-4 text-green-500 flex-shrink-0" />}
+              </button>
+            ))}
+          </div>
+          {selectedTemplate && (() => {
+            const tmpl = OFFER_TEMPLATES.find(t => t.id === selectedTemplate);
+            if (!tmpl) return null;
+            return (
+              <div className="rounded-xl border border-gray-200 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-gray-50">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Preview</p>
+                </div>
+                <div
+                  className="max-h-40 overflow-y-auto p-4 bg-white"
+                  style={{ fontFamily: "Georgia, serif", fontSize: "11px", lineHeight: "1.5", color: "#1a1a1a" }}
+                  dangerouslySetInnerHTML={{ __html: tmpl.render(safeData(offerData)) }}
+                />
+              </div>
+            );
+          })()}
+        </div>
+        <div className="px-6 py-4 border-t border-gray-100 flex gap-3 flex-shrink-0">
+          <Button variant="outline" className="flex-1 rounded-xl" onClick={onClose}>Cancel</Button>
+          <Button
+            className="flex-1 rounded-xl gap-2"
+            disabled={!selectedTemplate || sending}
+            onClick={handleSend}
+          >
+            <SendIcon className="w-4 h-4" />
+            {sending ? "Sending…" : "Send & Download"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Post Job Modal ────────────────────────────────────────────────────────────
 const JOB_CATEGORIES = ["Engineering", "Design", "Product", "Data", "Marketing", "Sales", "Operations", "Customer Support"];
 const JOB_LEVELS     = ["Entry", "Mid-level", "Senior", "Staff", "Manager", "Director"];
@@ -1499,6 +1614,8 @@ function PostJobModal({ companyName, onClose, onCreated }: { companyName: string
   );
 }
 
+type DashTab = "overview" | "hiring" | "team" | "onboarding" | "insights";
+
 export default function CompanyDashboard() {
   const { user, logout } = useAppAuth();
   const [location, navigate] = useLocation();
@@ -1507,9 +1624,15 @@ export default function CompanyDashboard() {
   const qc = useQueryClient();
   const [showPostJob, setShowPostJob] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<DashTab>("overview");
+  const [offerCandidate, setOfferCandidate] = useState<EnrichedApplication | null>(null);
+  const [teamFilter, setTeamFilter] = useState<"all" | EmployeeStatus>("all");
+  const [teamSearch, setTeamSearch] = useState("");
+  const [addingToTeam, setAddingToTeam] = useState<number | null>(null);
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRecord | null>(null);
+  const [selectedEmployeeTab, setSelectedEmployeeTab] = useState<"details" | "offer" | "onboarding" | "contract" | "attendance">("details");
   const [companyApps, setCompanyApps] = useState<EnrichedApplication[]>([]);
   const [onboardingProgress, setOnboardingProgress] = useState<Record<number, { total: number; completed: number }>>({});
   const [renewals, setRenewals] = useState<Array<{ id: number; type: string; endDate: string; employee: { id: number; role: string; individualProfileId: number } | null }>>([]);
@@ -1592,6 +1715,47 @@ export default function CompanyDashboard() {
     }
   }, [user?.id]);
 
+  const handleAddToTeam = useCallback(async (app: EnrichedApplication) => {
+    if (!user?.id || !app.profile) return;
+    setAddingToTeam(app.id);
+    try {
+      const empRes = await fetch(`${BASE}api/employees`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyProfileId: user.id,
+          individualProfileId: app.profile.id,
+          jobId: app.jobId,
+          role: app.job?.title ?? "Team Member",
+          status: "active",
+          startDate: new Date().toISOString().slice(0, 10),
+        }),
+      });
+      if (!empRes.ok) throw new Error("Failed to create employee");
+      const newEmp: EmployeeRecord = await empRes.json();
+      await fetch(`${BASE}api/applications/${app.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "accepted", companyProfileId: user.id }),
+      });
+      setCompanyApps(prev => prev.map(a => a.id === app.id ? { ...a, status: "accepted" } : a));
+      setEmployees(prev => {
+        if (prev.find(e => e.id === newEmp.id)) return prev;
+        return [...prev, newEmp];
+      });
+      // Trigger onboarding seed by hitting the onboarding endpoint
+      await fetch(`${BASE}api/employees/${newEmp.id}/onboarding?companyId=${user.id}`);
+      await fetchData();
+      setSelectedEmployee(newEmp);
+      setSelectedEmployeeTab("onboarding");
+      setActiveTab("team");
+    } catch {
+      /* no-op */
+    } finally {
+      setAddingToTeam(null);
+    }
+  }, [user?.id, fetchData]);
+
   const openToWork = (talentData?.profiles ?? []).filter(p => p.openToWork && p.accountType !== "company");
   const myJobs = (jobsData?.jobs ?? []).filter(j => j.companyProfileId === user?.id);
   const recentJobs = jobsData?.jobs ?? [];
@@ -1620,13 +1784,13 @@ export default function CompanyDashboard() {
     return months.slice(0, 6).map((m, i) => ({ month: m, salary: Math.round((base * (0.9 + i * 0.02)) / 1000) }));
   })();
 
-  const sideNav = [
-    { href: "/company-dashboard", label: "Dashboard",   icon: LayoutDashboardIcon },
-    { href: "/applications",      label: "Hiring",      icon: BriefcaseIcon       },
-    { href: "/company-dashboard", label: "Onboarding",  icon: GraduationCapIcon   },
-    { href: "/company-dashboard", label: "Team",        icon: UsersIcon            },
-    { href: "/analytics",         label: "Insights",    icon: BarChart2Icon        },
-    { href: "/profile/edit",      label: "Settings",    icon: Settings2Icon        },
+  const sideNav: Array<{ tab?: DashTab; href?: string; label: string; icon: React.ElementType; badge?: number }> = [
+    { tab: "overview",    label: "Dashboard",   icon: LayoutDashboardIcon },
+    { tab: "hiring",      label: "Hiring",      icon: BriefcaseIcon,   badge: companyApps.filter(a => a.status === "pending").length || undefined },
+    { tab: "team",        label: "Team",        icon: UsersIcon,       badge: employees.length || undefined },
+    { tab: "onboarding",  label: "Onboarding",  icon: GraduationCapIcon, badge: Object.values(onboardingProgress).filter(p => p.total > 0 && p.completed < p.total).length || undefined },
+    { tab: "insights",    label: "Insights",    icon: BarChart2Icon    },
+    { href: "/profile/edit", label: "Settings", icon: Settings2Icon   },
   ];
 
   const SidebarContent = () => (
@@ -1649,23 +1813,32 @@ export default function CompanyDashboard() {
 
       {/* Nav items */}
       <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
-        {sideNav.map(({ href, label, icon: Icon }) => {
-          const active = location === href && (label === "Dashboard" || href !== "/company-dashboard");
-          return (
-            <Link key={label} href={href}>
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  active
-                    ? "bg-primary text-white"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                }`}
-              >
-                <Icon className="w-4 h-4 flex-shrink-0" />
-                {label}
-              </button>
-            </Link>
+        {sideNav.map(({ tab, href, label, icon: Icon, badge }) => {
+          const active = tab ? activeTab === tab : false;
+          const handleClick = () => {
+            if (tab) setActiveTab(tab);
+            setSidebarOpen(false);
+          };
+          const inner = (
+            <button
+              key={label}
+              onClick={handleClick}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                active
+                  ? "bg-primary text-white"
+                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              }`}
+            >
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              <span className="flex-1 text-left">{label}</span>
+              {badge !== undefined && badge > 0 && (
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${active ? "bg-white/20 text-white" : "bg-primary/10 text-primary"}`}>
+                  {badge}
+                </span>
+              )}
+            </button>
           );
+          return href ? <Link key={label} href={href}>{inner}</Link> : <div key={label}>{inner}</div>;
         })}
       </nav>
 
@@ -1770,6 +1943,33 @@ export default function CompanyDashboard() {
 
       <div className="px-4 sm:px-6 py-6 space-y-5">
 
+        {/* ── Stat Cards ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[
+            { label: "Open Roles",    value: myJobs.length,           icon: BriefcaseIcon,     color: "text-primary",  bg: "bg-primary/10",   tab: "hiring"     },
+            { label: "Applicants",    value: companyApps.filter(a => a.status === "pending").length, icon: ClipboardListIcon, color: "text-yellow-600", bg: "bg-yellow-50",   tab: "hiring"     },
+            { label: "Team Members",  value: employees.length,        icon: UsersIcon,         color: "text-green-600",bg: "bg-green-50",     tab: "team"       },
+            { label: "Onboarding",    value: Object.values(onboardingProgress).filter(p => p.total > 0 && p.completed < p.total).length, icon: GraduationCapIcon, color: "text-indigo-600", bg: "bg-indigo-50", tab: "onboarding" },
+          ].map(({ label, value, icon: Icon, color, bg, tab }) => (
+            <button
+              key={label}
+              onClick={() => setActiveTab(tab as DashTab)}
+              className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3 hover:border-primary/30 hover:shadow-sm transition-all text-left group"
+            >
+              <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center flex-shrink-0`}>
+                <Icon className={`w-5 h-5 ${color}`} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-2xl font-bold text-gray-900 leading-none">{value}</p>
+                <p className="text-xs text-gray-400 mt-0.5 font-medium">{label}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* ── TAB: Overview ── */}
+        {activeTab === "overview" && <>
+
         {/* ── Hiring Pipeline + Recent Hires ── */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
 
@@ -1795,10 +1995,10 @@ export default function CompanyDashboard() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-gray-100 min-h-[200px]">
               {[
-                { label: "Applied",   status: "pending",   bg: "bg-yellow-50",  dot: "bg-yellow-400",  action: "Review",   nextStatus: "reviewing" },
-                { label: "Interview", status: "interview", bg: "bg-purple-50",  dot: "bg-purple-400",  action: "Send Offer", nextStatus: "offer" },
-                { label: "Offer",     status: "offer",     bg: "bg-indigo-50",  dot: "bg-indigo-400",  action: "Add to Team", nextStatus: "accepted" },
-                { label: "Hired",     status: "accepted",  bg: "bg-green-50",   dot: "bg-green-500",   action: "View", nextStatus: null },
+                { label: "Applied",   status: "pending",   bg: "bg-yellow-50",  dot: "bg-yellow-400", btnCls: "bg-primary/10 hover:bg-primary/20 text-primary",        action: "Review" },
+                { label: "Interview", status: "interview", bg: "bg-purple-50",  dot: "bg-purple-400", btnCls: "bg-indigo-50 hover:bg-indigo-100 text-indigo-700",      action: "Send Offer" },
+                { label: "Offer",     status: "offer",     bg: "bg-indigo-50",  dot: "bg-indigo-400", btnCls: "bg-green-600 hover:bg-green-700 text-white",            action: "Add to Team" },
+                { label: "Hired",     status: "accepted",  bg: "bg-green-50",   dot: "bg-green-500",  btnCls: "bg-gray-50 hover:bg-gray-100 text-gray-600",            action: "View" },
               ].map(col => {
                 const colApps = companyApps.filter(a => a.status === col.status);
                 return (
@@ -1817,6 +2017,7 @@ export default function CompanyDashboard() {
                         <>
                           {colApps.slice(0, 3).map(app => {
                             const initials = app.profile?.name?.split(" ").map(n => n[0]).join("").toUpperCase().slice(0,2) ?? "?";
+                            const isAdding = addingToTeam === app.id;
                             return (
                               <div key={app.id} className="bg-white rounded-lg border border-gray-100 p-2.5 shadow-sm hover:border-primary/20 transition-colors">
                                 <div className="flex items-center gap-2 mb-2">
@@ -1829,31 +2030,40 @@ export default function CompanyDashboard() {
                                     <p className="text-[10px] text-gray-400 truncate">{app.job?.title ?? "Position"}</p>
                                   </div>
                                 </div>
-                                {col.nextStatus ? (
+                                {col.status === "accepted" ? (
+                                  <Link href={`/profiles/${app.profileId}`}>
+                                    <button className={`w-full text-[10px] font-semibold py-1 rounded-md transition-colors ${col.btnCls}`}>{col.action}</button>
+                                  </Link>
+                                ) : col.status === "interview" ? (
                                   <button
-                                    onClick={() => updateAppStatus(app.id, col.nextStatus!)}
-                                    className={`w-full text-[10px] font-semibold py-1 rounded-md transition-colors ${
-                                      col.status === "offer"
-                                        ? "bg-green-600 hover:bg-green-700 text-white"
-                                        : col.status === "pending"
-                                        ? "bg-primary/10 hover:bg-primary/20 text-primary"
-                                        : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700"
-                                    }`}
+                                    onClick={() => setOfferCandidate(app)}
+                                    className={`w-full text-[10px] font-semibold py-1 rounded-md transition-colors ${col.btnCls}`}
                                   >
                                     {col.action}
                                   </button>
+                                ) : col.status === "offer" ? (
+                                  <button
+                                    disabled={isAdding}
+                                    onClick={() => handleAddToTeam(app)}
+                                    className={`w-full text-[10px] font-semibold py-1 rounded-md transition-colors disabled:opacity-60 ${col.btnCls}`}
+                                  >
+                                    {isAdding ? "Adding…" : col.action}
+                                  </button>
                                 ) : (
-                                  <Link href={`/profiles/${app.profileId}`}>
-                                    <button className="w-full text-[10px] font-semibold py-1 rounded-md bg-gray-50 hover:bg-gray-100 text-gray-600 transition-colors">{col.action}</button>
-                                  </Link>
+                                  <button
+                                    onClick={() => updateAppStatus(app.id, "interview")}
+                                    className={`w-full text-[10px] font-semibold py-1 rounded-md transition-colors ${col.btnCls}`}
+                                  >
+                                    {col.action}
+                                  </button>
                                 )}
                               </div>
                             );
                           })}
                           {colApps.length > 3 && (
-                            <Link href="/applications">
-                              <p className="text-[10px] text-center text-primary font-semibold py-1 hover:underline cursor-pointer">+{colApps.length - 3} more</p>
-                            </Link>
+                            <button onClick={() => setActiveTab("hiring")} className="text-[10px] text-center text-primary font-semibold py-1 hover:underline cursor-pointer">
+                              +{colApps.length - 3} more
+                            </button>
                           )}
                         </>
                       )}
@@ -2341,6 +2551,399 @@ export default function CompanyDashboard() {
 
           </div>
         </div>
+
+        </> /* end overview tab */}
+
+        {/* ── TAB: Hiring ── */}
+        {activeTab === "hiring" && (
+          <div className="space-y-5">
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <h2 className="font-semibold text-gray-900">Hiring Pipeline</h2>
+                  <span className="text-xs text-gray-400">{companyApps.length} total applicant{companyApps.length !== 1 ? "s" : ""}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={fetchData} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
+                    <RefreshCwIcon className="w-3.5 h-3.5" />
+                  </button>
+                  <Button size="sm" className="rounded-full text-xs h-7 px-3 gap-1.5" onClick={() => setShowPostJob(true)}>
+                    <PlusIcon className="w-3 h-3" /> Post Job
+                  </Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-gray-100 min-h-[300px]">
+                {[
+                  { label: "Applied",   status: "pending",   bg: "bg-yellow-50",  dot: "bg-yellow-400", btnCls: "bg-primary/10 hover:bg-primary/20 text-primary",   action: "Review" },
+                  { label: "Interview", status: "interview", bg: "bg-purple-50",  dot: "bg-purple-400", btnCls: "bg-indigo-50 hover:bg-indigo-100 text-indigo-700", action: "Send Offer" },
+                  { label: "Offer",     status: "offer",     bg: "bg-indigo-50",  dot: "bg-indigo-400", btnCls: "bg-green-600 hover:bg-green-700 text-white",       action: "Add to Team" },
+                  { label: "Hired",     status: "accepted",  bg: "bg-green-50",   dot: "bg-green-500",  btnCls: "bg-gray-50 hover:bg-gray-100 text-gray-600",       action: "View" },
+                ].map(col => {
+                  const colApps = companyApps.filter(a => a.status === col.status);
+                  return (
+                    <div key={col.label} className={`flex flex-col ${col.bg}/30`}>
+                      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-100">
+                        <span className={`w-2 h-2 rounded-full ${col.dot}`} />
+                        <span className="text-xs font-semibold text-gray-700">{col.label}</span>
+                        <span className="ml-auto text-xs font-bold text-gray-500 bg-white border border-gray-200 rounded-full px-1.5 py-0.5 min-w-[20px] text-center">{colApps.length}</span>
+                      </div>
+                      <div className="flex flex-col gap-2 p-2 flex-1">
+                        {colApps.length === 0 ? (
+                          <div className="flex-1 flex items-center justify-center py-8">
+                            <p className="text-xs text-gray-300">No candidates</p>
+                          </div>
+                        ) : colApps.map(app => {
+                          const initials = app.profile?.name?.split(" ").map(n => n[0]).join("").toUpperCase().slice(0,2) ?? "?";
+                          const isAdding = addingToTeam === app.id;
+                          return (
+                            <div key={app.id} className="bg-white rounded-lg border border-gray-100 p-2.5 shadow-sm hover:border-primary/20 transition-colors">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Avatar className="w-7 h-7 flex-shrink-0">
+                                  <AvatarImage src={app.profile?.avatarUrl ?? undefined} />
+                                  <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">{initials}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-semibold text-gray-900 truncate">{app.profile?.name ?? "Applicant"}</p>
+                                  <p className="text-[10px] text-gray-400 truncate">{app.job?.title ?? "Position"}</p>
+                                </div>
+                              </div>
+                              {col.status === "accepted" ? (
+                                <Link href={`/profiles/${app.profileId}`}>
+                                  <button className={`w-full text-[10px] font-semibold py-1 rounded-md transition-colors ${col.btnCls}`}>{col.action}</button>
+                                </Link>
+                              ) : col.status === "interview" ? (
+                                <button onClick={() => setOfferCandidate(app)} className={`w-full text-[10px] font-semibold py-1 rounded-md transition-colors ${col.btnCls}`}>{col.action}</button>
+                              ) : col.status === "offer" ? (
+                                <button disabled={isAdding} onClick={() => handleAddToTeam(app)} className={`w-full text-[10px] font-semibold py-1 rounded-md transition-colors disabled:opacity-60 ${col.btnCls}`}>{isAdding ? "Adding…" : col.action}</button>
+                              ) : (
+                                <button onClick={() => updateAppStatus(app.id, "interview")} className={`w-full text-[10px] font-semibold py-1 rounded-md transition-colors ${col.btnCls}`}>{col.action}</button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB: Team ── */}
+        {activeTab === "team" && (
+          <div className="space-y-5">
+            {/* Search + Filter bar */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-center gap-3">
+              <div className="relative flex-1 min-w-[180px]">
+                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                <input
+                  value={teamSearch}
+                  onChange={e => setTeamSearch(e.target.value)}
+                  placeholder="Search team members…"
+                  className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40"
+                />
+              </div>
+              <div className="flex gap-1.5 flex-wrap">
+                {(["all", "active", "contractor", "on-leave"] as const).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setTeamFilter(f)}
+                    className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors capitalize ${
+                      teamFilter === f
+                        ? "bg-primary text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {f === "all" ? "All" : f === "on-leave" ? "On Leave" : f === "contractor" ? "Contractor" : "Active"}
+                  </button>
+                ))}
+              </div>
+              <Button size="sm" className="rounded-full text-xs h-8 px-3 gap-1.5 ml-auto" onClick={() => setActiveTab("hiring")}>
+                <PlusIcon className="w-3 h-3" /> Hire via Pipeline
+              </Button>
+            </div>
+
+            {/* Team table */}
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              {loadingEmployees ? (
+                <div className="flex items-center justify-center py-16 text-gray-400 text-sm">Loading team…</div>
+              ) : (() => {
+                const filtered = employees.filter(emp => {
+                  const matchFilter = teamFilter === "all" || emp.status === teamFilter;
+                  const matchSearch = !teamSearch || (emp.profile?.name ?? "").toLowerCase().includes(teamSearch.toLowerCase()) || emp.role.toLowerCase().includes(teamSearch.toLowerCase());
+                  return matchFilter && matchSearch;
+                });
+                if (filtered.length === 0) return (
+                  <div className="flex flex-col items-center py-16 text-gray-400 gap-3">
+                    <UsersIcon className="w-10 h-10 opacity-25" />
+                    <p className="text-sm font-medium">{employees.length === 0 ? "Your team is empty" : "No matches found"}</p>
+                    {employees.length === 0 && <Button size="sm" className="rounded-full text-xs mt-1" onClick={() => setActiveTab("hiring")}>Start Hiring</Button>}
+                  </div>
+                );
+                return (
+                  <>
+                    <div className="hidden sm:grid grid-cols-[auto_1fr_140px_110px_90px_80px_36px] gap-3 px-5 py-2.5 bg-gray-50/70 border-b border-gray-100 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+                      <span /><span>Name</span><span>Role</span><span>Type</span><span>Status</span><span>Start</span><span />
+                    </div>
+                    <div className="divide-y divide-gray-50">
+                      {filtered.map(emp => {
+                        const initials = emp.profile?.name?.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) ?? "?";
+                        const progress = onboardingProgress[emp.id];
+                        const hasProgress = progress && progress.total > 0;
+                        const progressPct = hasProgress ? Math.round((progress.completed / progress.total) * 100) : null;
+                        return (
+                          <button key={emp.id} onClick={() => { setSelectedEmployee(emp); setSelectedEmployeeTab("details"); }} className="w-full sm:grid grid-cols-[auto_1fr_140px_110px_90px_80px_36px] flex flex-wrap gap-2 items-center px-5 py-3.5 hover:bg-gray-50 transition-colors cursor-pointer group text-left">
+                            <Avatar className="w-9 h-9 border border-gray-100 flex-shrink-0">
+                              <AvatarImage src={emp.profile?.avatarUrl ?? undefined} />
+                              <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">{initials}</AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-sm text-gray-900 group-hover:text-primary transition-colors truncate">{emp.profile?.name ?? "Unknown"}</p>
+                              {hasProgress && progressPct !== null && (
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <div className="w-14 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                                    <div className={`h-full rounded-full ${progressPct === 100 ? "bg-green-500" : "bg-primary"}`} style={{ width: `${progressPct}%` }} />
+                                  </div>
+                                  <span className="text-[10px] text-gray-400">{progressPct === 100 ? "Onboarded ✓" : `${progressPct}% onboarded`}</span>
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-xs text-gray-600 truncate hidden sm:block">{emp.role}</span>
+                            <span className="hidden sm:block">
+                              <Badge className={`capitalize text-[10px] font-semibold rounded-full border ${STATUS_STYLES[emp.status]}`}>
+                                {emp.status === "on-leave" ? "On Leave" : emp.status === "contractor" ? "Contractor" : "Full-Time"}
+                              </Badge>
+                            </span>
+                            <span className="hidden sm:flex items-center gap-1">
+                              <span className={`w-2 h-2 rounded-full ${STATUS_DOT[emp.status]}`} />
+                              <span className="text-xs text-gray-500">{emp.status === "active" ? "Active" : emp.status === "contractor" ? "Active" : "On Leave"}</span>
+                            </span>
+                            <span className="hidden sm:block text-xs text-gray-400">
+                              {emp.startDate ? new Date(emp.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" }) : "—"}
+                            </span>
+                            <ChevronRightIcon className="w-4 h-4 text-gray-300 flex-shrink-0 ml-auto" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Contract renewals */}
+            {renewals.length > 0 && (
+              <div className="bg-white rounded-xl border border-amber-200 overflow-hidden">
+                <div className="flex items-center gap-2 px-5 py-4 border-b border-amber-100 bg-amber-50/60">
+                  <AlertCircleIcon className="w-4 h-4 text-amber-600" />
+                  <div>
+                    <h2 className="font-semibold text-gray-900 text-sm">Upcoming Contract Renewals</h2>
+                    <p className="text-xs text-amber-600">{renewals.length} contract{renewals.length !== 1 ? "s" : ""} expiring within 30 days</p>
+                  </div>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {renewals.map(renewal => {
+                    const daysLeft = Math.ceil((new Date(renewal.endDate).getTime() - Date.now()) / 86400000);
+                    const emp = employees.find(e => e.id === renewal.employee?.id);
+                    return (
+                      <div key={renewal.id} className="flex items-center gap-4 px-5 py-3.5">
+                        <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                          <FileTextIcon className="w-4 h-4 text-amber-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{renewal.employee?.role ?? "Unknown role"}</p>
+                          <p className="text-xs text-gray-500 capitalize">{CONTRACT_TYPE_LABELS[renewal.type] ?? renewal.type} · Ends {new Date(renewal.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${daysLeft <= 7 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{daysLeft === 0 ? "Today" : `${daysLeft}d`}</span>
+                          {emp && <Button size="sm" variant="outline" onClick={() => { setSelectedEmployee(emp); setSelectedEmployeeTab("contract"); }} className="text-xs h-7 px-2.5">Renew</Button>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── TAB: Onboarding ── */}
+        {activeTab === "onboarding" && (
+          <div className="space-y-5">
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <div>
+                  <h2 className="font-semibold text-gray-900">Onboarding Tracker</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">Track each new hire's onboarding checklist</p>
+                </div>
+                <button onClick={fetchData} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
+                  <RefreshCwIcon className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              {employees.length === 0 ? (
+                <div className="flex flex-col items-center py-16 gap-3 text-gray-400">
+                  <GraduationCapIcon className="w-10 h-10 opacity-25" />
+                  <p className="text-sm font-medium">No team members yet</p>
+                  <Button size="sm" className="rounded-full text-xs mt-1" onClick={() => setActiveTab("hiring")}>Start Hiring</Button>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {employees.map(emp => {
+                    const progress = onboardingProgress[emp.id];
+                    const total = progress?.total ?? 0;
+                    const completed = progress?.completed ?? 0;
+                    const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+                    const initials = emp.profile?.name?.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) ?? "?";
+                    return (
+                      <button
+                        key={emp.id}
+                        onClick={() => { setSelectedEmployee(emp); setSelectedEmployeeTab("onboarding"); }}
+                        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors text-left group"
+                      >
+                        <Avatar className="w-10 h-10 border border-gray-100 flex-shrink-0">
+                          <AvatarImage src={emp.profile?.avatarUrl ?? undefined} />
+                          <AvatarFallback className="text-sm font-bold bg-primary/10 text-primary">{initials}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm text-gray-900 group-hover:text-primary transition-colors truncate">{emp.profile?.name ?? "Unknown"}</p>
+                          <p className="text-xs text-gray-400 truncate">{emp.role}</p>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <div className="flex-1 max-w-[160px] h-2 rounded-full bg-gray-100 overflow-hidden">
+                              <div className={`h-full rounded-full transition-all ${pct === 100 ? "bg-green-500" : "bg-primary"}`} style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="text-xs text-gray-500 font-medium flex-shrink-0">
+                              {total === 0 ? "No tasks" : pct === 100 ? "✓ Complete" : `${completed}/${total} tasks`}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex-shrink-0">
+                          {pct === 100
+                            ? <span className="text-xs font-bold text-green-600 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full">Done</span>
+                            : <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${total > 0 ? "text-amber-700 bg-amber-50 border border-amber-200" : "text-gray-400 bg-gray-50 border border-gray-200"}`}>{total > 0 ? `${pct}%` : "Pending"}</span>
+                          }
+                        </div>
+                        <ChevronRightIcon className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Pending time off */}
+            {pendingTimeOff.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                  <div>
+                    <h2 className="font-semibold text-gray-900 text-sm">Pending Time-Off Requests</h2>
+                    <p className="text-xs text-gray-400">{pendingTimeOff.length} awaiting your approval</p>
+                  </div>
+                  <CalendarIcon className="w-4 h-4 text-gray-400" />
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {pendingTimeOff.map(tor => {
+                    const emp = employees.find(e => e.id === tor.employee?.id);
+                    const days = Math.max(1, Math.round((new Date(tor.endDate).getTime() - new Date(tor.startDate).getTime()) / 86400000) + 1);
+                    return (
+                      <div key={tor.id} className="flex items-start gap-3 px-5 py-3.5">
+                        <Avatar className="w-8 h-8 border border-gray-100 flex-shrink-0">
+                          <AvatarImage src={emp?.profile?.avatarUrl ?? undefined} />
+                          <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">{emp?.profile?.name?.split(" ").map(n => n[0]).join("").slice(0, 2) ?? "?"}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{emp?.profile?.name ?? tor.employee?.role ?? "Employee"}</p>
+                            <span className="text-xs text-gray-400 flex-shrink-0">{days}d off</span>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            {new Date(tor.startDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            {" – "}
+                            {new Date(tor.endDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            {tor.reason && ` · ${tor.reason}`}
+                          </p>
+                          <div className="flex gap-1.5 mt-1.5">
+                            <Button size="sm" onClick={() => handleReviewTOR(tor.id, "approved")} disabled={reviewingTOR === tor.id} className="h-6 text-[10px] gap-1 bg-green-600 hover:bg-green-700 px-2.5">
+                              <ThumbsUpIcon className="w-2.5 h-2.5" /> Approve
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleReviewTOR(tor.id, "rejected")} disabled={reviewingTOR === tor.id} className="h-6 text-[10px] gap-1 text-red-600 border-red-200 hover:bg-red-50 px-2.5">
+                              <ThumbsDownIcon className="w-2.5 h-2.5" /> Reject
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── TAB: Insights ── */}
+        {activeTab === "insights" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <BarChart2Icon className="w-4 h-4 text-primary" /> Salary Trends
+                </h2>
+                <Link href="/salary-estimator">
+                  <span className="text-xs text-primary hover:underline font-medium cursor-pointer flex items-center gap-1">
+                    Full Estimator <ArrowRightIcon className="w-3 h-3" />
+                  </span>
+                </Link>
+              </div>
+              <p className="text-[11px] text-gray-400 mb-3 font-medium uppercase tracking-wide">Average Salary ($k) · Last 6 months</p>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={salaryChartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb", padding: "6px 10px" }} formatter={(v: number) => [`$${v}k`, "Avg Salary"]} />
+                    <Line type="monotone" dataKey="salary" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3, fill: "#6366f1" }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <h3 className="font-semibold text-sm text-gray-900 mb-3">Team Snapshot</h3>
+                <div className="space-y-2">
+                  {[
+                    { label: "Total Headcount", value: employees.length, color: "text-gray-900" },
+                    { label: "Active",          value: activeCount,       color: "text-green-600" },
+                    { label: "Contractors",     value: contractorCount,   color: "text-blue-600" },
+                    { label: "On Leave",        value: employees.filter(e => e.status === "on-leave").length, color: "text-orange-600" },
+                    { label: "Fully Onboarded", value: Object.values(onboardingProgress).filter(p => p.total > 0 && p.completed === p.total).length, color: "text-primary" },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                      <span className="text-sm text-gray-600">{label}</span>
+                      <span className={`text-sm font-bold ${color}`}>{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <h3 className="font-semibold text-sm text-gray-900 mb-3">Pipeline Health</h3>
+                <div className="space-y-2">
+                  {[
+                    { label: "Total Applicants", value: companyApps.length },
+                    { label: "In Interview",     value: companyApps.filter(a => a.status === "interview").length },
+                    { label: "Offers Sent",      value: companyApps.filter(a => a.status === "offer").length },
+                    { label: "Hired",            value: companyApps.filter(a => a.status === "accepted").length },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                      <span className="text-sm text-gray-600">{label}</span>
+                      <span className="text-sm font-bold text-gray-900">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
       </div>
       {/* end: flex-1 min-w-0 main content */}
@@ -2351,6 +2954,16 @@ export default function CompanyDashboard() {
           companyName={user?.name ?? "Our Company"}
           onClose={() => setShowPostJob(false)}
           onCreated={() => qc.invalidateQueries({ queryKey: getListJobsQueryKey({ limit: 5, offset: 0 }) })}
+        />
+      )}
+
+      {/* Candidate offer modal */}
+      {offerCandidate && (
+        <CandidateOfferModal
+          app={offerCandidate}
+          companyName={user?.name ?? "Our Company"}
+          onClose={() => setOfferCandidate(null)}
+          onSent={() => setCompanyApps(prev => prev.map(a => a.id === offerCandidate.id ? { ...a, status: "offer" } : a))}
         />
       )}
 
@@ -2367,6 +2980,7 @@ export default function CompanyDashboard() {
           }}
           onRemove={id => setEmployees(prev => prev.filter(e => e.id !== id))}
           onProgressUpdate={handleProgressUpdate}
+          initialTab={selectedEmployeeTab}
         />
       )}
     </div>

@@ -56,16 +56,38 @@ function RequireBoAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function RedirectIfAuth({ children }: { children: ReactNode }) {
+  const { user } = useAppAuth();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (user) {
+      navigate(user.accountType === "company" ? "/company-dashboard" : "/feed");
+    }
+  }, [user, navigate]);
+
+  if (user) return null;
+  return <>{children}</>;
+}
+
 // ── Router ────────────────────────────────────────────────────────────────────
 
 function Router() {
   return (
     <Switch>
-      {/* Public */}
-      <Route path="/" component={Landing} />
-      <Route path="/login" component={Login} />
-      <Route path="/company-login" component={CompanyLogin} />
-      <Route path="/signup" component={Signup} />
+      {/* Public — redirect to app if already logged in */}
+      <Route path="/">
+        <RedirectIfAuth><Landing /></RedirectIfAuth>
+      </Route>
+      <Route path="/login">
+        <RedirectIfAuth><Login /></RedirectIfAuth>
+      </Route>
+      <Route path="/company-login">
+        <RedirectIfAuth><CompanyLogin /></RedirectIfAuth>
+      </Route>
+      <Route path="/signup">
+        <RedirectIfAuth><Signup /></RedirectIfAuth>
+      </Route>
 
       {/* Backoffice login (public) */}
       <Route path="/bo" component={BoLogin} />

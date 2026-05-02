@@ -1,0 +1,154 @@
+RemoteHire – Product Blueprint
+1. Product Vision
+
+RemoteHire is a unified platform that allows businesses to:
+
+Hire remote talent
+Convert candidates into employees instantly
+Onboard and manage teams without switching tools
+
+Core idea:
+👉 “The moment you hire someone, everything else just happens.”
+
+2. Core Modules (MVP Scope)
+2.1 Hiring System
+Job posting
+Candidate pipeline (Kanban)
+Candidate profiles
+Interview tracking
+2.2 Hire → Employee Conversion
+One-click “Add to Team”
+Auto-create employee profile
+Carry forward:
+Name
+Role
+Salary
+Start date
+Contract
+2.3 Offer Letter Generator
+Pre-built templates:
+Full-time
+Freelance
+Contract
+Dynamic fields:
+Salary
+Role
+Start date
+Features:
+Live preview
+E-signature
+Auto-send via email
+2.4 Remote Onboarding System
+Checklist-based onboarding
+Task assignment:
+Upload documents
+Sign agreements
+Setup tools
+Progress tracking
+Employee welcome dashboard
+2.5 Team Dashboard
+Employee list
+Filters:
+Full-time / Freelance
+Active / Inactive
+Employee profiles:
+Documents
+Contracts
+Activity
+2.6 Salary Estimator (Differentiator)
+Country-based salary insights
+Role-based benchmarks
+Market comparison
+Cost breakdown
+3. End-to-End Workflow
+Step 1: Hiring
+Company posts a job
+Candidates apply
+Recruiter moves candidates through pipeline:
+Applied → Interview → Offer → Hired
+Step 2: Offer Creation
+Recruiter clicks “Send Offer”
+System auto-fills:
+Candidate name
+Role
+Salary
+Recruiter reviews → sends offer
+Candidate signs digitally
+Step 3: Hire → Employee Conversion
+Candidate status = “Hired”
+Button appears: “Add to Team”
+On click:
+Employee profile created
+Contract attached
+Onboarding triggered
+Step 4: Onboarding Flow
+Employee receives invite
+Access onboarding dashboard
+Completes:
+Document upload
+Profile setup
+Assigned tasks
+HR tracks progress in real-time
+Step 5: Team Management
+Employee appears in Team Dashboard
+HR can:
+View/edit details
+Assign roles
+Track status
+Organization structure starts forming
+Step 6: Insights & Salary Intelligence
+System analyzes hiring data
+Shows:
+Salary benchmarks
+Hiring trends
+Role demand
+Helps companies make better hiring decisions
+4. Key User Flows
+Flow A: One-Click Hire
+Candidate → Hired → Add to Team → Onboarding starts
+Flow B: Offer Sending
+Candidate Profile → Generate Offer → Edit → Preview → Send
+Flow C: Onboarding
+Employee Created → Checklist Generated → Progress Tracking
+Flow D: Salary Estimation
+Select Country + Role → View salary range → Compare market
+5. UX Principles
+Max 3 clicks per action
+Auto-fill everything possible
+Keep UI minimal and clean
+Focus on speed and clarity
+Reduce manual HR work
+6. Competitive Advantage
+
+Unlike traditional platforms:
+
+Hiring + HR in one flow
+Data-driven insights
+Remote-first onboarding
+Faster time from hire → productivity
+7. MVP Launch Plan
+Phase 1 (Launch)
+Hiring pipeline
+Offer generator
+Hire → employee
+Onboarding checklist
+Team dashboard
+Phase 2
+Freelancer management
+Salary insights
+Notifications & workflows
+Phase 3
+Payroll integrations
+Automation engine
+Performance tracking
+8. Success Metrics
+Time from hire → onboarding completion
+Offer acceptance rate
+Daily active companies
+Employee profiles created
+Retention rate
+9. Final Product Goal
+
+User experience should feel like:
+
+👉 “I hired someone and my entire HR process was handled automatically.”
