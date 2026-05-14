@@ -45,6 +45,18 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function RequireIndividual({ children }: { children: ReactNode }) {
+  const { user } = useAppAuth();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (user && user.accountType === "company") navigate("/company-dashboard");
+  }, [user, navigate]);
+
+  if (user?.accountType === "company") return null;
+  return <>{children}</>;
+}
+
 function RequireBoAuth({ children }: { children: ReactNode }) {
   const { session } = useBoAuth();
   const [, navigate] = useLocation();
@@ -119,7 +131,9 @@ function Router() {
               <Route path="/analytics" component={Analytics} />
               <Route path="/salary-estimator" component={SalaryEstimator} />
               <Route path="/my-work" component={MyWork} />
-              <Route path="/job-tracker" component={JobTracker} />
+              <Route path="/job-tracker">
+                <RequireIndividual><JobTracker /></RequireIndividual>
+              </Route>
               <Route component={NotFound} />
             </Switch>
           </Layout>

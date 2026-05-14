@@ -537,10 +537,11 @@ export function Layout({ children }: LayoutProps) {
         { href: "/messaging",         label: "Messaging",    icon: MessageSquareIcon  },
       ]
     : [
-        { href: "/feed",      label: "Home",      icon: HomeIcon        },
-        { href: "/profiles",  label: "Network",   icon: UsersIcon       },
-        { href: "/jobs",      label: "Jobs",       icon: BriefcaseIcon   },
-        { href: "/messaging", label: "Messaging", icon: MessageSquareIcon },
+        { href: "/feed",         label: "Home",        icon: HomeIcon           },
+        { href: "/profiles",     label: "Network",     icon: UsersIcon          },
+        { href: "/jobs",         label: "Jobs",        icon: BriefcaseIcon      },
+        { href: "/job-tracker",  label: "Job Tracker", icon: KanbanSquareIcon   },
+        { href: "/messaging",    label: "Messaging",   icon: MessageSquareIcon  },
       ];
 
   return (

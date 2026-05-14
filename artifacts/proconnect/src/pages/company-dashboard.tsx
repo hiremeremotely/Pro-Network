@@ -1641,6 +1641,7 @@ export default function CompanyDashboard() {
   const [monthlySummary, setMonthlySummary] = useState<Array<{ employeeId: number; role: string; hoursLogged: number; daysOff: number }>>([]);
   const [reviewingTOR, setReviewingTOR] = useState<number | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<number | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (user && user.accountType !== "company") navigate("/feed");

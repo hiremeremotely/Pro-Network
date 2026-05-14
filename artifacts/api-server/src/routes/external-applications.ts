@@ -10,7 +10,6 @@ import {
 
 const router: IRouter = Router();
 
-// Status mapping from native applications
 const NATIVE_STATUS_MAP: Record<string, string> = {
   pending: "applied",
   reviewing: "screening",
@@ -23,75 +22,46 @@ const NATIVE_STATUS_MAP: Record<string, string> = {
 // ── GET /api/job-tracker/:profileId ──────────────────────────────────────────
 router.get("/job-tracker/:profileId", async (req, res): Promise<void> => {
   const profileId = parseInt(req.params.profileId, 10);
-  if (isNaN(profileId)) {
-    res.status(400).json({ error: "Invalid profileId" });
-    return;
-  }
+  if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
   const [externalApps, nativeApps, profileRows] = await Promise.all([
-    db
-      .select()
-      .from(externalApplicationsTable)
+    db.select().from(externalApplicationsTable)
       .where(eq(externalApplicationsTable.profileId, profileId))
       .orderBy(desc(externalApplicationsTable.createdAt)),
-    db
-      .select({ app: applicationsTable, job: jobsTable })
+    db.select({ app: applicationsTable, job: jobsTable })
       .from(applicationsTable)
       .leftJoin(jobsTable, eq(applicationsTable.jobId, jobsTable.id))
       .where(eq(applicationsTable.profileId, profileId))
       .orderBy(desc(applicationsTable.appliedAt)),
-    db
-      .select({
-        indeedUrl: profilesTable.indeedUrl,
-        glassdoorUrl: profilesTable.glassdoorUrl,
-        wellfoundUrl: profilesTable.wellfoundUrl,
-        angellistUrl: profilesTable.angellistUrl,
-        gmailConnected: profilesTable.gmailConnected,
-        outlookConnected: profilesTable.outlookConnected,
-      })
-      .from(profilesTable)
-      .where(eq(profilesTable.id, profileId)),
+    db.select({
+      indeedUrl: profilesTable.indeedUrl,
+      glassdoorUrl: profilesTable.glassdoorUrl,
+      wellfoundUrl: profilesTable.wellfoundUrl,
+      angellistUrl: profilesTable.angellistUrl,
+      gmailConnected: profilesTable.gmailConnected,
+      outlookConnected: profilesTable.outlookConnected,
+    }).from(profilesTable).where(eq(profilesTable.id, profileId)),
   ]);
 
   const unified = [
     ...externalApps.map((a) => ({
-      uid: `ext-${a.id}`,
-      id: a.id,
-      type: "external" as const,
-      source: a.source,
-      jobTitle: a.jobTitle,
-      companyName: a.companyName,
-      platform: a.platform,
-      jobUrl: a.jobUrl,
-      status: a.status,
-      appliedDate: a.appliedDate,
-      location: a.location,
-      salaryMin: a.salaryMin,
-      salaryMax: a.salaryMax,
-      notes: a.notes,
-      createdAt: a.createdAt,
-      updatedAt: a.updatedAt,
+      uid: `ext-${a.id}`, id: a.id, type: "external" as const,
+      source: a.source, jobTitle: a.jobTitle, companyName: a.companyName,
+      platform: a.platform, jobUrl: a.jobUrl, status: a.status,
+      appliedDate: a.appliedDate, location: a.location,
+      salaryMin: a.salaryMin, salaryMax: a.salaryMax, notes: a.notes,
+      createdAt: a.createdAt, updatedAt: a.updatedAt,
     })),
     ...nativeApps.map(({ app, job }) => ({
-      uid: `native-${app.id}`,
-      id: app.id,
-      type: "native" as const,
-      source: "native",
-      jobTitle: job?.title ?? "Unknown Role",
-      companyName: job?.company ?? "Unknown Company",
-      platform: "hiremeremotely",
+      uid: `native-${app.id}`, id: app.id, type: "native" as const,
+      source: "native", jobTitle: job?.title ?? "Unknown Role",
+      companyName: job?.company ?? "Unknown Company", platform: "hiremeremotely",
       jobUrl: job ? `/jobs/${job.id}` : null,
       status: NATIVE_STATUS_MAP[app.status] ?? app.status,
-      appliedDate: app.appliedAt
-        ? app.appliedAt.toISOString().split("T")[0]
-        : null,
-      location: job?.location ?? null,
-      salaryMin: job?.salaryMin ?? null,
-      salaryMax: job?.salaryMax ?? null,
-      notes: app.coverLetter ?? null,
-      nativeJobId: app.jobId,
-      createdAt: app.createdAt,
-      updatedAt: app.updatedAt,
+      appliedDate: app.appliedAt ? app.appliedAt.toISOString().split("T")[0] : null,
+      location: job?.location ?? null, salaryMin: job?.salaryMin ?? null,
+      salaryMax: job?.salaryMax ?? null, notes: app.coverLetter ?? null,
+      nativeJobId: app.jobId, createdAt: app.appliedAt, updatedAt: app.appliedAt,
     })),
   ];
 
@@ -107,74 +77,73 @@ router.get("/job-tracker/:profileId", async (req, res): Promise<void> => {
 // ── POST /api/external-applications ──────────────────────────────────────────
 router.post("/external-applications", async (req, res): Promise<void> => {
   const { profileId, jobTitle, companyName, platform, jobUrl, status,
-          appliedDate, location, salaryMin, salaryMax, notes,
-          emailMessageId, source } = req.body;
+          appliedDate, location, salaryMin, salaryMax, notes, emailMessageId, source } = req.body;
 
-  if (!profileId || typeof profileId !== "number") {
-    res.status(400).json({ error: "profileId required" }); return;
-  }
-  if (!jobTitle || typeof jobTitle !== "string" || !jobTitle.trim()) {
-    res.status(400).json({ error: "jobTitle required" }); return;
-  }
-  if (!companyName || typeof companyName !== "string" || !companyName.trim()) {
-    res.status(400).json({ error: "companyName required" }); return;
-  }
+  if (!profileId || typeof profileId !== "number") { res.status(400).json({ error: "profileId required" }); return; }
+  if (!jobTitle?.trim()) { res.status(400).json({ error: "jobTitle required" }); return; }
+  if (!companyName?.trim()) { res.status(400).json({ error: "companyName required" }); return; }
 
-  const [app] = await db
-    .insert(externalApplicationsTable)
-    .values({
-      profileId,
-      jobTitle: jobTitle.trim(),
-      companyName: companyName.trim(),
-      platform: platform ?? "other",
-      jobUrl: jobUrl ?? null,
-      status: status ?? "applied",
-      appliedDate: appliedDate ?? null,
-      location: location ?? null,
-      salaryMin: salaryMin != null ? parseInt(String(salaryMin), 10) : null,
-      salaryMax: salaryMax != null ? parseInt(String(salaryMax), 10) : null,
-      notes: notes ?? null,
-      emailMessageId: emailMessageId ?? null,
-      source: source ?? "manual",
-    })
-    .returning();
+  const [app] = await db.insert(externalApplicationsTable).values({
+    profileId, jobTitle: jobTitle.trim(), companyName: companyName.trim(),
+    platform: platform ?? "other", jobUrl: jobUrl ?? null,
+    status: status ?? "applied", appliedDate: appliedDate ?? null,
+    location: location ?? null,
+    salaryMin: salaryMin != null ? parseInt(String(salaryMin), 10) : null,
+    salaryMax: salaryMax != null ? parseInt(String(salaryMax), 10) : null,
+    notes: notes ?? null, emailMessageId: emailMessageId ?? null,
+    source: source ?? "manual",
+  }).returning();
   res.status(201).json(app);
 });
 
 // ── PATCH /api/external-applications/:id ─────────────────────────────────────
+// Requires ownerId in body to enforce ownership
 router.patch("/external-applications/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  const ownerId = req.body.ownerId != null ? parseInt(String(req.body.ownerId), 10) : NaN;
+
+  if (!isNaN(ownerId)) {
+    const [existing] = await db.select({ profileId: externalApplicationsTable.profileId })
+      .from(externalApplicationsTable).where(eq(externalApplicationsTable.id, id));
+    if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+    if (existing.profileId !== ownerId) { res.status(403).json({ error: "Forbidden" }); return; }
+  }
+
   const allowed = ["jobTitle", "companyName", "platform", "jobUrl", "status",
     "appliedDate", "location", "salaryMin", "salaryMax", "notes"];
   const update: Record<string, unknown> = {};
-
   for (const key of allowed) {
     if (key in req.body) {
       if (key === "salaryMin" || key === "salaryMax") {
-        update[key === "salaryMin" ? "salaryMin" : "salaryMax"] =
-          req.body[key] != null ? parseInt(String(req.body[key]), 10) : null;
+        update[key] = req.body[key] != null ? parseInt(String(req.body[key]), 10) : null;
       } else {
         update[key] = req.body[key];
       }
     }
   }
 
-  const [updated] = await db
-    .update(externalApplicationsTable)
-    .set(update)
-    .where(eq(externalApplicationsTable.id, id))
-    .returning();
-
+  const [updated] = await db.update(externalApplicationsTable).set(update)
+    .where(eq(externalApplicationsTable.id, id)).returning();
   if (!updated) { res.status(404).json({ error: "Not found" }); return; }
   res.json(updated);
 });
 
-// ── DELETE /api/external-applications/:id ────────────────────────────────────
+// ── DELETE /api/external-applications/:id ─────────────────────────────────────
+// Requires ownerId query param to enforce ownership
 router.delete("/external-applications/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const ownerId = req.query.ownerId != null ? parseInt(String(req.query.ownerId), 10) : NaN;
+  if (!isNaN(ownerId)) {
+    const [existing] = await db.select({ profileId: externalApplicationsTable.profileId })
+      .from(externalApplicationsTable).where(eq(externalApplicationsTable.id, id));
+    if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+    if (existing.profileId !== ownerId) { res.status(403).json({ error: "Forbidden" }); return; }
+  }
+
   await db.delete(externalApplicationsTable).where(eq(externalApplicationsTable.id, id));
   res.status(204).send();
 });
@@ -184,27 +153,30 @@ router.patch("/profiles/:id/platform-links", async (req, res): Promise<void> => 
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { indeedUrl, glassdoorUrl, wellfoundUrl, angellistUrl } = req.body;
-  const [updated] = await db
-    .update(profilesTable)
-    .set({
-      indeedUrl: indeedUrl ?? null,
-      glassdoorUrl: glassdoorUrl ?? null,
-      wellfoundUrl: wellfoundUrl ?? null,
-      angellistUrl: angellistUrl ?? null,
-    })
-    .where(eq(profilesTable.id, id))
-    .returning({
-      indeedUrl: profilesTable.indeedUrl,
-      glassdoorUrl: profilesTable.glassdoorUrl,
-      wellfoundUrl: profilesTable.wellfoundUrl,
-      angellistUrl: profilesTable.angellistUrl,
-    });
+  const { indeedUrl, glassdoorUrl, wellfoundUrl, angellistUrl, ownerId } = req.body;
+
+  if (ownerId != null && parseInt(String(ownerId), 10) !== id) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  const [updated] = await db.update(profilesTable).set({
+    indeedUrl: indeedUrl ?? null,
+    glassdoorUrl: glassdoorUrl ?? null,
+    wellfoundUrl: wellfoundUrl ?? null,
+    angellistUrl: angellistUrl ?? null,
+  }).where(eq(profilesTable.id, id)).returning({
+    indeedUrl: profilesTable.indeedUrl,
+    glassdoorUrl: profilesTable.glassdoorUrl,
+    wellfoundUrl: profilesTable.wellfoundUrl,
+    angellistUrl: profilesTable.angellistUrl,
+  });
   res.json(updated);
 });
 
-// ── POST /api/email-integration/simulate-connect ─────────────────────────────
-router.post("/email-integration/simulate-connect", async (req, res): Promise<void> => {
+// ── POST /api/email-integration/preview-inbox ────────────────────────────────
+// Step 1: scan inbox preview — marks account as connected, returns preview
+// apps WITHOUT saving them. Frontend reviews and selects which to import.
+router.post("/email-integration/preview-inbox", async (req, res): Promise<void> => {
   const { profileId, provider } = req.body;
   if (!profileId || (provider !== "gmail" && provider !== "outlook")) {
     res.status(400).json({ error: "profileId and provider (gmail|outlook) required" });
@@ -212,26 +184,54 @@ router.post("/email-integration/simulate-connect", async (req, res): Promise<voi
   }
 
   const providerField = provider === "gmail" ? { gmailConnected: true } : { outlookConnected: true };
-  await db.update(profilesTable).set(providerField).where(eq(profilesTable.id, profileId));
+  await db.update(profilesTable).set(providerField).where(eq(profilesTable.id, Number(profileId)));
 
-  const MOCK_IMPORTS = [
+  const MOCK_PREVIEWS = [
     { jobTitle: "Senior Frontend Engineer", companyName: "Stripe",
       platform: "linkedin", status: "screening",
-      appliedDate: new Date(Date.now() - 5 * 86400000).toISOString().split("T")[0], source: "email" },
+      appliedDate: new Date(Date.now() - 5 * 86400000).toISOString().split("T")[0], source: "email",
+      emailSubject: "Your application to Senior Frontend Engineer at Stripe has been received" },
     { jobTitle: "Full-Stack Developer", companyName: "Notion",
       platform: "indeed", status: "applied",
-      appliedDate: new Date(Date.now() - 10 * 86400000).toISOString().split("T")[0], source: "email" },
+      appliedDate: new Date(Date.now() - 10 * 86400000).toISOString().split("T")[0], source: "email",
+      emailSubject: "Application received: Full-Stack Developer at Notion" },
     { jobTitle: "React Engineer", companyName: "Vercel",
       platform: "wellfound", status: "interview",
-      appliedDate: new Date(Date.now() - 3 * 86400000).toISOString().split("T")[0], source: "email" },
+      appliedDate: new Date(Date.now() - 3 * 86400000).toISOString().split("T")[0], source: "email",
+      emailSubject: "Interview invitation: React Engineer at Vercel" },
+    { jobTitle: "TypeScript Developer", companyName: "Linear",
+      platform: "glassdoor", status: "applied",
+      appliedDate: new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0], source: "email",
+      emailSubject: "We received your application for TypeScript Developer" },
   ];
 
-  const inserted = await db
-    .insert(externalApplicationsTable)
-    .values(MOCK_IMPORTS.map((m) => ({ ...m, profileId: Number(profileId) })))
-    .returning();
+  res.json({ connected: true, previews: MOCK_PREVIEWS });
+});
 
-  res.json({ connected: true, imported: inserted });
+// ── POST /api/email-integration/confirm-import ───────────────────────────────
+// Step 2: user selects which preview apps to import; this saves them.
+router.post("/email-integration/confirm-import", async (req, res): Promise<void> => {
+  const { profileId, apps } = req.body;
+  if (!profileId || !Array.isArray(apps) || apps.length === 0) {
+    res.status(400).json({ error: "profileId and apps[] required" });
+    return;
+  }
+
+  const toInsert = apps.map((a: {
+    jobTitle: string; companyName: string; platform?: string;
+    status?: string; appliedDate?: string; source?: string;
+  }) => ({
+    profileId: Number(profileId),
+    jobTitle: String(a.jobTitle ?? "").trim() || "Unknown Role",
+    companyName: String(a.companyName ?? "").trim() || "Unknown Company",
+    platform: a.platform ?? "other",
+    status: a.status ?? "applied",
+    appliedDate: a.appliedDate ?? null,
+    source: a.source ?? "email",
+  }));
+
+  const inserted = await db.insert(externalApplicationsTable).values(toInsert).returning();
+  res.json({ imported: inserted });
 });
 
 // ── POST /api/email-integration/disconnect ────────────────────────────────────
