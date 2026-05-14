@@ -1948,10 +1948,10 @@ export default function CompanyDashboard() {
         {/* ── Stat Cards ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: "Open Roles",    value: myJobs.length,           icon: BriefcaseIcon,     color: "text-primary",  bg: "bg-primary/10",   tab: "hiring"     },
-            { label: "Applicants",    value: companyApps.filter(a => a.status === "pending").length, icon: ClipboardListIcon, color: "text-yellow-600", bg: "bg-yellow-50",   tab: "hiring"     },
-            { label: "Team Members",  value: employees.length,        icon: UsersIcon,         color: "text-green-600",bg: "bg-green-50",     tab: "team"       },
-            { label: "Onboarding",    value: Object.values(onboardingProgress).filter(p => p.total > 0 && p.completed < p.total).length, icon: GraduationCapIcon, color: "text-indigo-600", bg: "bg-indigo-50", tab: "onboarding" },
+            { label: "Total Employees",      value: employees.length,           icon: UsersIcon,         color: "text-green-600",  bg: "bg-green-50",    tab: "team"       },
+            { label: "Open Roles",           value: myJobs.length,              icon: BriefcaseIcon,     color: "text-primary",    bg: "bg-primary/10",  tab: "hiring"     },
+            { label: "Pending Offers",        value: companyApps.filter(a => a.status === "offer").length, icon: ClipboardListIcon, color: "text-yellow-600", bg: "bg-yellow-50", tab: "hiring"  },
+            { label: "Onboarding in Progress", value: Object.values(onboardingProgress).filter(p => p.total > 0 && p.completed < p.total).length, icon: GraduationCapIcon, color: "text-indigo-600", bg: "bg-indigo-50", tab: "onboarding" },
           ].map(({ label, value, icon: Icon, color, bg, tab }) => (
             <button
               key={label}
@@ -2941,6 +2941,24 @@ export default function CompanyDashboard() {
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* Salary Estimator CTA */}
+              <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-xl p-5 text-white">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
+                    <BarChart2Icon className="w-4 h-4 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-sm">Salary Estimator</h3>
+                </div>
+                <p className="text-xs text-indigo-200 mb-4 leading-relaxed">
+                  Benchmark compensation for any role. Get market rates by title, location, and experience.
+                </p>
+                <Link href="/salary-estimator">
+                  <Button size="sm" className="w-full bg-white text-indigo-700 hover:bg-indigo-50 font-semibold text-xs h-8 rounded-lg gap-1.5">
+                    Open Estimator <ArrowRightIcon className="w-3 h-3" />
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>
