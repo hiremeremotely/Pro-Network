@@ -9,7 +9,7 @@ function hashPassword(password: string): string {
   return createHash("sha256").update(password + "hmr_salt_2026").digest("hex");
 }
 
-function getSessionSecret(): string {
+export function getSessionSecret(): string {
   const secret = process.env.SESSION_SECRET;
   if (!secret) throw new Error("SESSION_SECRET environment variable is required but not set");
   return secret;

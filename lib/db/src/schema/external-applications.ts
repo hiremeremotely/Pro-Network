@@ -1,7 +1,12 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { profilesTable } from "./profiles";
+
+export interface StatusHistoryEntry {
+  status: string;
+  date: string;
+}
 
 export const externalApplicationsTable = pgTable("external_applications", {
   id: serial("id").primaryKey(),
@@ -18,6 +23,7 @@ export const externalApplicationsTable = pgTable("external_applications", {
   notes: text("notes"),
   emailMessageId: text("email_message_id"),
   source: text("source").notNull().default("manual"),
+  statusHistory: jsonb("status_history").$type<StatusHistoryEntry[]>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

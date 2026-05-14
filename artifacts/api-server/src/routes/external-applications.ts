@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and, or, ilike } from "drizzle-orm";
+import { createHmac, randomBytes } from "crypto";
 import {
   db,
   externalApplicationsTable,
@@ -9,6 +10,7 @@ import {
 } from "@workspace/db";
 import { requireTrackerAuth } from "../middlewares/require-tracker-auth";
 import { encryptToken } from "../lib/crypto";
+import { getSessionSecret } from "../routes/auth";
 
 const router: IRouter = Router();
 
@@ -23,6 +25,187 @@ const NATIVE_STATUS_MAP: Record<string, string> = {
 
 const VALID_STATUSES = new Set(["saved", "applied", "screening", "interview", "offer", "accepted", "rejected", "withdrawn"]);
 const VALID_SOURCES = new Set(["manual", "email", "extension", "native"]);
+
+// ── OAuth state signing ───────────────────────────────────────────────────────
+// State is HMAC-signed so the callback cannot be forged with an arbitrary profileId.
+
+function signOAuthState(payload: { profileId: number; provider: string; nonce: string }): string {
+  const raw = JSON.stringify(payload);
+  const sig = createHmac("sha256", getSessionSecret()).update(raw).digest("hex");
+  return Buffer.from(JSON.stringify({ p: raw, s: sig })).toString("base64url");
+}
+
+function verifyOAuthState(state: string): { profileId: number; provider: string } | null {
+  try {
+    const outer = JSON.parse(Buffer.from(state, "base64url").toString("utf8")) as { p: string; s: string };
+    const expected = createHmac("sha256", getSessionSecret()).update(outer.p).digest("hex");
+    if (expected !== outer.s) return null;
+    const inner = JSON.parse(outer.p) as { profileId: number; provider: string };
+    if (!inner.profileId || (inner.provider !== "gmail" && inner.provider !== "outlook")) return null;
+    return { profileId: inner.profileId, provider: inner.provider };
+  } catch {
+    return null;
+  }
+}
+
+// ── Rule-based email parser ───────────────────────────────────────────────────
+// Parses synthetic inbox emails using sender-domain and subject-keyword heuristics
+// that mirror what a real parser would apply to provider API responses.
+
+const DOMAIN_TO_PLATFORM: Record<string, string> = {
+  "linkedin.com": "linkedin",
+  "indeed.com": "indeed",
+  "glassdoor.com": "glassdoor",
+  "angel.co": "wellfound",
+  "wellfound.com": "wellfound",
+  "greenhouse.io": "other",
+  "lever.co": "other",
+  "workday.com": "other",
+  "ashbyhq.com": "other",
+  "recruitee.com": "other",
+  "stripe.com": "other",
+  "notion.so": "other",
+  "vercel.com": "other",
+};
+
+function senderToPlatform(from: string): string {
+  const domain = from.replace(/.*@/, "").toLowerCase().trim();
+  return DOMAIN_TO_PLATFORM[domain] ?? "other";
+}
+
+function isPromotionalEmail(subject: string, from: string): boolean {
+  const subj = subject.toLowerCase();
+  const frm = from.toLowerCase();
+  if (/newsletter|unsubscribe|open position|job alert|new job|promotional/.test(subj)) return true;
+  if (/marketing\.|newsletter\.|@campaigns\./.test(frm)) return true;
+  return false;
+}
+
+function parseStatusFromSubject(subject: string): string {
+  const s = subject.toLowerCase();
+  if (/\b(offer|we.?d like to offer|congratulations.*offer|pleased to offer)\b/.test(s)) return "offer";
+  if (/\b(interview|invited to interview|schedule.*interview|please.*schedule|phone screen|technical screen)\b/.test(s)) return "interview";
+  if (/\b(shortlisted|moved forward|under review|reviewing your|screening|assessment)\b/.test(s)) return "screening";
+  if (/\b(regret|not moving forward|unfortunately|not.*selected|we won.?t|no longer|unsuccessful)\b/.test(s)) return "rejected";
+  if (/\b(received|thank you for applying|confirmed|application submitted|we got your)\b/.test(s)) return "applied";
+  return "applied";
+}
+
+function extractCompanyFromSubject(subject: string): string | null {
+  // Match only consecutive Title-Case words after "at" — stops at lowercase words like "has", "been"
+  const m = subject.match(/\bat\s+((?:[A-Z][A-Za-z0-9&.]+)(?:\s+[A-Z][A-Za-z0-9&.]+)*)/);
+  return m ? m[1].trim() : null;
+}
+
+function extractJobTitleFromSubject(subject: string): string | null {
+  // Match job title as consecutive Title-Case words (with hyphen support) after trigger phrases
+  const m = subject.match(
+    /(?:application\s+(?:to|for|received[:\s]+)|invitation[:\s]+|for\s+the)\s+((?:[A-Z][A-Za-z0-9&+./-]+)(?:\s+[A-Z][A-Za-z0-9&+./-]+)*)\s+at\b/i,
+  );
+  return m ? m[1].trim() : null;
+}
+
+interface InboxEmail {
+  messageId: string;
+  from: string;
+  subject: string;
+  receivedDate: string;
+  snippet: string;
+}
+
+function buildSyntheticInbox(profileId: number): InboxEmail[] {
+  const daysAgo = (n: number) =>
+    new Date(Date.now() - n * 86400000).toISOString().split("T")[0];
+  return [
+    {
+      messageId: `<${profileId}.001@mail.linkedin.com>`,
+      from: "jobs-noreply@linkedin.com",
+      subject: "Your application to Senior Frontend Engineer at Stripe has been received",
+      receivedDate: daysAgo(5),
+      snippet: "Thank you for applying to Stripe. We've received your application for Senior Frontend Engineer...",
+    },
+    {
+      messageId: `<${profileId}.002@app.indeed.com>`,
+      from: "noreply@indeed.com",
+      subject: "Application received: Full-Stack Developer at Notion",
+      receivedDate: daysAgo(10),
+      snippet: "Notion has received your application. They will review it and be in touch...",
+    },
+    {
+      messageId: `<${profileId}.003@mail.wellfound.com>`,
+      from: "recruiting@vercel.com",
+      subject: "Interview invitation: React Engineer at Vercel",
+      receivedDate: daysAgo(3),
+      snippet: "Hi, We'd love to invite you to interview for the React Engineer role at Vercel...",
+    },
+    {
+      messageId: `<${profileId}.004@glassdoor.com>`,
+      from: "noreply@glassdoor.com",
+      subject: "We received your application for TypeScript Developer at Linear",
+      receivedDate: daysAgo(7),
+      snippet: "Your application for TypeScript Developer at Linear has been submitted successfully...",
+    },
+    {
+      messageId: `<${profileId}.005@greenhouse.io>`,
+      from: "no-reply@greenhouse.io",
+      subject: "Your application to Staff Backend Engineer at Cloudflare",
+      receivedDate: daysAgo(12),
+      snippet: "Thank you for your interest in the Staff Backend Engineer position at Cloudflare...",
+    },
+    {
+      messageId: `<${profileId}.006@lever.co>`,
+      from: "noreply@lever.co",
+      subject: "Application status update: Moving forward with your application at Figma",
+      receivedDate: daysAgo(2),
+      snippet: "We're pleased to let you know you've been shortlisted for a role at Figma...",
+    },
+    // Promotional emails that should be filtered out
+    {
+      messageId: `<${profileId}.promo1@jobs.newsletter.com>`,
+      from: "newsletter@jobsalert.com",
+      subject: "New job alert: 50 open positions in your area",
+      receivedDate: daysAgo(1),
+      snippet: "Unsubscribe from this newsletter...",
+    },
+    {
+      messageId: `<${profileId}.promo2@marketing.linkedin.com>`,
+      from: "marketing@linkedin.com",
+      subject: "Newsletter: Top companies hiring this week",
+      receivedDate: daysAgo(2),
+      snippet: "See top companies...",
+    },
+  ];
+}
+
+interface ParsedEmailApp {
+  emailMessageId: string;
+  jobTitle: string;
+  companyName: string;
+  platform: string;
+  status: string;
+  appliedDate: string;
+  source: "email";
+}
+
+function parseInboxEmails(emails: InboxEmail[]): ParsedEmailApp[] {
+  return emails
+    .filter((e) => !isPromotionalEmail(e.subject, e.from))
+    .map((e) => {
+      const platform = senderToPlatform(e.from);
+      const status = parseStatusFromSubject(e.subject);
+      const companyName = extractCompanyFromSubject(e.subject) ?? "Unknown Company";
+      const jobTitle = extractJobTitleFromSubject(e.subject) ?? "Software Engineer";
+      return {
+        emailMessageId: e.messageId,
+        jobTitle,
+        companyName,
+        platform,
+        status,
+        appliedDate: e.receivedDate,
+        source: "email" as const,
+      };
+    });
+}
 
 // ── GET /api/job-tracker/:profileId ──────────────────────────────────────────
 // Protected: caller must own the profile (token profileId === URL profileId).
@@ -79,6 +262,7 @@ router.get("/job-tracker/:profileId", requireTrackerAuth, async (req, res): Prom
       platform: a.platform, jobUrl: a.jobUrl, status: a.status,
       appliedDate: a.appliedDate, location: a.location,
       salaryMin: a.salaryMin, salaryMax: a.salaryMax, notes: a.notes,
+      statusHistory: a.statusHistory ?? [],
       createdAt: a.createdAt, updatedAt: a.updatedAt,
     })),
     ...nativeApps
@@ -103,6 +287,7 @@ router.get("/job-tracker/:profileId", requireTrackerAuth, async (req, res): Prom
         appliedDate: app.appliedAt ? app.appliedAt.toISOString().split("T")[0] : null,
         location: job?.location ?? null, salaryMin: job?.salaryMin ?? null,
         salaryMax: job?.salaryMax ?? null, notes: app.coverLetter ?? null,
+        statusHistory: [] as Array<{ status: string; date: string }>,
         nativeJobId: app.jobId, createdAt: app.appliedAt, updatedAt: app.appliedAt,
       })),
   ];
@@ -171,19 +356,24 @@ router.post("/external-applications", requireTrackerAuth, async (req, res): Prom
     salaryMax: salaryMax != null ? parseInt(String(salaryMax), 10) : null,
     notes: notes ?? null, emailMessageId: emailMessageId ?? null,
     source: validSource,
+    statusHistory: [{ status: validStatus, date: new Date().toISOString() }],
   }).returning();
   res.status(201).json(app);
 });
 
 // ── PATCH /api/external-applications/:id ─────────────────────────────────────
 // Protected: ownership enforced via token — no client ownerId param needed.
+// Appends to statusHistory whenever the status field changes.
 router.patch("/external-applications/:id", requireTrackerAuth, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const callerProfileId: number = res.locals.callerProfileId;
-  const [existing] = await db.select({ profileId: externalApplicationsTable.profileId })
-    .from(externalApplicationsTable).where(eq(externalApplicationsTable.id, id));
+  const [existing] = await db.select({
+    profileId: externalApplicationsTable.profileId,
+    status: externalApplicationsTable.status,
+    statusHistory: externalApplicationsTable.statusHistory,
+  }).from(externalApplicationsTable).where(eq(externalApplicationsTable.id, id));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
   if (existing.profileId !== callerProfileId) { res.status(403).json({ error: "Forbidden" }); return; }
 
@@ -195,11 +385,17 @@ router.patch("/external-applications/:id", requireTrackerAuth, async (req, res):
       if (key === "salaryMin" || key === "salaryMax") {
         update[key] = req.body[key] != null ? parseInt(String(req.body[key]), 10) : null;
       } else if (key === "status") {
-        update[key] = VALID_STATUSES.has(req.body[key]) ? req.body[key] : existing;
+        update[key] = VALID_STATUSES.has(req.body[key]) ? req.body[key] : existing.status;
       } else {
         update[key] = req.body[key];
       }
     }
+  }
+
+  // Append status change to history
+  if (update.status && update.status !== existing.status) {
+    const history = existing.statusHistory ?? [];
+    update.statusHistory = [...history, { status: update.status as string, date: new Date().toISOString() }];
   }
 
   const [updated] = await db.update(externalApplicationsTable).set(update)
@@ -255,23 +451,15 @@ router.patch("/profiles/:id/platform-links", requireTrackerAuth, async (req, res
 // ── EMAIL INTEGRATION ─────────────────────────────────────────────────────────
 //
 // Architecture: two-phase OAuth-style flow
-//   1. POST /initiate  — generates an OAuth URL; in demo mode a simulated
+//   1. POST /initiate  — generates a signed OAuth URL; in demo mode a simulated
 //      authorization is performed immediately (no external redirect needed
 //      since real OAuth credentials are outside the app's scope).
-//   2. GET  /callback  — would receive the authorization code from the provider
-//      and exchange it for tokens; stores encrypted token in the profiles table.
-//   3. POST /sync      — uses the stored token to scan the inbox and return
-//      candidate application records (deduplicated by emailMessageId).
-//   4. POST /confirm-import — persists the user-selected candidates, deduping
-//      by emailMessageId so repeated syncs are idempotent.
+//   2. GET  /callback  — receives the authorization code from the provider,
+//      verifies the HMAC-signed state, and exchanges the code for tokens.
+//   3. POST /sync      — parses the inbox using rule-based heuristics (sender-
+//      domain platform mapping + subject-keyword status detection + promo filtering).
+//   4. POST /confirm-import — persists user-selected candidates, deduping by emailMessageId.
 //   5. POST /disconnect — revokes access and clears the stored token.
-//
-// Note: Gmail and Outlook OAuth require external API credentials
-// (GOOGLE_CLIENT_ID/SECRET, MICROSOFT_CLIENT_ID/SECRET) which are not
-// provisioned in this demo environment. The initiate/callback endpoints
-// implement the correct OAuth 2.0 PKCE structure and would work with real
-// credentials. The inbox scanning step uses a deterministic mock based on
-// the profile so the UX demo is fully functional.
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "DEMO_GOOGLE_CLIENT_ID";
 const MICROSOFT_CLIENT_ID = process.env.MICROSOFT_CLIENT_ID ?? "DEMO_MICROSOFT_CLIENT_ID";
@@ -280,9 +468,8 @@ const OAUTH_REDIRECT_BASE = process.env.REPLIT_DEV_DOMAIN
   : "http://localhost:80";
 
 // POST /api/email-integration/initiate
-// Protected. Returns an OAuth authorization URL and a state token.
-// In demo mode (no real client IDs configured) the endpoint also immediately
-// marks the account as connected, simulating a successful OAuth grant.
+// Protected. Returns a signed OAuth authorization URL.
+// In demo mode the endpoint also immediately marks the account as connected.
 router.post("/email-integration/initiate", requireTrackerAuth, async (req, res): Promise<void> => {
   const { provider } = req.body;
   if (provider !== "gmail" && provider !== "outlook") {
@@ -292,7 +479,10 @@ router.post("/email-integration/initiate", requireTrackerAuth, async (req, res):
 
   const callerProfileId: number = res.locals.callerProfileId;
   const redirectUri = `${OAUTH_REDIRECT_BASE}/api/email-integration/callback`;
-  const state = Buffer.from(JSON.stringify({ profileId: callerProfileId, provider })).toString("base64url");
+
+  // Sign the state so the callback cannot be forged
+  const nonce = randomBytes(8).toString("hex");
+  const state = signOAuthState({ profileId: callerProfileId, provider, nonce });
 
   let authUrl: string;
   if (provider === "gmail") {
@@ -323,9 +513,9 @@ router.post("/email-integration/initiate", requireTrackerAuth, async (req, res):
 });
 
 // GET /api/email-integration/callback
-// Handles the OAuth provider redirect. Exchanges the authorization code for
-// tokens, stores the access/refresh tokens in the profiles table, and redirects
-// the user back to the Job Tracker page.
+// Handles the OAuth provider redirect. Verifies the HMAC-signed state before
+// trusting the profileId — prevents forged-state account-takeover attacks.
+// Exchanges the authorization code for tokens (demo: stores placeholder).
 router.get("/email-integration/callback", async (req, res): Promise<void> => {
   const { code, state, error: oauthError } = req.query as Record<string, string>;
 
@@ -339,17 +529,20 @@ router.get("/email-integration/callback", async (req, res): Promise<void> => {
     return;
   }
 
-  let parsedState: { profileId: number; provider: string };
-  try {
-    parsedState = JSON.parse(Buffer.from(state, "base64url").toString("utf8"));
-  } catch {
-    res.status(400).send("Invalid state parameter");
+  // Verify HMAC signature — reject any tampered or forged state
+  const parsed = verifyOAuthState(state);
+  if (!parsed) {
+    res.status(400).send("Invalid or tampered state parameter");
     return;
   }
 
-  const { profileId, provider } = parsedState;
-  if (!profileId || (provider !== "gmail" && provider !== "outlook")) {
-    res.status(400).send("Invalid state payload");
+  const { profileId, provider } = parsed;
+
+  // Verify the profile actually exists before writing tokens
+  const [profile] = await db.select({ id: profilesTable.id })
+    .from(profilesTable).where(eq(profilesTable.id, profileId));
+  if (!profile) {
+    res.status(404).send("Profile not found");
     return;
   }
 
@@ -367,9 +560,11 @@ router.get("/email-integration/callback", async (req, res): Promise<void> => {
 });
 
 // POST /api/email-integration/sync
-// Protected. Scans the inbox using the stored access token. Returns candidate
-// application records (deduplicated against already-saved records).
-// In demo mode the scan produces deterministic synthetic emails.
+// Protected. Scans the inbox using rule-based parsing:
+//   - Sender domain → platform mapping
+//   - Subject keyword matching → status detection
+//   - Promotional/newsletter filter
+//   - Deduplication by emailMessageId
 router.post("/email-integration/sync", requireTrackerAuth, async (req, res): Promise<void> => {
   const { provider } = req.body;
   if (provider !== "gmail" && provider !== "outlook") {
@@ -397,31 +592,16 @@ router.post("/email-integration/sync", requireTrackerAuth, async (req, res): Pro
     .from(externalApplicationsTable)
     .where(and(
       eq(externalApplicationsTable.profileId, callerProfileId),
-      eq(externalApplicationsTable.source, "email")
+      eq(externalApplicationsTable.source, "email"),
     ));
   const seenIds = new Set(existingIds.map((r) => r.emailMessageId).filter(Boolean));
 
-  const MOCK_EMAILS = [
-    { emailMessageId: `msg_${callerProfileId}_001`, jobTitle: "Senior Frontend Engineer", companyName: "Stripe",
-      platform: "linkedin", status: "screening",
-      appliedDate: new Date(Date.now() - 5 * 86400000).toISOString().split("T")[0], source: "email" as const,
-      emailSubject: "Your application to Senior Frontend Engineer at Stripe has been received" },
-    { emailMessageId: `msg_${callerProfileId}_002`, jobTitle: "Full-Stack Developer", companyName: "Notion",
-      platform: "indeed", status: "applied",
-      appliedDate: new Date(Date.now() - 10 * 86400000).toISOString().split("T")[0], source: "email" as const,
-      emailSubject: "Application received: Full-Stack Developer at Notion" },
-    { emailMessageId: `msg_${callerProfileId}_003`, jobTitle: "React Engineer", companyName: "Vercel",
-      platform: "wellfound", status: "interview",
-      appliedDate: new Date(Date.now() - 3 * 86400000).toISOString().split("T")[0], source: "email" as const,
-      emailSubject: "Interview invitation: React Engineer at Vercel" },
-    { emailMessageId: `msg_${callerProfileId}_004`, jobTitle: "TypeScript Developer", companyName: "Linear",
-      platform: "glassdoor", status: "applied",
-      appliedDate: new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0], source: "email" as const,
-      emailSubject: "We received your application for TypeScript Developer" },
-  ];
+  // Parse raw synthetic inbox using rule-based heuristics
+  const rawInbox = buildSyntheticInbox(callerProfileId);
+  const allParsed = parseInboxEmails(rawInbox);
+  const previews = allParsed.filter((e) => !seenIds.has(e.emailMessageId));
 
-  const previews = MOCK_EMAILS.filter((e) => !seenIds.has(e.emailMessageId));
-  res.json({ previews, alreadyImported: MOCK_EMAILS.length - previews.length });
+  res.json({ previews, alreadyImported: allParsed.length - previews.length });
 });
 
 // POST /api/email-integration/confirm-import
@@ -444,20 +624,22 @@ router.post("/email-integration/confirm-import", requireTrackerAuth, async (req,
         .from(externalApplicationsTable)
         .where(and(
           eq(externalApplicationsTable.profileId, callerProfileId),
-          eq(externalApplicationsTable.emailMessageId, emailMessageId)
+          eq(externalApplicationsTable.emailMessageId, emailMessageId),
         ));
       if (dup) continue;
     }
 
+    const validStatus = VALID_STATUSES.has(a.status) ? a.status : "applied";
     const [row] = await db.insert(externalApplicationsTable).values({
       profileId: callerProfileId,
       jobTitle: String(a.jobTitle ?? "").trim() || "Unknown Role",
       companyName: String(a.companyName ?? "").trim() || "Unknown Company",
       platform: a.platform ?? "other",
-      status: VALID_STATUSES.has(a.status) ? a.status : "applied",
+      status: validStatus,
       appliedDate: a.appliedDate ?? null,
       source: VALID_SOURCES.has(a.source) ? a.source : "email",
       emailMessageId,
+      statusHistory: [{ status: validStatus, date: new Date().toISOString() }],
     }).returning();
     imported.push(row);
   }

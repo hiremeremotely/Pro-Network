@@ -28,11 +28,17 @@ const BASE = import.meta.env.BASE_URL;
 // ── Types ─────────────────────────────────────────────────────────────────────
 type AppStatus = "saved" | "applied" | "screening" | "interview" | "offer" | "accepted" | "rejected";
 
+interface StatusHistoryEntry {
+  status: string;
+  date: string;
+}
+
 interface TrackedApp {
   uid: string; id: number; type: "external" | "native"; source: string;
   jobTitle: string; companyName: string; platform: string; jobUrl?: string | null;
   status: string; appliedDate?: string | null; location?: string | null;
   salaryMin?: number | null; salaryMax?: number | null; notes?: string | null;
+  statusHistory?: StatusHistoryEntry[] | null;
   createdAt: string; nativeJobId?: number;
 }
 
@@ -679,6 +685,28 @@ function CardDrawer({ app, onClose, onEdit, onDelete, onStatusChange }: {
             <div>
               <p className="text-xs text-gray-400 font-semibold mb-1.5">Notes</p>
               <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed bg-gray-50 rounded-lg p-3 border border-gray-100">{app.notes}</p>
+            </div>
+          )}
+          {/* Status History Timeline */}
+          {app.statusHistory && app.statusHistory.length > 0 && (
+            <div>
+              <p className="text-xs text-gray-400 font-semibold mb-2">Status History</p>
+              <ol className="relative border-l border-gray-200 ml-2 space-y-3">
+                {app.statusHistory.map((entry, i) => {
+                  const s = STATUSES.find((x) => x.value === entry.status);
+                  return (
+                    <li key={i} className="ml-4">
+                      <span className={`absolute -left-[7px] mt-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${s?.dot ?? "bg-gray-400"}`} />
+                      <p className={`text-xs font-semibold ${s?.color ?? "text-gray-700"}`}>{s?.label ?? entry.status}</p>
+                      <p className="text-[10px] text-gray-400">{new Date(entry.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                    </li>
+                  );
+                })}
+                <li className="ml-4">
+                  <span className="absolute -left-[7px] mt-0.5 w-3.5 h-3.5 rounded-full border-2 border-white bg-gray-200" />
+                  <p className="text-xs text-gray-400">Added {formatDistanceToNow(new Date(app.createdAt), { addSuffix: true })}</p>
+                </li>
+              </ol>
             </div>
           )}
           {app.jobUrl && (
