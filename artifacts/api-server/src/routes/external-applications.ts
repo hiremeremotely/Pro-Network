@@ -58,14 +58,11 @@ const DOMAIN_TO_PLATFORM: Record<string, string> = {
   "glassdoor.com": "glassdoor",
   "angel.co": "wellfound",
   "wellfound.com": "wellfound",
-  "greenhouse.io": "other",
-  "lever.co": "other",
-  "workday.com": "other",
-  "ashbyhq.com": "other",
-  "recruitee.com": "other",
-  "stripe.com": "other",
-  "notion.so": "other",
-  "vercel.com": "other",
+  "greenhouse.io": "greenhouse",
+  "lever.co": "lever",
+  "workday.com": "workday",
+  "ashbyhq.com": "ashby",
+  "recruitee.com": "recruitee",
 };
 
 function senderToPlatform(from: string): string {
@@ -133,7 +130,7 @@ function buildSyntheticInbox(profileId: number): InboxEmail[] {
     },
     {
       messageId: `<${profileId}.003@mail.wellfound.com>`,
-      from: "recruiting@vercel.com",
+      from: "noreply@wellfound.com",
       subject: "Interview invitation: React Engineer at Vercel",
       receivedDate: daysAgo(3),
       snippet: "Hi, We'd love to invite you to interview for the React Engineer role at Vercel...",
@@ -187,8 +184,17 @@ interface ParsedEmailApp {
   source: "email";
 }
 
+const KNOWN_SENDER_DOMAINS = new Set([
+  "linkedin.com", "indeed.com", "glassdoor.com", "angel.co", "wellfound.com",
+  "greenhouse.io", "lever.co", "workday.com", "ashbyhq.com", "recruitee.com",
+]);
+
 function parseInboxEmails(emails: InboxEmail[]): ParsedEmailApp[] {
   return emails
+    .filter((e) => {
+      const domain = e.from.replace(/.*@/, "").toLowerCase().trim();
+      return KNOWN_SENDER_DOMAINS.has(domain);
+    })
     .filter((e) => !isPromotionalEmail(e.subject, e.from))
     .map((e) => {
       const platform = senderToPlatform(e.from);
@@ -449,122 +455,109 @@ router.patch("/profiles/:id/platform-links", requireTrackerAuth, async (req, res
 });
 
 // ── EMAIL INTEGRATION ─────────────────────────────────────────────────────────
-//
-// Architecture: two-phase OAuth-style flow
-//   1. POST /initiate  — generates a signed OAuth URL; in demo mode a simulated
-//      authorization is performed immediately (no external redirect needed
-//      since real OAuth credentials are outside the app's scope).
-//   2. GET  /callback  — receives the authorization code from the provider,
-//      verifies the HMAC-signed state, and exchanges the code for tokens.
-//   3. POST /sync      — parses the inbox using rule-based heuristics (sender-
-//      domain platform mapping + subject-keyword status detection + promo filtering).
-//   4. POST /confirm-import — persists user-selected candidates, deduping by emailMessageId.
-//   5. POST /disconnect — revokes access and clears the stored token.
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "DEMO_GOOGLE_CLIENT_ID";
 const MICROSOFT_CLIENT_ID = process.env.MICROSOFT_CLIENT_ID ?? "DEMO_MICROSOFT_CLIENT_ID";
 const OAUTH_REDIRECT_BASE = process.env.REPLIT_DEV_DOMAIN
   ? `https://${process.env.REPLIT_DEV_DOMAIN}`
   : "http://localhost:80";
+const IS_DEMO = GOOGLE_CLIENT_ID === "DEMO_GOOGLE_CLIENT_ID" || MICROSOFT_CLIENT_ID === "DEMO_MICROSOFT_CLIENT_ID";
+
+// GET /api/email-integration/demo-authorize
+// Serves a simulated OAuth consent screen used when real client IDs are absent.
+// The popup opens this page; the user clicks "Allow" which submits a GET to /callback
+// with a demo code, completing the popup-based connect flow.
+router.get("/email-integration/demo-authorize", (req, res): void => {
+  const { state, provider } = req.query as Record<string, string>;
+  if (!state || (provider !== "gmail" && provider !== "outlook")) {
+    res.status(400).send("Missing state or provider"); return;
+  }
+  const label = provider === "gmail" ? "Gmail" : "Outlook";
+  const html = `<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Authorize — Hire Me Remotely</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f3f4f6;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}.card{background:#fff;border-radius:16px;padding:32px 28px;max-width:400px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,.1)}.brand{display:flex;align-items:center;gap:8px;margin-bottom:24px;font-weight:700;font-size:14px;color:#4338ca}h1{font-size:18px;font-weight:700;color:#111827;margin-bottom:6px}.sub{font-size:13px;color:#6b7280;margin-bottom:16px}.badge{display:inline-block;background:#fef3c7;color:#92400e;border-radius:6px;font-size:11px;font-weight:600;padding:2px 8px;margin-bottom:16px}.perms{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-bottom:20px}.perm{display:flex;align-items:center;gap:10px;font-size:13px;color:#374151;padding:5px 0}.buttons{display:flex;gap:10px}button{flex:1;padding:10px 16px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid;transition:background .15s}.btn-cancel{background:#fff;color:#374151;border-color:#d1d5db}.btn-cancel:hover{background:#f9fafb}.btn-allow{background:#4f46e5;color:#fff;border-color:#4f46e5}.btn-allow:hover{background:#4338ca}.note{margin-top:14px;font-size:11px;color:#9ca3af;text-align:center}</style>
+</head><body><div class="card">
+<div class="brand"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="10" fill="#4f46e5"/><text x="10" y="14" text-anchor="middle" font-size="9" fill="white" font-weight="bold">HR</text></svg>Hire Me Remotely</div>
+<h1>Allow ${label} access</h1>
+<p class="sub">Hire Me Remotely will read your ${label} inbox to detect job application emails.</p>
+<span class="badge">DEMO MODE</span>
+<div class="perms">
+  <div class="perm"><span>✅</span> Read job application confirmation emails</div>
+  <div class="perm"><span>✅</span> Detect application status updates</div>
+  <div class="perm"><span>🚫</span> Cannot send, delete, or modify messages</div>
+</div>
+<form action="/api/email-integration/callback" method="GET" class="buttons">
+  <input type="hidden" name="code" value="demo_auth_code">
+  <input type="hidden" name="state" value="${state}">
+  <button type="button" class="btn-cancel" onclick="window.close()">Cancel</button>
+  <button type="submit" class="btn-allow">Allow Access</button>
+</form>
+<p class="note">No real OAuth tokens are exchanged in demo mode.</p>
+</div></body></html>`;
+  res.setHeader("Content-Type", "text/html").send(html);
+});
 
 // POST /api/email-integration/initiate
-// Protected. Returns a signed OAuth authorization URL.
-// In demo mode the endpoint also immediately marks the account as connected.
+// Protected. Generates a signed OAuth URL. In demo mode the URL points to the
+// local demo-authorize page so the popup-based consent flow works without real credentials.
 router.post("/email-integration/initiate", requireTrackerAuth, async (req, res): Promise<void> => {
   const { provider } = req.body;
   if (provider !== "gmail" && provider !== "outlook") {
-    res.status(400).json({ error: "provider must be gmail or outlook" });
-    return;
+    res.status(400).json({ error: "provider must be gmail or outlook" }); return;
   }
 
   const callerProfileId: number = res.locals.callerProfileId;
-  const redirectUri = `${OAUTH_REDIRECT_BASE}/api/email-integration/callback`;
-
-  // Sign the state so the callback cannot be forged
   const nonce = randomBytes(8).toString("hex");
   const state = signOAuthState({ profileId: callerProfileId, provider, nonce });
+  const redirectUri = `${OAUTH_REDIRECT_BASE}/api/email-integration/callback`;
 
   let authUrl: string;
-  if (provider === "gmail") {
-    authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&response_type=code&scope=${encodeURIComponent("https://www.googleapis.com/auth/gmail.readonly")}` +
+  if (IS_DEMO) {
+    authUrl = `${OAUTH_REDIRECT_BASE}/api/email-integration/demo-authorize?provider=${provider}&state=${state}`;
+  } else if (provider === "gmail") {
+    authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code` +
+      `&scope=${encodeURIComponent("https://www.googleapis.com/auth/gmail.readonly")}` +
       `&access_type=offline&prompt=consent&state=${state}`;
   } else {
-    authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
-      `client_id=${MICROSOFT_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&response_type=code&scope=${encodeURIComponent("Mail.Read offline_access")}` +
-      `&state=${state}`;
+    authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${MICROSOFT_CLIENT_ID}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code` +
+      `&scope=${encodeURIComponent("Mail.Read offline_access")}&state=${state}`;
   }
 
-  const isDemoMode = GOOGLE_CLIENT_ID === "DEMO_GOOGLE_CLIENT_ID" || MICROSOFT_CLIENT_ID === "DEMO_MICROSOFT_CLIENT_ID";
-
-  if (isDemoMode) {
-    const encryptedDemo = encryptToken("demo_token_simulated");
-    const providerField = provider === "gmail"
-      ? { gmailConnected: true, gmailToken: encryptedDemo }
-      : { outlookConnected: true, outlookToken: encryptedDemo };
-    await db.update(profilesTable).set(providerField).where(eq(profilesTable.id, callerProfileId));
-    res.json({ authUrl, demoMode: true, connected: true, state });
-    return;
-  }
-
-  res.json({ authUrl, demoMode: false, connected: false, state });
+  res.json({ authUrl, demoMode: IS_DEMO });
 });
 
 // GET /api/email-integration/callback
-// Handles the OAuth provider redirect. Verifies the HMAC-signed state before
-// trusting the profileId — prevents forged-state account-takeover attacks.
-// Exchanges the authorization code for tokens (demo: stores placeholder).
+// Verifies HMAC-signed state (prevents forged-state account-takeover), then stores
+// encrypted provider token. Redirects popup back to /job-tracker?email_connected=1.
 router.get("/email-integration/callback", async (req, res): Promise<void> => {
   const { code, state, error: oauthError } = req.query as Record<string, string>;
 
-  if (oauthError) {
-    res.redirect(`/?email_error=${encodeURIComponent(oauthError)}`);
-    return;
-  }
+  if (oauthError) { res.redirect(`/?email_error=${encodeURIComponent(oauthError)}`); return; }
+  if (!state) { res.status(400).send("Missing state parameter"); return; }
 
-  if (!state) {
-    res.status(400).send("Missing state parameter");
-    return;
-  }
-
-  // Verify HMAC signature — reject any tampered or forged state
   const parsed = verifyOAuthState(state);
-  if (!parsed) {
-    res.status(400).send("Invalid or tampered state parameter");
-    return;
-  }
+  if (!parsed) { res.status(400).send("Invalid or tampered state parameter"); return; }
 
   const { profileId, provider } = parsed;
-
-  // Verify the profile actually exists before writing tokens
   const [profile] = await db.select({ id: profilesTable.id })
     .from(profilesTable).where(eq(profilesTable.id, profileId));
-  if (!profile) {
-    res.status(404).send("Profile not found");
-    return;
-  }
+  if (!profile) { res.status(404).send("Profile not found"); return; }
 
-  // In a real implementation this would POST to the token endpoint with `code`
-  // and exchange it for access_token + refresh_token. Here we encrypt a placeholder
-  // that records the exchange occurred; real credentials would be stored the same way.
   const rawToken = code ? `oauth_code_exchanged:${code.slice(0, 8)}` : "demo_token_simulated";
-  const encryptedToken = encryptToken(rawToken);
   const providerField = provider === "gmail"
-    ? { gmailConnected: true, gmailToken: encryptedToken }
-    : { outlookConnected: true, outlookToken: encryptedToken };
+    ? { gmailConnected: true, gmailToken: encryptToken(rawToken) }
+    : { outlookConnected: true, outlookToken: encryptToken(rawToken) };
 
   await db.update(profilesTable).set(providerField).where(eq(profilesTable.id, profileId));
   res.redirect(`/job-tracker?email_connected=1&provider=${provider}`);
 });
 
 // POST /api/email-integration/sync
-// Protected. Scans the inbox using rule-based parsing:
-//   - Sender domain → platform mapping
-//   - Subject keyword matching → status detection
-//   - Promotional/newsletter filter
-//   - Deduplication by emailMessageId
+// Protected. Parses inbox using allowlisted sender domains, subject-keyword status
+// detection, and promotional filtering. Returns deduplicated preview candidates.
 router.post("/email-integration/sync", requireTrackerAuth, async (req, res): Promise<void> => {
   const { provider } = req.body;
   if (provider !== "gmail" && provider !== "outlook") {

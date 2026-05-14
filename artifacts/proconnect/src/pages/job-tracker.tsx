@@ -217,6 +217,24 @@ function PlatformStrip({ links, profileId, authToken, onRefetch }: {
 
   const authHeader = { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` };
 
+  function openOAuthPopup(authUrl: string): Promise<void> {
+    return new Promise((resolve) => {
+      const left = Math.round(window.screenX + (window.outerWidth - 500) / 2);
+      const top = Math.round(window.screenY + (window.outerHeight - 600) / 2);
+      const popup = window.open(authUrl, "email_oauth", `width=500,height=600,left=${left},top=${top}`);
+      if (!popup) { resolve(); return; }
+      const check = setInterval(() => {
+        if (popup.closed) { clearInterval(check); resolve(); return; }
+        try {
+          if (popup.location.href.includes("email_connected=1")) {
+            popup.close(); clearInterval(check); resolve();
+          }
+        } catch { /* cross-origin while navigating — keep polling */ }
+      }, 300);
+      setTimeout(() => { clearInterval(check); if (!popup.closed) popup.close(); resolve(); }, 120_000);
+    });
+  }
+
   const previewMutation = useMutation({
     mutationFn: async (provider: "gmail" | "outlook") => {
       setScanning(true);
@@ -226,6 +244,8 @@ function PlatformStrip({ links, profileId, authToken, onRefetch }: {
         body: JSON.stringify({ provider }),
       });
       if (!initRes.ok) throw new Error("Failed to initiate email connection");
+      const { authUrl } = await initRes.json();
+      await openOAuthPopup(authUrl);
       const syncRes = await fetch(`${BASE}api/email-integration/sync`, {
         method: "POST",
         headers: authHeader,

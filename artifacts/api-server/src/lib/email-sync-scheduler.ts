@@ -21,11 +21,11 @@ const DOMAIN_TO_PLATFORM: Record<string, string> = {
   "glassdoor.com": "glassdoor",
   "angel.co": "wellfound",
   "wellfound.com": "wellfound",
-  "greenhouse.io": "other",
-  "lever.co": "other",
-  "workday.com": "other",
-  "ashbyhq.com": "other",
-  "recruitee.com": "other",
+  "greenhouse.io": "greenhouse",
+  "lever.co": "lever",
+  "workday.com": "workday",
+  "ashbyhq.com": "ashby",
+  "recruitee.com": "recruitee",
 };
 
 function senderToPlatform(from: string): string {
@@ -98,7 +98,7 @@ function buildSyntheticInbox(profileId: number): InboxEmail[] {
     },
     {
       messageId: `<${profileId}.003@mail.wellfound.com>`,
-      from: "recruiting@vercel.com",
+      from: "noreply@wellfound.com",
       subject: "Interview invitation: React Engineer at Vercel",
       receivedDate: daysAgo(3),
     },
@@ -130,8 +130,17 @@ function buildSyntheticInbox(profileId: number): InboxEmail[] {
   ];
 }
 
+const KNOWN_SENDER_DOMAINS = new Set([
+  "linkedin.com", "indeed.com", "glassdoor.com", "angel.co", "wellfound.com",
+  "greenhouse.io", "lever.co", "workday.com", "ashbyhq.com", "recruitee.com",
+]);
+
 function parseInboxEmails(emails: InboxEmail[]): ParsedEmail[] {
   return emails
+    .filter((e) => {
+      const domain = e.from.replace(/.*@/, "").toLowerCase().trim();
+      return KNOWN_SENDER_DOMAINS.has(domain);
+    })
     .filter((e) => !isPromotionalEmail(e.subject, e.from))
     .map((e) => ({
       emailMessageId: e.messageId,
@@ -155,6 +164,8 @@ async function syncProfileInbox(profileId: number): Promise<void> {
       emailMessageId: externalApplicationsTable.emailMessageId,
       status: externalApplicationsTable.status,
       statusHistory: externalApplicationsTable.statusHistory,
+      jobTitle: externalApplicationsTable.jobTitle,
+      companyName: externalApplicationsTable.companyName,
     })
     .from(externalApplicationsTable)
     .where(
@@ -164,14 +175,21 @@ async function syncProfileInbox(profileId: number): Promise<void> {
       ),
     );
 
-  const existingMap = new Map(
+  const existingByMessageId = new Map(
     existingRows
       .filter((r) => r.emailMessageId != null)
       .map((r) => [r.emailMessageId as string, r]),
   );
 
   for (const email of emails) {
-    const existing = existingMap.get(email.emailMessageId);
+    // Prefer exact messageId match; fall back to company+job correlation for status-update emails
+    const existing =
+      existingByMessageId.get(email.emailMessageId) ??
+      existingRows.find(
+        (r) =>
+          r.jobTitle?.toLowerCase().trim() === email.jobTitle.toLowerCase().trim() &&
+          r.companyName?.toLowerCase().trim() === email.companyName.toLowerCase().trim(),
+      );
 
     if (!existing) {
       // Auto-import: silently insert the new application detected from email
