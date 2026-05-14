@@ -109,6 +109,37 @@ export async function getValidAccessToken(
   return refreshed.access_token;
 }
 
+export async function revokeToken(provider: string, storedBundle: string): Promise<void> {
+  let token: string;
+  try {
+    const bundle = JSON.parse(storedBundle) as TokenBundle;
+    token = bundle.refresh_token ?? bundle.access_token;
+  } catch {
+    token = storedBundle;
+  }
+  if (!token) return;
+  try {
+    if (provider === "gmail") {
+      await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, {
+        method: "POST",
+      });
+    } else {
+      await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          token,
+          token_type_hint: "refresh_token",
+          client_id: MICROSOFT_CLIENT_ID,
+          client_secret: process.env.MICROSOFT_CLIENT_SECRET ?? "",
+        }),
+      });
+    }
+  } catch {
+    // best-effort; local tokens cleared regardless
+  }
+}
+
 // ── Provider inbox fetch ───────────────────────────────────────────────────────
 
 export interface InboxEmail {

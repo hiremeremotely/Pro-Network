@@ -17,6 +17,7 @@ import {
   DEMO_TOKEN_BUNDLE,
   exchangeOAuthCode,
   getValidAccessToken,
+  revokeToken,
   fetchGmailInbox,
   fetchOutlookInbox,
   parseInboxEmails,
@@ -358,6 +359,10 @@ const OAUTH_REDIRECT_BASE = process.env.REPLIT_DEV_DOMAIN
   ? `https://${process.env.REPLIT_DEV_DOMAIN}`
   : "http://localhost:80";
 
+function htmlEsc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 router.get("/email-integration/demo-authorize", (req, res): void => {
   const { state, provider } = req.query as Record<string, string>;
   if (!state || (provider !== "gmail" && provider !== "outlook")) {
@@ -380,7 +385,7 @@ router.get("/email-integration/demo-authorize", (req, res): void => {
 </div>
 <form action="/api/email-integration/callback" method="GET" class="buttons">
   <input type="hidden" name="code" value="demo_auth_code">
-  <input type="hidden" name="state" value="${state}">
+  <input type="hidden" name="state" value="${htmlEsc(state)}">
   <button type="button" class="btn-cancel" onclick="window.close()">Cancel</button>
   <button type="submit" class="btn-allow">Allow Access</button>
 </form>
@@ -558,6 +563,19 @@ router.post("/email-integration/disconnect", requireTrackerAuth, async (req, res
     return;
   }
   const callerProfileId: number = res.locals.callerProfileId;
+
+  if (!IS_DEMO) {
+    const [prof] = await db
+      .select({ gmailToken: profilesTable.gmailToken, outlookToken: profilesTable.outlookToken })
+      .from(profilesTable)
+      .where(eq(profilesTable.id, callerProfileId));
+    const encryptedBundle = provider === "gmail" ? prof?.gmailToken : prof?.outlookToken;
+    if (encryptedBundle) {
+      const bundle = decryptToken(encryptedBundle);
+      if (bundle) await revokeToken(provider, bundle).catch(() => {});
+    }
+  }
+
   const providerField = provider === "gmail"
     ? { gmailConnected: false, gmailToken: null }
     : { outlookConnected: false, outlookToken: null };
