@@ -9,9 +9,14 @@ function hashPassword(password: string): string {
   return createHash("sha256").update(password + "hmr_salt_2026").digest("hex");
 }
 
+function getSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) throw new Error("SESSION_SECRET environment variable is required but not set");
+  return secret;
+}
+
 export function generateAuthToken(profileId: number): string {
-  const secret = process.env.SESSION_SECRET ?? "hmr_salt_2026_fallback";
-  const hmac = createHmac("sha256", secret).update(String(profileId)).digest("hex");
+  const hmac = createHmac("sha256", getSessionSecret()).update(String(profileId)).digest("hex");
   return `${profileId}:${hmac}`;
 }
 
@@ -22,7 +27,8 @@ export function validateAuthToken(token: string): number | null {
   const providedHmac = token.slice(colonIdx + 1);
   const profileId = parseInt(profileIdStr, 10);
   if (isNaN(profileId) || profileId <= 0) return null;
-  const secret = process.env.SESSION_SECRET ?? "hmr_salt_2026_fallback";
+  let secret: string;
+  try { secret = getSessionSecret(); } catch { return null; }
   const expectedHmac = createHmac("sha256", secret).update(String(profileId)).digest("hex");
   if (providedHmac !== expectedHmac) return null;
   return profileId;

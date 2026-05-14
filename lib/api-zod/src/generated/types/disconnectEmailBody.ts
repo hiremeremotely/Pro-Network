@@ -8,6 +8,5 @@
 import type { DisconnectEmailBodyProvider } from "./disconnectEmailBodyProvider";
 
 export interface DisconnectEmailBody {
-  profileId: number;
   provider: DisconnectEmailBodyProvider;
 }

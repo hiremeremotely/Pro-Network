@@ -257,6 +257,7 @@ export const ExternalApplicationStatus = {
   offer: "offer",
   accepted: "accepted",
   rejected: "rejected",
+  withdrawn: "withdrawn",
 } as const;
 
 export type ExternalApplicationSource =
@@ -265,6 +266,7 @@ export type ExternalApplicationSource =
 export const ExternalApplicationSource = {
   manual: "manual",
   email: "email",
+  extension: "extension",
   native: "native",
 } as const;
 
@@ -336,7 +338,6 @@ export interface JobTrackerResponse {
 }
 
 export interface CreateExternalApplicationBody {
-  profileId: number;
   jobTitle: string;
   companyName: string;
   platform?: string;
@@ -351,8 +352,6 @@ export interface CreateExternalApplicationBody {
 }
 
 export interface UpdateExternalApplicationBody {
-  /** Profile ID of the requesting user — required for ownership verification */
-  ownerId: number;
   jobTitle?: string;
   companyName?: string;
   platform?: string;
@@ -366,8 +365,6 @@ export interface UpdateExternalApplicationBody {
 }
 
 export interface UpdatePlatformLinksBody {
-  /** Must match the path id for ownership verification */
-  ownerId: number;
   indeedUrl?: string | null;
   glassdoorUrl?: string | null;
   wellfoundUrl?: string | null;
@@ -376,6 +373,7 @@ export interface UpdatePlatformLinksBody {
 }
 
 export interface EmailPreviewItem {
+  emailMessageId?: string | null;
   jobTitle: string;
   companyName: string;
   platform: string;
@@ -385,26 +383,43 @@ export interface EmailPreviewItem {
   emailSubject?: string | null;
 }
 
-export type PreviewInboxBodyProvider =
-  (typeof PreviewInboxBodyProvider)[keyof typeof PreviewInboxBodyProvider];
+export type InitiateEmailBodyProvider =
+  (typeof InitiateEmailBodyProvider)[keyof typeof InitiateEmailBodyProvider];
 
-export const PreviewInboxBodyProvider = {
+export const InitiateEmailBodyProvider = {
   gmail: "gmail",
   outlook: "outlook",
 } as const;
 
-export interface PreviewInboxBody {
-  profileId: number;
-  provider: PreviewInboxBodyProvider;
+export interface InitiateEmailBody {
+  provider: InitiateEmailBodyProvider;
 }
 
-export interface PreviewInboxResponse {
+export interface InitiateEmailResponse {
+  authUrl: string;
+  demoMode: boolean;
   connected: boolean;
+  state?: string;
+}
+
+export type SyncEmailBodyProvider =
+  (typeof SyncEmailBodyProvider)[keyof typeof SyncEmailBodyProvider];
+
+export const SyncEmailBodyProvider = {
+  gmail: "gmail",
+  outlook: "outlook",
+} as const;
+
+export interface SyncEmailBody {
+  provider: SyncEmailBodyProvider;
+}
+
+export interface SyncEmailResponse {
   previews: EmailPreviewItem[];
+  alreadyImported: number;
 }
 
 export interface ConfirmImportBody {
-  profileId: number;
   apps: EmailPreviewItem[];
 }
 
@@ -421,7 +436,6 @@ export const DisconnectEmailBodyProvider = {
 } as const;
 
 export interface DisconnectEmailBody {
-  profileId: number;
   provider: DisconnectEmailBodyProvider;
 }
 
@@ -454,11 +468,57 @@ export type ListJobs200 = {
   total: number;
 };
 
-export type DeleteExternalApplicationParams = {
-  /**
-   * Profile ID of the requesting user for ownership verification
-   */
-  ownerId: number;
+export type GetJobTrackerParams = {
+  status?: string;
+  platform?: string;
+  source?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+};
+
+export type ListExternalApplicationsParams = {
+  status?: ListExternalApplicationsStatus;
+  platform?: string;
+  source?: ListExternalApplicationsSource;
+  page?: number;
+  limit?: number;
+};
+
+export type ListExternalApplicationsStatus =
+  (typeof ListExternalApplicationsStatus)[keyof typeof ListExternalApplicationsStatus];
+
+export const ListExternalApplicationsStatus = {
+  saved: "saved",
+  applied: "applied",
+  screening: "screening",
+  interview: "interview",
+  offer: "offer",
+  accepted: "accepted",
+  rejected: "rejected",
+  withdrawn: "withdrawn",
+} as const;
+
+export type ListExternalApplicationsSource =
+  (typeof ListExternalApplicationsSource)[keyof typeof ListExternalApplicationsSource];
+
+export const ListExternalApplicationsSource = {
+  manual: "manual",
+  email: "email",
+  extension: "extension",
+  native: "native",
+} as const;
+
+export type ListExternalApplications200 = {
+  applications: ExternalApplication[];
+  page: number;
+  limit: number;
+};
+
+export type EmailIntegrationCallbackParams = {
+  code?: string;
+  state: string;
+  error?: string;
 };
 
 export type DisconnectEmailIntegration200 = {

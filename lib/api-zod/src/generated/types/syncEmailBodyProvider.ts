@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type PreviewInboxBodyProvider =
-  (typeof PreviewInboxBodyProvider)[keyof typeof PreviewInboxBodyProvider];
+export type SyncEmailBodyProvider =
+  (typeof SyncEmailBodyProvider)[keyof typeof SyncEmailBodyProvider];
 
-export const PreviewInboxBodyProvider = {
+export const SyncEmailBodyProvider = {
   gmail: "gmail",
   outlook: "outlook",
 } as const;

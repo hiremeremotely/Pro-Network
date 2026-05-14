@@ -5,8 +5,8 @@
  * ProConnect professional networking and remote jobs platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { EmailPreviewItem } from "./emailPreviewItem";
+import type { InitiateEmailBodyProvider } from "./initiateEmailBodyProvider";
 
-export interface ConfirmImportBody {
-  apps: EmailPreviewItem[];
+export interface InitiateEmailBody {
+  provider: InitiateEmailBodyProvider;
 }

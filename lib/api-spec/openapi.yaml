@@ -794,11 +794,37 @@ paths:
     get:
       operationId: getJobTracker
       tags: [job-tracker]
-      summary: Get unified job tracker (external + native applications) for a profile
+      security:
+        - BearerAuth: []
+      summary: Get unified job tracker (external + native applications) with server-side filtering
       parameters:
         - name: profileId
           in: path
           required: true
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: platform
+          in: query
+          schema:
+            type: string
+        - name: source
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
           schema:
             type: integer
       responses:
@@ -815,11 +841,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+
+
+
   /external-applications:
     post:
       operationId: createExternalApplication
       tags: [job-tracker]
-      summary: Create a manually tracked external application
+      security:
+        - BearerAuth: []
+      summary: Create a manually tracked external application (profileId from Bearer token)
       requestBody:
         required: true
         content:
@@ -839,12 +870,72 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    get:
+      operationId: listExternalApplications
+      tags: [job-tracker]
+      summary: List external applications for the authenticated caller with server-side filtering
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [saved, applied, screening, interview, offer, accepted, rejected, withdrawn]
+        - name: platform
+          in: query
+          schema:
+            type: string
+        - name: source
+          in: query
+          schema:
+            type: string
+            enum: [manual, email, extension, native]
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Filtered list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  applications:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ExternalApplication"
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                required: [applications, page, limit]
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   /external-applications/{id}:
     patch:
       operationId: updateExternalApplication
       tags: [job-tracker]
-      summary: Update an external application (requires ownerId for ownership verification)
+      summary: Update an external application (ownership verified via Bearer token)
+      security:
+        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -864,14 +955,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ExternalApplication"
-        "400":
-          description: Missing ownerId
+        "401":
+          description: Unauthorized
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "403":
-          description: Forbidden — ownerId does not match record owner
+          description: Forbidden — token owner does not match record owner
           content:
             application/json:
               schema:
@@ -885,24 +976,20 @@ paths:
     delete:
       operationId: deleteExternalApplication
       tags: [job-tracker]
-      summary: Delete an external application (requires ownerId query param)
+      summary: Delete an external application (ownership verified via Bearer token)
+      security:
+        - BearerAuth: []
       parameters:
         - name: id
           in: path
           required: true
           schema:
             type: integer
-        - name: ownerId
-          in: query
-          required: true
-          schema:
-            type: integer
-          description: Profile ID of the requesting user for ownership verification
       responses:
         "204":
           description: Deleted
-        "400":
-          description: Missing ownerId
+        "401":
+          description: Unauthorized
           content:
             application/json:
               schema:
@@ -951,30 +1038,104 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
-  /email-integration/preview-inbox:
+  /email-integration/initiate:
     post:
-      operationId: previewEmailInbox
+      operationId: initiateEmailIntegration
       tags: [email-integration]
+      security:
+        - BearerAuth: []
       summary: >
-        Scan inbox preview — marks the account as connected and returns found
-        application previews WITHOUT saving them. Frontend shows a confirmation
-        step before import. Note: requires real OAuth credentials in production;
-        returns simulated data when credentials are not configured.
+        Begin OAuth flow for Gmail or Outlook. Returns an authorization URL.
+        In demo mode (no real OAuth credentials configured) also immediately
+        marks the account as connected and returns connected: true.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/PreviewInboxBody"
+              $ref: "#/components/schemas/InitiateEmailBody"
       responses:
         "200":
-          description: Preview of found applications (not yet saved)
+          description: Authorization URL + demo-mode status
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PreviewInboxResponse"
+                $ref: "#/components/schemas/InitiateEmailResponse"
         "400":
-          description: Missing required fields
+          description: Invalid provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /email-integration/callback:
+    get:
+      operationId: emailIntegrationCallback
+      tags: [email-integration]
+      summary: >
+        OAuth redirect target. Exchanges the authorization code for tokens,
+        stores the encrypted access/refresh tokens, and redirects to /job-tracker.
+      parameters:
+        - name: code
+          in: query
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: error
+          in: query
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to /job-tracker on success or /?email_error=... on failure
+
+  /email-integration/sync:
+    post:
+      operationId: syncEmailInbox
+      tags: [email-integration]
+      security:
+        - BearerAuth: []
+      summary: >
+        Scan the connected inbox and return candidate application records
+        (deduplicated against already-imported records). Does NOT save anything.
+        Returns simulated data in demo mode.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncEmailBody"
+      responses:
+        "200":
+          description: Preview of found applications not yet saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncEmailResponse"
+        "400":
+          description: Invalid provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Provider not connected
           content:
             application/json:
               schema:
@@ -1540,7 +1701,7 @@ components:
           nullable: true
         status:
           type: string
-          enum: [saved, applied, screening, interview, offer, accepted, rejected]
+          enum: [saved, applied, screening, interview, offer, accepted, rejected, withdrawn]
         appliedDate:
           type: string
           nullable: true
@@ -1561,7 +1722,7 @@ components:
           nullable: true
         source:
           type: string
-          enum: [manual, email, native]
+          enum: [manual, email, extension, native]
         createdAt:
           type: string
         updatedAt:
@@ -1657,8 +1818,6 @@ components:
     CreateExternalApplicationBody:
       type: object
       properties:
-        profileId:
-          type: integer
         jobTitle:
           type: string
         companyName:
@@ -1687,14 +1846,11 @@ components:
           nullable: true
         source:
           type: string
-      required: [profileId, jobTitle, companyName]
+      required: [jobTitle, companyName]
 
     UpdateExternalApplicationBody:
       type: object
       properties:
-        ownerId:
-          type: integer
-          description: Profile ID of the requesting user — required for ownership verification
         jobTitle:
           type: string
         companyName:
@@ -1721,14 +1877,10 @@ components:
         notes:
           type: string
           nullable: true
-      required: [ownerId]
 
     UpdatePlatformLinksBody:
       type: object
       properties:
-        ownerId:
-          type: integer
-          description: Must match the path id for ownership verification
         indeedUrl:
           type: string
           nullable: true
@@ -1744,11 +1896,13 @@ components:
         linkedinUrl:
           type: string
           nullable: true
-      required: [ownerId]
 
     EmailPreviewItem:
       type: object
       properties:
+        emailMessageId:
+          type: string
+          nullable: true
         jobTitle:
           type: string
         companyName:
@@ -1767,37 +1921,54 @@ components:
           nullable: true
       required: [jobTitle, companyName, platform, status, source]
 
-    PreviewInboxBody:
+    InitiateEmailBody:
       type: object
       properties:
-        profileId:
-          type: integer
         provider:
           type: string
           enum: [gmail, outlook]
-      required: [profileId, provider]
+      required: [provider]
 
-    PreviewInboxResponse:
+    InitiateEmailResponse:
       type: object
       properties:
+        authUrl:
+          type: string
+        demoMode:
+          type: boolean
         connected:
           type: boolean
+        state:
+          type: string
+      required: [authUrl, demoMode, connected]
+
+    SyncEmailBody:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum: [gmail, outlook]
+      required: [provider]
+
+    SyncEmailResponse:
+      type: object
+      properties:
         previews:
           type: array
           items:
             $ref: "#/components/schemas/EmailPreviewItem"
-      required: [connected, previews]
+        alreadyImported:
+          type: integer
+      required: [previews, alreadyImported]
 
     ConfirmImportBody:
       type: object
       properties:
-        profileId:
-          type: integer
         apps:
           type: array
           items:
             $ref: "#/components/schemas/EmailPreviewItem"
-      required: [profileId, apps]
+      required: [apps]
 
     ConfirmImportResponse:
       type: object
@@ -1811,12 +1982,10 @@ components:
     DisconnectEmailBody:
       type: object
       properties:
-        profileId:
-          type: integer
         provider:
           type: string
           enum: [gmail, outlook]
-      required: [profileId, provider]
+      required: [provider]
 
     ErrorEnvelope:
       type: object
@@ -1824,3 +1993,11 @@ components:
       properties:
         error:
           type: string
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: >
+        HMAC-signed token in the format "profileId:hmac-sha256(profileId, SESSION_SECRET)".
+        Returned from /auth/login and /auth/register as authToken.

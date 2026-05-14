@@ -7,7 +7,6 @@
  */
 
 export interface CreateExternalApplicationBody {
-  profileId: number;
   jobTitle: string;
   companyName: string;
   platform?: string;

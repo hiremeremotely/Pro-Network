@@ -619,7 +619,7 @@ function CardDrawer({ app, onClose, onEdit, onDelete, onStatusChange }: {
     ? `$${(app.salaryMin / 1000).toFixed(0)}k – $${(app.salaryMax / 1000).toFixed(0)}k` : null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex">
+    <div className="fixed inset-0 z-[600] flex">
       <div className="flex-1 bg-black/30" onClick={onClose} />
       <div className="w-[420px] max-w-full bg-white shadow-2xl flex flex-col overflow-y-auto">
         <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b border-gray-100">
@@ -932,11 +932,17 @@ export default function JobTracker() {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${authToken}` },
       });
-      if (!r.ok && r.status !== 204) throw new Error("Delete failed");
+      if (!r.ok && r.status !== 204) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.error ?? `Delete failed (${r.status})`);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["job-tracker", user?.id] });
       refetch(); setDrawerApp(null); toast({ title: "Application removed" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to delete", description: err.message, variant: "destructive" });
     },
   });
 

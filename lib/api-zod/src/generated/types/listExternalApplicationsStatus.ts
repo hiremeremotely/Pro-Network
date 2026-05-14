@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ExternalApplicationStatus =
-  (typeof ExternalApplicationStatus)[keyof typeof ExternalApplicationStatus];
+export type ListExternalApplicationsStatus =
+  (typeof ListExternalApplicationsStatus)[keyof typeof ListExternalApplicationsStatus];
 
-export const ExternalApplicationStatus = {
+export const ListExternalApplicationsStatus = {
   saved: "saved",
   applied: "applied",
   screening: "screening",

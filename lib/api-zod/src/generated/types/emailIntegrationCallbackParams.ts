@@ -6,9 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type DeleteExternalApplicationParams = {
-  /**
-   * Profile ID of the requesting user for ownership verification
-   */
-  ownerId: number;
+export type EmailIntegrationCallbackParams = {
+  code?: string;
+  state: string;
+  error?: string;
 };

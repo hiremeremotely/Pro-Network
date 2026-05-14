@@ -5,9 +5,12 @@
  * ProConnect professional networking and remote jobs platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { EmailPreviewItem } from "./emailPreviewItem";
 
-export interface PreviewInboxResponse {
-  connected: boolean;
-  previews: EmailPreviewItem[];
-}
+export type GetJobTrackerParams = {
+  status?: string;
+  platform?: string;
+  source?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+};

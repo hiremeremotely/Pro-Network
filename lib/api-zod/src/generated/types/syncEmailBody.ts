@@ -5,9 +5,8 @@
  * ProConnect professional networking and remote jobs platform API
  * OpenAPI spec version: 0.1.0
  */
-import type { PreviewInboxBodyProvider } from "./previewInboxBodyProvider";
+import type { SyncEmailBodyProvider } from "./syncEmailBodyProvider";
 
-export interface PreviewInboxBody {
-  profileId: number;
-  provider: PreviewInboxBodyProvider;
+export interface SyncEmailBody {
+  provider: SyncEmailBodyProvider;
 }

@@ -7,6 +7,7 @@
  */
 import type { EmailPreviewItem } from "./emailPreviewItem";
 
-export interface ConfirmImportBody {
-  apps: EmailPreviewItem[];
+export interface SyncEmailResponse {
+  previews: EmailPreviewItem[];
+  alreadyImported: number;
 }

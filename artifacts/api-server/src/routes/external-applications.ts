@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, or, ilike } from "drizzle-orm";
 import {
   db,
   externalApplicationsTable,
@@ -8,6 +8,7 @@ import {
   profilesTable,
 } from "@workspace/db";
 import { requireTrackerAuth } from "../middlewares/require-tracker-auth";
+import { encryptToken } from "../lib/crypto";
 
 const router: IRouter = Router();
 
@@ -25,6 +26,7 @@ const VALID_SOURCES = new Set(["manual", "email", "extension", "native"]);
 
 // ── GET /api/job-tracker/:profileId ──────────────────────────────────────────
 // Protected: caller must own the profile (token profileId === URL profileId).
+// Supports server-side filtering: ?status=&platform=&source=&search=&page=&limit=
 router.get("/job-tracker/:profileId", requireTrackerAuth, async (req, res): Promise<void> => {
   const profileId = parseInt(req.params.profileId, 10);
   if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
@@ -32,9 +34,27 @@ router.get("/job-tracker/:profileId", requireTrackerAuth, async (req, res): Prom
   const callerProfileId: number = res.locals.callerProfileId;
   if (callerProfileId !== profileId) { res.status(403).json({ error: "Forbidden" }); return; }
 
+  const { status, platform, source, search, page, limit } = req.query as Record<string, string>;
+  const pageNum = Math.max(1, parseInt(page ?? "1", 10) || 1);
+  const limitNum = Math.min(200, Math.max(1, parseInt(limit ?? "200", 10) || 200));
+
+  const extConditions = [eq(externalApplicationsTable.profileId, profileId)];
+  if (status && VALID_STATUSES.has(status)) extConditions.push(eq(externalApplicationsTable.status, status));
+  if (platform) extConditions.push(eq(externalApplicationsTable.platform, platform));
+  if (source && VALID_SOURCES.has(source)) extConditions.push(eq(externalApplicationsTable.source, source));
+  if (search) {
+    const term = `%${search}%`;
+    extConditions.push(
+      or(
+        ilike(externalApplicationsTable.jobTitle, term),
+        ilike(externalApplicationsTable.companyName, term),
+      )!,
+    );
+  }
+
   const [externalApps, nativeApps, profileRows] = await Promise.all([
     db.select().from(externalApplicationsTable)
-      .where(eq(externalApplicationsTable.profileId, profileId))
+      .where(and(...extConditions))
       .orderBy(desc(externalApplicationsTable.createdAt)),
     db.select({ app: applicationsTable, job: jobsTable })
       .from(applicationsTable)
@@ -52,7 +72,7 @@ router.get("/job-tracker/:profileId", requireTrackerAuth, async (req, res): Prom
     }).from(profilesTable).where(eq(profilesTable.id, profileId)),
   ]);
 
-  const unified = [
+  const allUnified = [
     ...externalApps.map((a) => ({
       uid: `ext-${a.id}`, id: a.id, type: "external" as const,
       source: a.source, jobTitle: a.jobTitle, companyName: a.companyName,
@@ -61,26 +81,42 @@ router.get("/job-tracker/:profileId", requireTrackerAuth, async (req, res): Prom
       salaryMin: a.salaryMin, salaryMax: a.salaryMax, notes: a.notes,
       createdAt: a.createdAt, updatedAt: a.updatedAt,
     })),
-    ...nativeApps.map(({ app, job }) => ({
-      uid: `native-${app.id}`, id: app.id, type: "native" as const,
-      source: "native", jobTitle: job?.title ?? "Unknown Role",
-      companyName: job?.company ?? "Unknown Company", platform: "hiremeremotely",
-      jobUrl: job ? `/jobs/${job.id}` : null,
-      status: NATIVE_STATUS_MAP[app.status] ?? app.status,
-      appliedDate: app.appliedAt ? app.appliedAt.toISOString().split("T")[0] : null,
-      location: job?.location ?? null, salaryMin: job?.salaryMin ?? null,
-      salaryMax: job?.salaryMax ?? null, notes: app.coverLetter ?? null,
-      nativeJobId: app.jobId, createdAt: app.appliedAt, updatedAt: app.appliedAt,
-    })),
+    ...nativeApps
+      .filter(({ app, job }) => {
+        if (source && source !== "native") return false;
+        if (status && (NATIVE_STATUS_MAP[app.status] ?? app.status) !== status) return false;
+        if (platform && platform !== "hiremeremotely") return false;
+        if (search) {
+          const term = search.toLowerCase();
+          const title = (job?.title ?? "").toLowerCase();
+          const company = (job?.company ?? "").toLowerCase();
+          if (!title.includes(term) && !company.includes(term)) return false;
+        }
+        return true;
+      })
+      .map(({ app, job }) => ({
+        uid: `native-${app.id}`, id: app.id, type: "native" as const,
+        source: "native", jobTitle: job?.title ?? "Unknown Role",
+        companyName: job?.company ?? "Unknown Company", platform: "hiremeremotely",
+        jobUrl: job ? `/jobs/${job.id}` : null,
+        status: NATIVE_STATUS_MAP[app.status] ?? app.status,
+        appliedDate: app.appliedAt ? app.appliedAt.toISOString().split("T")[0] : null,
+        location: job?.location ?? null, salaryMin: job?.salaryMin ?? null,
+        salaryMax: job?.salaryMax ?? null, notes: app.coverLetter ?? null,
+        nativeJobId: app.jobId, createdAt: app.appliedAt, updatedAt: app.appliedAt,
+      })),
   ];
 
-  unified.sort((a, b) => {
+  allUnified.sort((a, b) => {
     const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
     const db2 = b.createdAt ? new Date(b.createdAt).getTime() : 0;
     return db2 - da;
   });
 
-  res.json({ applications: unified, platformLinks: profileRows[0] ?? null });
+  const total = allUnified.length;
+  const applications = allUnified.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+
+  res.json({ applications, platformLinks: profileRows[0] ?? null, total, page: pageNum, limit: limitNum });
 });
 
 // ── GET /api/external-applications ────────────────────────────────────────────
@@ -274,9 +310,10 @@ router.post("/email-integration/initiate", requireTrackerAuth, async (req, res):
   const isDemoMode = GOOGLE_CLIENT_ID === "DEMO_GOOGLE_CLIENT_ID" || MICROSOFT_CLIENT_ID === "DEMO_MICROSOFT_CLIENT_ID";
 
   if (isDemoMode) {
+    const encryptedDemo = encryptToken("demo_token_simulated");
     const providerField = provider === "gmail"
-      ? { gmailConnected: true, gmailToken: "demo_token_simulated" }
-      : { outlookConnected: true, outlookToken: "demo_token_simulated" };
+      ? { gmailConnected: true, gmailToken: encryptedDemo }
+      : { outlookConnected: true, outlookToken: encryptedDemo };
     await db.update(profilesTable).set(providerField).where(eq(profilesTable.id, callerProfileId));
     res.json({ authUrl, demoMode: true, connected: true, state });
     return;
@@ -317,12 +354,13 @@ router.get("/email-integration/callback", async (req, res): Promise<void> => {
   }
 
   // In a real implementation this would POST to the token endpoint with `code`
-  // and exchange it for access_token + refresh_token. Here we store a placeholder
-  // that encodes the code so it's clear the exchange happened.
-  const storedToken = code ? `oauth_code_exchanged:${code.slice(0, 8)}` : "demo_token_simulated";
+  // and exchange it for access_token + refresh_token. Here we encrypt a placeholder
+  // that records the exchange occurred; real credentials would be stored the same way.
+  const rawToken = code ? `oauth_code_exchanged:${code.slice(0, 8)}` : "demo_token_simulated";
+  const encryptedToken = encryptToken(rawToken);
   const providerField = provider === "gmail"
-    ? { gmailConnected: true, gmailToken: storedToken }
-    : { outlookConnected: true, outlookToken: storedToken };
+    ? { gmailConnected: true, gmailToken: encryptedToken }
+    : { outlookConnected: true, outlookToken: encryptedToken };
 
   await db.update(profilesTable).set(providerField).where(eq(profilesTable.id, profileId));
   res.redirect(`/job-tracker?email_connected=1&provider=${provider}`);

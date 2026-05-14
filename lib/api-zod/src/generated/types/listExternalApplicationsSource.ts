@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ExternalApplicationSource =
-  (typeof ExternalApplicationSource)[keyof typeof ExternalApplicationSource];
+export type ListExternalApplicationsSource =
+  (typeof ListExternalApplicationsSource)[keyof typeof ListExternalApplicationsSource];
 
-export const ExternalApplicationSource = {
+export const ListExternalApplicationsSource = {
   manual: "manual",
   email: "email",
   extension: "extension",

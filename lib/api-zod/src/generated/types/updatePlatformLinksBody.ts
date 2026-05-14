@@ -7,8 +7,6 @@
  */
 
 export interface UpdatePlatformLinksBody {
-  /** Must match the path id for ownership verification */
-  ownerId: number;
   indeedUrl?: string | null;
   glassdoorUrl?: string | null;
   wellfoundUrl?: string | null;

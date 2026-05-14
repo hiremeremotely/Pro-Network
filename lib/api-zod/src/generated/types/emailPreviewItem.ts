@@ -7,6 +7,7 @@
  */
 
 export interface EmailPreviewItem {
+  emailMessageId?: string | null;
   jobTitle: string;
   companyName: string;
   platform: string;

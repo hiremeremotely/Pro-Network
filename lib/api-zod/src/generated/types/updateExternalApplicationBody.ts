@@ -7,8 +7,6 @@
  */
 
 export interface UpdateExternalApplicationBody {
-  /** Profile ID of the requesting user — required for ownership verification */
-  ownerId: number;
   jobTitle?: string;
   companyName?: string;
   platform?: string;

@@ -793,10 +793,19 @@ export const ListFeaturedJobsResponseItem = zod.object({
 export const ListFeaturedJobsResponse = zod.array(ListFeaturedJobsResponseItem);
 
 /**
- * @summary Get unified job tracker (external + native applications) for a profile
+ * @summary Get unified job tracker (external + native applications) with server-side filtering
  */
 export const GetJobTrackerParams = zod.object({
   profileId: zod.coerce.number(),
+});
+
+export const GetJobTrackerQueryParams = zod.object({
+  status: zod.coerce.string().optional(),
+  platform: zod.coerce.string().optional(),
+  source: zod.coerce.string().optional(),
+  search: zod.coerce.string().optional(),
+  page: zod.coerce.number().optional(),
+  limit: zod.coerce.number().optional(),
 });
 
 export const GetJobTrackerResponse = zod.object({
@@ -844,10 +853,9 @@ export const GetJobTrackerResponse = zod.object({
 });
 
 /**
- * @summary Create a manually tracked external application
+ * @summary Create a manually tracked external application (profileId from Bearer token)
  */
 export const CreateExternalApplicationBody = zod.object({
-  profileId: zod.number(),
   jobTitle: zod.string(),
   companyName: zod.string(),
   platform: zod.string().optional(),
@@ -862,18 +870,78 @@ export const CreateExternalApplicationBody = zod.object({
 });
 
 /**
- * @summary Update an external application (requires ownerId for ownership verification)
+ * @summary List external applications for the authenticated caller with server-side filtering
+ */
+export const ListExternalApplicationsQueryParams = zod.object({
+  status: zod
+    .enum([
+      "saved",
+      "applied",
+      "screening",
+      "interview",
+      "offer",
+      "accepted",
+      "rejected",
+      "withdrawn",
+    ])
+    .optional(),
+  platform: zod.coerce.string().optional(),
+  source: zod.enum(["manual", "email", "extension", "native"]).optional(),
+  page: zod.coerce.number().optional(),
+  limit: zod.coerce.number().optional(),
+});
+
+export const ListExternalApplicationsResponse = zod.object({
+  applications: zod.array(
+    zod.object({
+      id: zod.number(),
+      profileId: zod.number(),
+      jobTitle: zod.string(),
+      companyName: zod.string(),
+      platform: zod.enum([
+        "linkedin",
+        "indeed",
+        "glassdoor",
+        "wellfound",
+        "angellist",
+        "weworkremotely",
+        "hiremeremotely",
+        "other",
+      ]),
+      jobUrl: zod.string().nullish(),
+      status: zod.enum([
+        "saved",
+        "applied",
+        "screening",
+        "interview",
+        "offer",
+        "accepted",
+        "rejected",
+        "withdrawn",
+      ]),
+      appliedDate: zod.string().nullish(),
+      location: zod.string().nullish(),
+      salaryMin: zod.number().nullish(),
+      salaryMax: zod.number().nullish(),
+      notes: zod.string().nullish(),
+      emailMessageId: zod.string().nullish(),
+      source: zod.enum(["manual", "email", "extension", "native"]),
+      createdAt: zod.string(),
+      updatedAt: zod.string(),
+    }),
+  ),
+  page: zod.number(),
+  limit: zod.number(),
+});
+
+/**
+ * @summary Update an external application (ownership verified via Bearer token)
  */
 export const UpdateExternalApplicationParams = zod.object({
   id: zod.coerce.number(),
 });
 
 export const UpdateExternalApplicationBody = zod.object({
-  ownerId: zod
-    .number()
-    .describe(
-      "Profile ID of the requesting user — required for ownership verification",
-    ),
   jobTitle: zod.string().optional(),
   companyName: zod.string().optional(),
   platform: zod.string().optional(),
@@ -910,6 +978,7 @@ export const UpdateExternalApplicationResponse = zod.object({
     "offer",
     "accepted",
     "rejected",
+    "withdrawn",
   ]),
   appliedDate: zod.string().nullish(),
   location: zod.string().nullish(),
@@ -917,22 +986,16 @@ export const UpdateExternalApplicationResponse = zod.object({
   salaryMax: zod.number().nullish(),
   notes: zod.string().nullish(),
   emailMessageId: zod.string().nullish(),
-  source: zod.enum(["manual", "email", "native"]),
+  source: zod.enum(["manual", "email", "extension", "native"]),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
 
 /**
- * @summary Delete an external application (requires ownerId query param)
+ * @summary Delete an external application (ownership verified via Bearer token)
  */
 export const DeleteExternalApplicationParams = zod.object({
   id: zod.coerce.number(),
-});
-
-export const DeleteExternalApplicationQueryParams = zod.object({
-  ownerId: zod.coerce
-    .number()
-    .describe("Profile ID of the requesting user for ownership verification"),
 });
 
 /**
@@ -943,9 +1006,6 @@ export const UpdatePlatformLinksParams = zod.object({
 });
 
 export const UpdatePlatformLinksBody = zod.object({
-  ownerId: zod
-    .number()
-    .describe("Must match the path id for ownership verification"),
   indeedUrl: zod.string().nullish(),
   glassdoorUrl: zod.string().nullish(),
   wellfoundUrl: zod.string().nullish(),
@@ -964,18 +1024,42 @@ export const UpdatePlatformLinksResponse = zod.object({
 });
 
 /**
- * @summary Scan inbox preview — marks the account as connected and returns found application previews WITHOUT saving them. Frontend shows a confirmation step before import. Note: requires real OAuth credentials in production; returns simulated data when credentials are not configured.
+ * @summary Begin OAuth flow for Gmail or Outlook. Returns an authorization URL. In demo mode (no real OAuth credentials configured) also immediately marks the account as connected and returns connected: true.
 
  */
-export const PreviewEmailInboxBody = zod.object({
-  profileId: zod.number(),
+export const InitiateEmailIntegrationBody = zod.object({
   provider: zod.enum(["gmail", "outlook"]),
 });
 
-export const PreviewEmailInboxResponse = zod.object({
+export const InitiateEmailIntegrationResponse = zod.object({
+  authUrl: zod.string(),
+  demoMode: zod.boolean(),
   connected: zod.boolean(),
+  state: zod.string().optional(),
+});
+
+/**
+ * @summary OAuth redirect target. Exchanges the authorization code for tokens, stores the encrypted access/refresh tokens, and redirects to /job-tracker.
+
+ */
+export const EmailIntegrationCallbackQueryParams = zod.object({
+  code: zod.coerce.string().optional(),
+  state: zod.coerce.string(),
+  error: zod.coerce.string().optional(),
+});
+
+/**
+ * @summary Scan the connected inbox and return candidate application records (deduplicated against already-imported records). Does NOT save anything. Returns simulated data in demo mode.
+
+ */
+export const SyncEmailInboxBody = zod.object({
+  provider: zod.enum(["gmail", "outlook"]),
+});
+
+export const SyncEmailInboxResponse = zod.object({
   previews: zod.array(
     zod.object({
+      emailMessageId: zod.string().nullish(),
       jobTitle: zod.string(),
       companyName: zod.string(),
       platform: zod.string(),
@@ -985,15 +1069,16 @@ export const PreviewEmailInboxResponse = zod.object({
       emailSubject: zod.string().nullish(),
     }),
   ),
+  alreadyImported: zod.number(),
 });
 
 /**
  * @summary Save user-selected email-imported applications after inbox preview
  */
 export const ConfirmEmailImportBody = zod.object({
-  profileId: zod.number(),
   apps: zod.array(
     zod.object({
+      emailMessageId: zod.string().nullish(),
       jobTitle: zod.string(),
       companyName: zod.string(),
       platform: zod.string(),
@@ -1031,6 +1116,7 @@ export const ConfirmEmailImportResponse = zod.object({
         "offer",
         "accepted",
         "rejected",
+        "withdrawn",
       ]),
       appliedDate: zod.string().nullish(),
       location: zod.string().nullish(),
@@ -1038,7 +1124,7 @@ export const ConfirmEmailImportResponse = zod.object({
       salaryMax: zod.number().nullish(),
       notes: zod.string().nullish(),
       emailMessageId: zod.string().nullish(),
-      source: zod.enum(["manual", "email", "native"]),
+      source: zod.enum(["manual", "email", "extension", "native"]),
       createdAt: zod.string(),
       updatedAt: zod.string(),
     }),
@@ -1049,7 +1135,6 @@ export const ConfirmEmailImportResponse = zod.object({
  * @summary Disconnect a Gmail or Outlook integration
  */
 export const DisconnectEmailIntegrationBody = zod.object({
-  profileId: zod.number(),
   provider: zod.enum(["gmail", "outlook"]),
 });
 
