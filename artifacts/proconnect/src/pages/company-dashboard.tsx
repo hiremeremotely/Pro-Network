@@ -1759,11 +1759,11 @@ export default function CompanyDashboard() {
     }
   }, [user?.id, fetchData]);
 
-  const handleInlineStatusChange = useCallback(async (emp: EmployeeRecord, newStatus: EmployeeStatus) => {
-    if (!user?.id || updatingStatus === emp.id) return;
-    setUpdatingStatus(emp.id);
+  const handleInlineStatusChange = useCallback(async (empId: number, newStatus: EmployeeStatus) => {
+    if (!user?.id) return;
+    setUpdatingStatus(empId);
     try {
-      const res = await fetch(`${BASE}api/employees/${emp.id}`, {
+      const res = await fetch(`${BASE}api/employees/${empId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus, companyProfileId: user.id }),
@@ -1771,13 +1771,13 @@ export default function CompanyDashboard() {
       if (!res.ok) throw new Error("Failed to update status");
       const updated: EmployeeRecord = await res.json();
       setEmployees(prev => prev.map(e => e.id === updated.id ? updated : e));
-      if (selectedEmployee?.id === updated.id) setSelectedEmployee(updated);
+      setSelectedEmployee(prev => prev?.id === updated.id ? updated : prev);
     } catch {
       toast({ title: "Error", description: "Could not update status.", variant: "destructive" });
     } finally {
       setUpdatingStatus(null);
     }
-  }, [user?.id, updatingStatus, selectedEmployee?.id, toast]);
+  }, [user?.id, toast]);
 
   const openToWork = (talentData?.profiles ?? []).filter(p => p.openToWork && p.accountType !== "company");
   const myJobs = jobsData?.jobs ?? [];
@@ -2716,14 +2716,16 @@ export default function CompanyDashboard() {
                         const hasProgress = progress && progress.total > 0;
                         const progressPct = hasProgress ? Math.round((progress.completed / progress.total) * 100) : null;
                         return (
-                          <div key={emp.id} className="w-full sm:grid grid-cols-[auto_1fr_140px_130px_100px_80px_36px] flex flex-wrap gap-2 items-center px-5 py-3.5 hover:bg-gray-50 transition-colors group">
-                            <button onClick={() => { setSelectedEmployee(emp); setSelectedEmployeeTab("details"); }} className="contents">
-                              <Avatar className="w-9 h-9 border border-gray-100 flex-shrink-0">
-                                <AvatarImage src={emp.profile?.avatarUrl ?? undefined} />
-                                <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">{initials}</AvatarFallback>
-                              </Avatar>
-                            </button>
-                            <button onClick={() => { setSelectedEmployee(emp); setSelectedEmployeeTab("details"); }} className="min-w-0 text-left">
+                          <div
+                            key={emp.id}
+                            onClick={() => { setSelectedEmployee(emp); setSelectedEmployeeTab("details"); }}
+                            className="w-full sm:grid grid-cols-[auto_1fr_140px_130px_100px_80px_36px] flex flex-wrap gap-2 items-center px-5 py-3.5 hover:bg-gray-50 transition-colors cursor-pointer group"
+                          >
+                            <Avatar className="w-9 h-9 border border-gray-100 flex-shrink-0">
+                              <AvatarImage src={emp.profile?.avatarUrl ?? undefined} />
+                              <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">{initials}</AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
                               <p className="font-semibold text-sm text-gray-900 group-hover:text-primary transition-colors truncate">{emp.profile?.name ?? "Unknown"}</p>
                               {hasProgress && progressPct !== null && (
                                 <div className="flex items-center gap-1 mt-0.5">
@@ -2733,17 +2735,14 @@ export default function CompanyDashboard() {
                                   <span className="text-[10px] text-gray-400">{progressPct === 100 ? "Onboarded ✓" : `${progressPct}% onboarded`}</span>
                                 </div>
                               )}
-                            </button>
+                            </div>
                             <span className="text-xs text-gray-600 truncate hidden sm:block">{emp.role}</span>
-                            {/* Inline status toggle select */}
+                            {/* Inline status toggle — stopPropagation so row click still opens drawer */}
                             <span className="hidden sm:block" onClick={e => e.stopPropagation()}>
                               <select
                                 value={emp.status}
                                 disabled={updatingStatus === emp.id}
-                                onChange={async e => {
-                                  e.stopPropagation();
-                                  await handleInlineStatusChange(emp, e.target.value as EmployeeStatus);
-                                }}
+                                onChange={e => { void handleInlineStatusChange(emp.id, e.target.value as EmployeeStatus); }}
                                 className={`text-[11px] font-semibold rounded-full border px-2.5 py-1 cursor-pointer appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-60 ${STATUS_STYLES[emp.status]}`}
                               >
                                 <option value="active">Full-Time</option>
@@ -2758,9 +2757,7 @@ export default function CompanyDashboard() {
                             <span className="hidden sm:block text-xs text-gray-400">
                               {emp.startDate ? new Date(emp.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" }) : "—"}
                             </span>
-                            <button onClick={() => { setSelectedEmployee(emp); setSelectedEmployeeTab("details"); }}>
-                              <ChevronRightIcon className="w-4 h-4 text-gray-300 flex-shrink-0 ml-auto" />
-                            </button>
+                            <ChevronRightIcon className="w-4 h-4 text-gray-300 flex-shrink-0 ml-auto" />
                           </div>
                         );
                       })}
