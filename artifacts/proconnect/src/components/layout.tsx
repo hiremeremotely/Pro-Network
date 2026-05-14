@@ -30,6 +30,7 @@ import {
   BarChart2Icon,
   DollarSignIcon,
   TimerIcon,
+  KanbanSquareIcon,
 } from "lucide-react";
 import logo from "@assets/hr_1775483051104.png";
 import { useAppAuth } from "@/contexts/app-auth";
@@ -631,6 +632,11 @@ export function Layout({ children }: LayoutProps) {
                   <DropdownMenuItem asChild>
                     <Link href="/applications" className="flex items-center gap-2 cursor-pointer">
                       <BriefcaseIcon className="w-4 h-4" /> My Applications
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/job-tracker" className="flex items-center gap-2 cursor-pointer">
+                      <KanbanSquareIcon className="w-4 h-4" /> Job Tracker
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

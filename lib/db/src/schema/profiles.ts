@@ -20,6 +20,12 @@ export const profilesTable = pgTable("profiles", {
   twitterUrl: text("twitter_url"),
   interests: text("interests").array().notNull().default([]),
   openToWork: boolean("open_to_work").notNull().default(false),
+  indeedUrl: text("indeed_url"),
+  glassdoorUrl: text("glassdoor_url"),
+  wellfoundUrl: text("wellfound_url"),
+  angellistUrl: text("angellist_url"),
+  gmailConnected: boolean("gmail_connected").notNull().default(false),
+  outlookConnected: boolean("outlook_connected").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

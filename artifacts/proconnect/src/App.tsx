@@ -27,6 +27,7 @@ import MyItems from "@/pages/my-items";
 import Analytics from "@/pages/analytics";
 import SalaryEstimator from "@/pages/salary-estimator";
 import MyWork from "@/pages/my-work";
+import JobTracker from "@/pages/job-tracker";
 
 const queryClient = new QueryClient();
 
@@ -118,6 +119,7 @@ function Router() {
               <Route path="/analytics" component={Analytics} />
               <Route path="/salary-estimator" component={SalaryEstimator} />
               <Route path="/my-work" component={MyWork} />
+              <Route path="/job-tracker" component={JobTracker} />
               <Route component={NotFound} />
             </Switch>
           </Layout>
