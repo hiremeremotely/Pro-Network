@@ -6,6 +6,8 @@ import {
   notificationsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
+import { decryptToken } from "./crypto";
+import { IS_DEMO, fetchGmailInbox, fetchOutlookInbox, type InboxEmail as ProviderInboxEmail } from "./email-provider";
 
 const SYNC_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -64,12 +66,7 @@ function extractJobTitleFromSubject(subject: string): string | null {
   return m ? m[1].trim() : null;
 }
 
-interface InboxEmail {
-  messageId: string;
-  from: string;
-  subject: string;
-  receivedDate: string;
-}
+type InboxEmail = ProviderInboxEmail;
 
 interface ParsedEmail {
   emailMessageId: string;
@@ -154,8 +151,40 @@ function parseInboxEmails(emails: InboxEmail[]): ParsedEmail[] {
 
 // ── Profile sync ──────────────────────────────────────────────────────────────
 
-async function syncProfileInbox(profileId: number): Promise<void> {
-  const rawInbox = buildSyntheticInbox(profileId);
+interface ProfileTokens {
+  gmailConnected: boolean;
+  gmailToken: string | null;
+  outlookConnected: boolean;
+  outlookToken: string | null;
+}
+
+async function syncProfileInbox(profileId: number, tokens: ProfileTokens): Promise<void> {
+  let rawInbox: InboxEmail[];
+  if (!IS_DEMO) {
+    rawInbox = [];
+    if (tokens.gmailConnected && tokens.gmailToken) {
+      const accessToken = decryptToken(tokens.gmailToken);
+      if (accessToken) {
+        try {
+          rawInbox.push(...await fetchGmailInbox(accessToken));
+        } catch (err) {
+          logger.warn({ err, profileId }, "Email sync: Gmail fetch failed");
+        }
+      }
+    }
+    if (tokens.outlookConnected && tokens.outlookToken) {
+      const accessToken = decryptToken(tokens.outlookToken);
+      if (accessToken) {
+        try {
+          rawInbox.push(...await fetchOutlookInbox(accessToken));
+        } catch (err) {
+          logger.warn({ err, profileId }, "Email sync: Outlook fetch failed");
+        }
+      }
+    }
+  } else {
+    rawInbox = buildSyntheticInbox(profileId);
+  }
   const emails = parseInboxEmails(rawInbox);
 
   const existingRows = await db
@@ -248,7 +277,13 @@ async function syncProfileInbox(profileId: number): Promise<void> {
 async function runEmailSync(): Promise<void> {
   try {
     const connectedProfiles = await db
-      .select({ id: profilesTable.id })
+      .select({
+        id: profilesTable.id,
+        gmailConnected: profilesTable.gmailConnected,
+        gmailToken: profilesTable.gmailToken,
+        outlookConnected: profilesTable.outlookConnected,
+        outlookToken: profilesTable.outlookToken,
+      })
       .from(profilesTable)
       .where(
         or(
@@ -259,9 +294,9 @@ async function runEmailSync(): Promise<void> {
 
     logger.info({ count: connectedProfiles.length }, "Email sync: scanning connected profiles");
 
-    for (const { id } of connectedProfiles) {
+    for (const { id, ...tokens } of connectedProfiles) {
       try {
-        await syncProfileInbox(id);
+        await syncProfileInbox(id, tokens as ProfileTokens);
       } catch (err) {
         logger.error({ err, profileId: id }, "Email sync: failed for profile");
       }
