@@ -193,8 +193,11 @@ function StatsBar({ apps }: { apps: TrackedApp[] }) {
 }
 
 // ── Platform Strip ────────────────────────────────────────────────────────────
-function PlatformStrip({ links, profileId, onRefetch }: { links: PlatformLinks | null; profileId: number; onRefetch: () => void }) {
+function PlatformStrip({ links, profileId, authToken, onRefetch }: {
+  links: PlatformLinks | null; profileId: number; authToken: string; onRefetch: () => void;
+}) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [emailModal, setEmailModal] = useState<"gmail" | "outlook" | null>(null);
   const [linksModal, setLinksModal] = useState(false);
   const [linkForm, setLinkForm] = useState({
@@ -206,15 +209,24 @@ function PlatformStrip({ links, profileId, onRefetch }: { links: PlatformLinks |
   const [previews, setPreviews] = useState<EmailPreview[] | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
+  const authHeader = { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` };
+
   const previewMutation = useMutation({
     mutationFn: async (provider: "gmail" | "outlook") => {
       setScanning(true);
-      const r = await fetch(`${BASE}api/email-integration/preview-inbox`, {
+      const initRes = await fetch(`${BASE}api/email-integration/initiate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileId, provider }),
+        headers: authHeader,
+        body: JSON.stringify({ provider }),
       });
-      return r.json();
+      if (!initRes.ok) throw new Error("Failed to initiate email connection");
+      const syncRes = await fetch(`${BASE}api/email-integration/sync`, {
+        method: "POST",
+        headers: authHeader,
+        body: JSON.stringify({ provider }),
+      });
+      if (!syncRes.ok) throw new Error("Failed to scan inbox");
+      return syncRes.json();
     },
     onSuccess: (data) => {
       setScanning(false);
@@ -222,6 +234,7 @@ function PlatformStrip({ links, profileId, onRefetch }: { links: PlatformLinks |
       const apps: EmailPreview[] = data.previews ?? [];
       setPreviews(apps);
       setSelected(new Set(apps.map((_, i) => i)));
+      queryClient.invalidateQueries({ queryKey: ["job-tracker", profileId] });
       onRefetch();
     },
     onError: () => {
@@ -235,14 +248,16 @@ function PlatformStrip({ links, profileId, onRefetch }: { links: PlatformLinks |
       const toImport = (previews ?? []).filter((_, i) => selected.has(i));
       const r = await fetch(`${BASE}api/email-integration/confirm-import`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileId, apps: toImport }),
+        headers: authHeader,
+        body: JSON.stringify({ apps: toImport }),
       });
+      if (!r.ok) throw new Error("Import failed");
       return r.json();
     },
     onSuccess: (data) => {
       setPreviews(null);
       setSelected(new Set());
+      queryClient.invalidateQueries({ queryKey: ["job-tracker", profileId] });
       onRefetch();
       toast({ title: "Applications imported!", description: `${data.imported?.length ?? 0} applications added to your tracker.` });
     },
@@ -253,12 +268,14 @@ function PlatformStrip({ links, profileId, onRefetch }: { links: PlatformLinks |
     mutationFn: async (provider: "gmail" | "outlook") => {
       const r = await fetch(`${BASE}api/email-integration/disconnect`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileId, provider }),
+        headers: authHeader,
+        body: JSON.stringify({ provider }),
       });
+      if (!r.ok) throw new Error("Disconnect failed");
       return r.json();
     },
     onSuccess: (_, provider) => {
+      queryClient.invalidateQueries({ queryKey: ["job-tracker", profileId] });
       onRefetch();
       toast({ title: `${provider === "gmail" ? "Gmail" : "Outlook"} disconnected` });
     },
@@ -268,12 +285,13 @@ function PlatformStrip({ links, profileId, onRefetch }: { links: PlatformLinks |
     mutationFn: async (data: typeof linkForm) => {
       const r = await fetch(`${BASE}api/profiles/${profileId}/platform-links`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, ownerId: profileId }),
+        headers: authHeader,
+        body: JSON.stringify(data),
       });
+      if (!r.ok) throw new Error("Save failed");
       return r.json();
     },
-    onSuccess: () => { setLinksModal(false); onRefetch(); toast({ title: "Platform links saved" }); },
+    onSuccess: () => { setLinksModal(false); queryClient.invalidateQueries({ queryKey: ["job-tracker", profileId] }); onRefetch(); toast({ title: "Platform links saved" }); },
   });
 
   function toggleSelect(i: number) {
@@ -464,8 +482,8 @@ const BLANK_FORM: AppForm = {
   location: "", salaryMin: "", salaryMax: "", notes: "",
 };
 
-function AppModal({ open, onClose, initial, profileId, editId, onSaved }: {
-  open: boolean; onClose: () => void; initial?: Partial<AppForm>; profileId: number; editId?: number; onSaved: () => void;
+function AppModal({ open, onClose, initial, profileId, authToken, editId, onSaved }: {
+  open: boolean; onClose: () => void; initial?: Partial<AppForm>; profileId: number; authToken: string; editId?: number; onSaved: () => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -492,16 +510,19 @@ function AppModal({ open, onClose, initial, profileId, editId, onSaved }: {
       if (Object.keys(errs).length) { setErrors(errs); throw new Error("validation"); }
       setErrors({});
       const payload = {
-        profileId, jobTitle, companyName,
+        jobTitle, companyName,
         platform: form.platform, jobUrl: form.jobUrl || null, status: form.status,
         appliedDate: form.appliedDate || null, location: form.location || null,
         salaryMin: form.salaryMin ? parseInt(form.salaryMin, 10) : null,
         salaryMax: form.salaryMax ? parseInt(form.salaryMax, 10) : null,
         notes: form.notes || null, source: "manual",
-        ...(editId ? { ownerId: profileId } : {}),
       };
       const url = editId ? `${BASE}api/external-applications/${editId}` : `${BASE}api/external-applications`;
-      const r = await fetch(url, { method: editId ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const r = await fetch(url, {
+        method: editId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+        body: JSON.stringify(payload),
+      });
       if (!r.ok) { const err = await r.json().catch(() => ({})); throw new Error(err.error ?? "Failed to save"); }
       return r.json();
     },
@@ -862,6 +883,7 @@ function TableView({ apps, onCardClick, sort, onSort }: {
 export default function JobTracker() {
   const { user } = useAppAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [view, setView] = useState<ViewMode>("kanban");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
@@ -874,10 +896,14 @@ export default function JobTracker() {
   const [editApp, setEditApp] = useState<TrackedApp | null>(null);
   const [drawerApp, setDrawerApp] = useState<TrackedApp | null>(null);
 
+  const authToken = user?.authToken ?? "";
+
   const { data, isLoading, error, refetch } = useQuery<TrackerData>({
     queryKey: ["job-tracker", user?.id],
-    queryFn: () => fetch(`${BASE}api/job-tracker/${user!.id}`).then((r) => r.json()),
-    enabled: !!user?.id,
+    queryFn: () => fetch(`${BASE}api/job-tracker/${user!.id}`, {
+      headers: { "Authorization": `Bearer ${authToken}` },
+    }).then((r) => r.json()),
+    enabled: !!user?.id && !!authToken,
     staleTime: 0,
   });
 
@@ -902,21 +928,30 @@ export default function JobTracker() {
 
   const deleteMutation = useMutation({
     mutationFn: async (app: TrackedApp) => {
-      await fetch(`${BASE}api/external-applications/${app.id}?ownerId=${user!.id}`, { method: "DELETE" });
+      const r = await fetch(`${BASE}api/external-applications/${app.id}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${authToken}` },
+      });
+      if (!r.ok && r.status !== 204) throw new Error("Delete failed");
     },
-    onSuccess: () => { refetch(); setDrawerApp(null); toast({ title: "Application removed" }); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["job-tracker", user?.id] });
+      refetch(); setDrawerApp(null); toast({ title: "Application removed" });
+    },
   });
 
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
       const r = await fetch(`${BASE}api/external-applications/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, ownerId: user!.id }),
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authToken}` },
+        body: JSON.stringify({ status }),
       });
+      if (!r.ok) throw new Error("Status update failed");
       return r.json();
     },
     onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ["job-tracker", user?.id] });
       refetch();
       setDrawerApp((prev) => prev ? { ...prev, status: updated.status } : null);
     },
@@ -948,7 +983,7 @@ export default function JobTracker() {
       {!isLoading && !error && (
         <>
           <StatsBar apps={apps} />
-          <PlatformStrip links={platformLinks} profileId={user.id} onRefetch={refetch} />
+          <PlatformStrip links={platformLinks} profileId={user.id} authToken={authToken} onRefetch={refetch} />
 
           {/* Filter + view toggle */}
           <div className="flex flex-wrap items-center gap-2 mb-5">
@@ -1032,7 +1067,7 @@ export default function JobTracker() {
       {addModal.open && (
         <AppModal open onClose={() => setAddModal({ open: false })}
           initial={addModal.initialStatus ? { status: addModal.initialStatus } : undefined}
-          profileId={user.id} onSaved={() => refetch()} />
+          profileId={user.id} authToken={authToken} onSaved={() => refetch()} />
       )}
       {editApp && (
         <AppModal open onClose={() => setEditApp(null)}
@@ -1042,7 +1077,7 @@ export default function JobTracker() {
             location: editApp.location ?? "", salaryMin: editApp.salaryMin?.toString() ?? "",
             salaryMax: editApp.salaryMax?.toString() ?? "", notes: editApp.notes ?? "",
           }}
-          profileId={user.id} editId={editApp.id}
+          profileId={user.id} authToken={authToken} editId={editApp.id}
           onSaved={() => { refetch(); setDrawerApp(null); }}
         />
       )}

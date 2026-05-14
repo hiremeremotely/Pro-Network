@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { createHash } from "crypto";
+import { createHash, createHmac } from "crypto";
 import { eq } from "drizzle-orm";
 import { db, profilesTable } from "@workspace/db";
 
@@ -7,6 +7,25 @@ const router: IRouter = Router();
 
 function hashPassword(password: string): string {
   return createHash("sha256").update(password + "hmr_salt_2026").digest("hex");
+}
+
+export function generateAuthToken(profileId: number): string {
+  const secret = process.env.SESSION_SECRET ?? "hmr_salt_2026_fallback";
+  const hmac = createHmac("sha256", secret).update(String(profileId)).digest("hex");
+  return `${profileId}:${hmac}`;
+}
+
+export function validateAuthToken(token: string): number | null {
+  const colonIdx = token.lastIndexOf(":");
+  if (colonIdx < 0) return null;
+  const profileIdStr = token.slice(0, colonIdx);
+  const providedHmac = token.slice(colonIdx + 1);
+  const profileId = parseInt(profileIdStr, 10);
+  if (isNaN(profileId) || profileId <= 0) return null;
+  const secret = process.env.SESSION_SECRET ?? "hmr_salt_2026_fallback";
+  const expectedHmac = createHmac("sha256", secret).update(String(profileId)).digest("hex");
+  if (providedHmac !== expectedHmac) return null;
+  return profileId;
 }
 
 router.post("/auth/register", async (req, res): Promise<void> => {
@@ -44,7 +63,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }).returning();
 
   const { passwordHash: _pw, ...safe } = profile;
-  res.status(201).json({ profile: safe });
+  res.status(201).json({ profile: safe, authToken: generateAuthToken(profile.id) });
 });
 
 router.get("/auth/check-email", async (req, res): Promise<void> => {
@@ -79,7 +98,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   }
 
   const { passwordHash: _pw, ...safe } = profile;
-  res.json({ profile: safe });
+  res.json({ profile: safe, authToken: generateAuthToken(profile.id) });
 });
 
 export default router;

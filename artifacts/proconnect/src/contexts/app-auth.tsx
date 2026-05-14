@@ -9,6 +9,7 @@ export interface AppUser {
   accountType: string;
   headline: string;
   avatarUrl?: string | null;
+  authToken?: string;
 }
 
 interface AppAuthCtx {
@@ -60,6 +61,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
           accountType: data.profile.accountType,
           headline: data.profile.headline,
           avatarUrl: data.profile.avatarUrl,
+          authToken: data.authToken,
         };
         if (allowedAccountType && u.accountType !== allowedAccountType) {
           if (allowedAccountType === "company") {
@@ -93,6 +95,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
           accountType: json.profile.accountType,
           headline: json.profile.headline,
           avatarUrl: json.profile.avatarUrl,
+          authToken: json.authToken,
         };
         localStorage.setItem(SESSION_KEY, JSON.stringify(u));
         setUser(u);
