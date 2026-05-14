@@ -14,10 +14,14 @@ import {
   IS_DEMO,
   GOOGLE_CLIENT_ID,
   MICROSOFT_CLIENT_ID,
+  DEMO_TOKEN_BUNDLE,
   exchangeOAuthCode,
+  getValidAccessToken,
   fetchGmailInbox,
   fetchOutlookInbox,
+  parseInboxEmails,
   type InboxEmail,
+  type ParsedEmailApp,
 } from "../lib/email-provider";
 import { getSessionSecret } from "../routes/auth";
 
@@ -34,9 +38,6 @@ const NATIVE_STATUS_MAP: Record<string, string> = {
 
 const VALID_STATUSES = new Set(["saved", "applied", "screening", "interview", "offer", "accepted", "rejected", "withdrawn"]);
 const VALID_SOURCES = new Set(["manual", "email", "extension", "native"]);
-
-// ── OAuth state signing ───────────────────────────────────────────────────────
-// State is HMAC-signed so the callback cannot be forged with an arbitrary profileId.
 
 function signOAuthState(payload: { profileId: number; provider: string; nonce: string }): string {
   const raw = JSON.stringify(payload);
@@ -57,67 +58,6 @@ function verifyOAuthState(state: string): { profileId: number; provider: string 
   }
 }
 
-// ── Rule-based email parser ───────────────────────────────────────────────────
-// Parses synthetic inbox emails using sender-domain and subject-keyword heuristics
-// that mirror what a real parser would apply to provider API responses.
-
-const DOMAIN_TO_PLATFORM: Record<string, string> = {
-  "linkedin.com": "linkedin",
-  "indeed.com": "indeed",
-  "glassdoor.com": "glassdoor",
-  "angel.co": "wellfound",
-  "wellfound.com": "wellfound",
-  "greenhouse.io": "greenhouse",
-  "lever.co": "lever",
-  "workday.com": "workday",
-  "ashbyhq.com": "ashby",
-  "recruitee.com": "recruitee",
-};
-
-function senderToPlatform(from: string): string {
-  const domain = from.replace(/.*@/, "").toLowerCase().trim();
-  return DOMAIN_TO_PLATFORM[domain] ?? "other";
-}
-
-function isPromotionalEmail(subject: string, from: string): boolean {
-  const subj = subject.toLowerCase();
-  const frm = from.toLowerCase();
-  if (/newsletter|unsubscribe|open position|job alert|new job|promotional/.test(subj)) return true;
-  if (/marketing\.|newsletter\.|@campaigns\./.test(frm)) return true;
-  return false;
-}
-
-function parseStatusFromSubject(subject: string): string {
-  const s = subject.toLowerCase();
-  if (/\b(offer|we.?d like to offer|congratulations.*offer|pleased to offer)\b/.test(s)) return "offer";
-  if (/\b(interview|invited to interview|schedule.*interview|please.*schedule|phone screen|technical screen)\b/.test(s)) return "interview";
-  if (/\b(shortlisted|moved forward|under review|reviewing your|screening|assessment)\b/.test(s)) return "screening";
-  if (/\b(regret|not moving forward|unfortunately|not.*selected|we won.?t|no longer|unsuccessful)\b/.test(s)) return "rejected";
-  if (/\b(received|thank you for applying|confirmed|application submitted|we got your)\b/.test(s)) return "applied";
-  return "applied";
-}
-
-function extractCompanyFromSubject(subject: string): string | null {
-  // Match only consecutive Title-Case words after "at" — stops at lowercase words like "has", "been"
-  const m = subject.match(/\bat\s+((?:[A-Z][A-Za-z0-9&.]+)(?:\s+[A-Z][A-Za-z0-9&.]+)*)/);
-  return m ? m[1].trim() : null;
-}
-
-function extractJobTitleFromSubject(subject: string): string | null {
-  // Match job title as consecutive Title-Case words (with hyphen support) after trigger phrases
-  const m = subject.match(
-    /(?:application\s+(?:to|for|received[:\s]+)|invitation[:\s]+|for\s+the)\s+((?:[A-Z][A-Za-z0-9&+./-]+)(?:\s+[A-Z][A-Za-z0-9&+./-]+)*)\s+at\b/i,
-  );
-  return m ? m[1].trim() : null;
-}
-
-interface InboxEmail {
-  messageId: string;
-  from: string;
-  subject: string;
-  receivedDate: string;
-  snippet: string;
-}
 
 function buildSyntheticInbox(profileId: number): InboxEmail[] {
   const daysAgo = (n: number) =>
@@ -183,50 +123,8 @@ function buildSyntheticInbox(profileId: number): InboxEmail[] {
   ];
 }
 
-interface ParsedEmailApp {
-  emailMessageId: string;
-  jobTitle: string;
-  companyName: string;
-  platform: string;
-  status: string;
-  appliedDate: string;
-  source: "email";
-}
-
-const KNOWN_SENDER_DOMAINS = new Set([
-  "linkedin.com", "indeed.com", "glassdoor.com", "angel.co", "wellfound.com",
-  "greenhouse.io", "lever.co", "workday.com", "ashbyhq.com", "recruitee.com",
-]);
-
-function parseInboxEmails(emails: InboxEmail[]): ParsedEmailApp[] {
-  return emails
-    .filter((e) => {
-      const domain = e.from.replace(/.*@/, "").toLowerCase().trim();
-      return KNOWN_SENDER_DOMAINS.has(domain);
-    })
-    .filter((e) => !isPromotionalEmail(e.subject, e.from))
-    .map((e) => {
-      const platform = senderToPlatform(e.from);
-      const status = parseStatusFromSubject(e.subject);
-      const companyName = extractCompanyFromSubject(e.subject) ?? "Unknown Company";
-      const jobTitle = extractJobTitleFromSubject(e.subject) ?? "Software Engineer";
-      return {
-        emailMessageId: e.messageId,
-        jobTitle,
-        companyName,
-        platform,
-        status,
-        appliedDate: e.receivedDate,
-        source: "email" as const,
-      };
-    });
-}
-
-// ── GET /api/job-tracker/:profileId ──────────────────────────────────────────
-// Protected: caller must own the profile (token profileId === URL profileId).
-// Supports server-side filtering: ?status=&platform=&source=&search=&page=&limit=
 router.get("/job-tracker/:profileId", requireTrackerAuth, async (req, res): Promise<void> => {
-  const profileId = parseInt(req.params.profileId, 10);
+  const profileId = parseInt(String(req.params.profileId), 10);
   if (isNaN(profileId)) { res.status(400).json({ error: "Invalid profileId" }); return; }
 
   const callerProfileId: number = res.locals.callerProfileId;
@@ -322,8 +220,6 @@ router.get("/job-tracker/:profileId", requireTrackerAuth, async (req, res): Prom
   res.json({ applications, platformLinks: profileRows[0] ?? null, total, page: pageNum, limit: limitNum });
 });
 
-// ── GET /api/external-applications ────────────────────────────────────────────
-// Protected list endpoint with server-side filtering/pagination.
 router.get("/external-applications", requireTrackerAuth, async (req, res): Promise<void> => {
   const callerProfileId: number = res.locals.callerProfileId;
   const { status, platform, source, page, limit } = req.query as Record<string, string>;
@@ -351,8 +247,6 @@ router.get("/external-applications", requireTrackerAuth, async (req, res): Promi
   res.json({ applications: rows, page: pageNum, limit: limitNum });
 });
 
-// ── POST /api/external-applications ──────────────────────────────────────────
-// Protected: profileId comes from the verified token, not client body.
 router.post("/external-applications", requireTrackerAuth, async (req, res): Promise<void> => {
   const callerProfileId: number = res.locals.callerProfileId;
   const { jobTitle, companyName, platform, jobUrl, status,
@@ -379,11 +273,8 @@ router.post("/external-applications", requireTrackerAuth, async (req, res): Prom
   res.status(201).json(app);
 });
 
-// ── PATCH /api/external-applications/:id ─────────────────────────────────────
-// Protected: ownership enforced via token — no client ownerId param needed.
-// Appends to statusHistory whenever the status field changes.
 router.patch("/external-applications/:id", requireTrackerAuth, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const callerProfileId: number = res.locals.callerProfileId;
@@ -422,10 +313,8 @@ router.patch("/external-applications/:id", requireTrackerAuth, async (req, res):
   res.json(updated);
 });
 
-// ── DELETE /api/external-applications/:id ─────────────────────────────────────
-// Protected: ownership enforced via token.
 router.delete("/external-applications/:id", requireTrackerAuth, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const callerProfileId: number = res.locals.callerProfileId;
@@ -438,10 +327,8 @@ router.delete("/external-applications/:id", requireTrackerAuth, async (req, res)
   res.status(204).send();
 });
 
-// ── PATCH /api/profiles/:id/platform-links ───────────────────────────────────
-// Protected: caller must own the profile.
 router.patch("/profiles/:id/platform-links", requireTrackerAuth, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const callerProfileId: number = res.locals.callerProfileId;
@@ -466,16 +353,11 @@ router.patch("/profiles/:id/platform-links", requireTrackerAuth, async (req, res
   res.json(updated);
 });
 
-// ── EMAIL INTEGRATION ─────────────────────────────────────────────────────────
 
 const OAUTH_REDIRECT_BASE = process.env.REPLIT_DEV_DOMAIN
   ? `https://${process.env.REPLIT_DEV_DOMAIN}`
   : "http://localhost:80";
 
-// GET /api/email-integration/demo-authorize
-// Serves a simulated OAuth consent screen used when real client IDs are absent.
-// The popup opens this page; the user clicks "Allow" which submits a GET to /callback
-// with a demo code, completing the popup-based connect flow.
 router.get("/email-integration/demo-authorize", (req, res): void => {
   const { state, provider } = req.query as Record<string, string>;
   if (!state || (provider !== "gmail" && provider !== "outlook")) {
@@ -507,9 +389,6 @@ router.get("/email-integration/demo-authorize", (req, res): void => {
   res.setHeader("Content-Type", "text/html").send(html);
 });
 
-// POST /api/email-integration/initiate
-// Protected. Generates a signed OAuth URL. In demo mode the URL points to the
-// local demo-authorize page so the popup-based consent flow works without real credentials.
 router.post("/email-integration/initiate", requireTrackerAuth, async (req, res): Promise<void> => {
   const { provider } = req.body;
   if (provider !== "gmail" && provider !== "outlook") {
@@ -545,9 +424,6 @@ router.post("/email-integration/initiate", requireTrackerAuth, async (req, res):
   res.json({ authUrl, demoMode: IS_DEMO, connected });
 });
 
-// GET /api/email-integration/callback
-// Verifies HMAC-signed state (prevents forged-state account-takeover), then stores
-// encrypted provider token. Redirects popup back to /job-tracker?email_connected=1.
 router.get("/email-integration/callback", async (req, res): Promise<void> => {
   const { code, state, error: oauthError } = req.query as Record<string, string>;
 
@@ -571,7 +447,7 @@ router.get("/email-integration/callback", async (req, res): Promise<void> => {
       throw Object.assign(new Error(msg), { _redirectError: "token_exchange_failed" });
     });
   } else {
-    rawToken = "demo_token_simulated";
+    rawToken = DEMO_TOKEN_BUNDLE;
   }
 
   const providerField = provider === "gmail"
@@ -582,9 +458,6 @@ router.get("/email-integration/callback", async (req, res): Promise<void> => {
   res.redirect(`/job-tracker?email_connected=1&provider=${provider}`);
 });
 
-// POST /api/email-integration/sync
-// Protected. Parses inbox using allowlisted sender domains, subject-keyword status
-// detection, and promotional filtering. Returns deduplicated preview candidates.
 router.post("/email-integration/sync", requireTrackerAuth, async (req, res): Promise<void> => {
   const { provider } = req.body;
   if (provider !== "gmail" && provider !== "outlook") {
@@ -619,10 +492,11 @@ router.post("/email-integration/sync", requireTrackerAuth, async (req, res): Pro
   let rawInbox: InboxEmail[];
   if (!IS_DEMO) {
     const storedToken = provider === "gmail" ? profile.gmailToken : profile.outlookToken;
-    const accessToken = storedToken ? decryptToken(storedToken) : null;
-    if (!accessToken) {
+    const storedBundle = storedToken ? decryptToken(storedToken) : null;
+    if (!storedBundle) {
       res.status(403).json({ error: "No valid token stored. Please reconnect." }); return;
     }
+    const accessToken = await getValidAccessToken(provider, storedBundle);
     rawInbox = provider === "gmail"
       ? await fetchGmailInbox(accessToken)
       : await fetchOutlookInbox(accessToken);
@@ -636,8 +510,6 @@ router.post("/email-integration/sync", requireTrackerAuth, async (req, res): Pro
   res.json({ previews, alreadyImported: allParsed.length - previews.length });
 });
 
-// POST /api/email-integration/confirm-import
-// Protected. Saves user-selected candidates; deduplicates by emailMessageId.
 router.post("/email-integration/confirm-import", requireTrackerAuth, async (req, res): Promise<void> => {
   const { apps } = req.body;
   if (!Array.isArray(apps) || apps.length === 0) {
@@ -679,8 +551,6 @@ router.post("/email-integration/confirm-import", requireTrackerAuth, async (req,
   res.json({ imported });
 });
 
-// POST /api/email-integration/disconnect
-// Protected.
 router.post("/email-integration/disconnect", requireTrackerAuth, async (req, res): Promise<void> => {
   const { provider } = req.body;
   if (provider !== "gmail" && provider !== "outlook") {

@@ -78,6 +78,11 @@ const PLATFORMS: { value: string; label: string; color: string }[] = [
   { value: "angellist",      label: "AngelList",        color: "bg-gray-900 text-white"    },
   { value: "weworkremotely", label: "WeWorkRemotely",   color: "bg-[#1a9b6c] text-white"   },
   { value: "hiremeremotely", label: "Hire Me Remotely", color: "bg-indigo-600 text-white"  },
+  { value: "greenhouse",     label: "Greenhouse",       color: "bg-[#24a84b] text-white"   },
+  { value: "lever",          label: "Lever",            color: "bg-[#4db4d4] text-white"   },
+  { value: "workday",        label: "Workday",          color: "bg-[#f25900] text-white"   },
+  { value: "ashby",          label: "Ashby",            color: "bg-gray-800 text-white"    },
+  { value: "recruitee",      label: "Recruitee",        color: "bg-[#6434d4] text-white"   },
   { value: "other",          label: "Other",            color: "bg-gray-200 text-gray-700" },
 ];
 const PLATFORM_MAP = Object.fromEntries(PLATFORMS.map((p) => [p.value, p]));

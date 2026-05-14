@@ -7,7 +7,15 @@ import {
 } from "@workspace/db";
 import { logger } from "./logger";
 import { decryptToken } from "./crypto";
-import { IS_DEMO, fetchGmailInbox, fetchOutlookInbox, type InboxEmail as ProviderInboxEmail } from "./email-provider";
+import {
+  IS_DEMO,
+  fetchGmailInbox,
+  fetchOutlookInbox,
+  getValidAccessToken,
+  parseInboxEmails,
+  type InboxEmail,
+  type ParsedEmailApp,
+} from "./email-provider";
 
 const SYNC_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -15,67 +23,6 @@ const VALID_STATUSES = new Set([
   "saved", "applied", "screening", "interview", "offer", "accepted", "rejected", "withdrawn",
 ]);
 
-// ── Rule-based email parser (same heuristics as the /sync route) ──────────────
-
-const DOMAIN_TO_PLATFORM: Record<string, string> = {
-  "linkedin.com": "linkedin",
-  "indeed.com": "indeed",
-  "glassdoor.com": "glassdoor",
-  "angel.co": "wellfound",
-  "wellfound.com": "wellfound",
-  "greenhouse.io": "greenhouse",
-  "lever.co": "lever",
-  "workday.com": "workday",
-  "ashbyhq.com": "ashby",
-  "recruitee.com": "recruitee",
-};
-
-function senderToPlatform(from: string): string {
-  const domain = from.replace(/.*@/, "").toLowerCase().trim();
-  return DOMAIN_TO_PLATFORM[domain] ?? "other";
-}
-
-function isPromotionalEmail(subject: string, from: string): boolean {
-  const subj = subject.toLowerCase();
-  const frm = from.toLowerCase();
-  if (/newsletter|unsubscribe|open position|job alert|new job|promotional/.test(subj)) return true;
-  if (/marketing\.|newsletter\.|@campaigns\./.test(frm)) return true;
-  return false;
-}
-
-function parseStatusFromSubject(subject: string): string {
-  const s = subject.toLowerCase();
-  if (/\b(offer|we.?d like to offer|congratulations.*offer|pleased to offer)\b/.test(s)) return "offer";
-  if (/\b(interview|invited to interview|schedule.*interview|please.*schedule|phone screen|technical screen)\b/.test(s)) return "interview";
-  if (/\b(shortlisted|moved forward|under review|reviewing your|screening|assessment)\b/.test(s)) return "screening";
-  if (/\b(regret|not moving forward|unfortunately|not.*selected|we won.?t|no longer|unsuccessful)\b/.test(s)) return "rejected";
-  return "applied";
-}
-
-function extractCompanyFromSubject(subject: string): string | null {
-  // Match only consecutive Title-Case words after "at" — stops at lowercase words like "has", "been"
-  const m = subject.match(/\bat\s+((?:[A-Z][A-Za-z0-9&.]+)(?:\s+[A-Z][A-Za-z0-9&.]+)*)/);
-  return m ? m[1].trim() : null;
-}
-
-function extractJobTitleFromSubject(subject: string): string | null {
-  // Match job title as consecutive Title-Case words (with hyphen support) after trigger phrases
-  const m = subject.match(
-    /(?:application\s+(?:to|for|received[:\s]+)|invitation[:\s]+|for\s+the)\s+((?:[A-Z][A-Za-z0-9&+./-]+)(?:\s+[A-Z][A-Za-z0-9&+./-]+)*)\s+at\b/i,
-  );
-  return m ? m[1].trim() : null;
-}
-
-type InboxEmail = ProviderInboxEmail;
-
-interface ParsedEmail {
-  emailMessageId: string;
-  jobTitle: string;
-  companyName: string;
-  platform: string;
-  status: string;
-  appliedDate: string;
-}
 
 function buildSyntheticInbox(profileId: number): InboxEmail[] {
   const daysAgo = (n: number) =>
@@ -127,30 +74,6 @@ function buildSyntheticInbox(profileId: number): InboxEmail[] {
   ];
 }
 
-const KNOWN_SENDER_DOMAINS = new Set([
-  "linkedin.com", "indeed.com", "glassdoor.com", "angel.co", "wellfound.com",
-  "greenhouse.io", "lever.co", "workday.com", "ashbyhq.com", "recruitee.com",
-]);
-
-function parseInboxEmails(emails: InboxEmail[]): ParsedEmail[] {
-  return emails
-    .filter((e) => {
-      const domain = e.from.replace(/.*@/, "").toLowerCase().trim();
-      return KNOWN_SENDER_DOMAINS.has(domain);
-    })
-    .filter((e) => !isPromotionalEmail(e.subject, e.from))
-    .map((e) => ({
-      emailMessageId: e.messageId,
-      jobTitle: extractJobTitleFromSubject(e.subject) ?? "Software Engineer",
-      companyName: extractCompanyFromSubject(e.subject) ?? "Unknown Company",
-      platform: senderToPlatform(e.from),
-      status: parseStatusFromSubject(e.subject),
-      appliedDate: e.receivedDate,
-    }));
-}
-
-// ── Profile sync ──────────────────────────────────────────────────────────────
-
 interface ProfileTokens {
   gmailConnected: boolean;
   gmailToken: string | null;
@@ -163,9 +86,10 @@ async function syncProfileInbox(profileId: number, tokens: ProfileTokens): Promi
   if (!IS_DEMO) {
     rawInbox = [];
     if (tokens.gmailConnected && tokens.gmailToken) {
-      const accessToken = decryptToken(tokens.gmailToken);
-      if (accessToken) {
+      const bundle = decryptToken(tokens.gmailToken);
+      if (bundle) {
         try {
+          const accessToken = await getValidAccessToken("gmail", bundle);
           rawInbox.push(...await fetchGmailInbox(accessToken));
         } catch (err) {
           logger.warn({ err, profileId }, "Email sync: Gmail fetch failed");
@@ -173,9 +97,10 @@ async function syncProfileInbox(profileId: number, tokens: ProfileTokens): Promi
       }
     }
     if (tokens.outlookConnected && tokens.outlookToken) {
-      const accessToken = decryptToken(tokens.outlookToken);
-      if (accessToken) {
+      const bundle = decryptToken(tokens.outlookToken);
+      if (bundle) {
         try {
+          const accessToken = await getValidAccessToken("outlook", bundle);
           rawInbox.push(...await fetchOutlookInbox(accessToken));
         } catch (err) {
           logger.warn({ err, profileId }, "Email sync: Outlook fetch failed");
@@ -203,6 +128,12 @@ async function syncProfileInbox(profileId: number, tokens: ProfileTokens): Promi
         eq(externalApplicationsTable.source, "email"),
       ),
     );
+
+  // Only auto-import after the user has confirmed an initial import via the review flow.
+  if (existingRows.length === 0) {
+    logger.info({ profileId }, "Email sync: no baseline imports, skipping auto-import");
+    return;
+  }
 
   const existingByMessageId = new Map(
     existingRows
