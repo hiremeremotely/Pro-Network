@@ -26,6 +26,8 @@ export const profilesTable = pgTable("profiles", {
   angellistUrl: text("angellist_url"),
   gmailConnected: boolean("gmail_connected").notNull().default(false),
   outlookConnected: boolean("outlook_connected").notNull().default(false),
+  gmailToken: text("gmail_token"),
+  outlookToken: text("outlook_token"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

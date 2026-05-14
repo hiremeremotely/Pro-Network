@@ -38,6 +38,7 @@ router.get("/job-tracker/:profileId", async (req, res): Promise<void> => {
       glassdoorUrl: profilesTable.glassdoorUrl,
       wellfoundUrl: profilesTable.wellfoundUrl,
       angellistUrl: profilesTable.angellistUrl,
+      linkedinUrl: profilesTable.linkedinUrl,
       gmailConnected: profilesTable.gmailConnected,
       outlookConnected: profilesTable.outlookConnected,
     }).from(profilesTable).where(eq(profilesTable.id, profileId)),
@@ -79,12 +80,13 @@ router.post("/external-applications", async (req, res): Promise<void> => {
   const { profileId, jobTitle, companyName, platform, jobUrl, status,
           appliedDate, location, salaryMin, salaryMax, notes, emailMessageId, source } = req.body;
 
-  if (!profileId || typeof profileId !== "number") { res.status(400).json({ error: "profileId required" }); return; }
+  const profileIdNum = profileId != null ? parseInt(String(profileId), 10) : NaN;
+  if (isNaN(profileIdNum) || profileIdNum <= 0) { res.status(400).json({ error: "profileId required" }); return; }
   if (!jobTitle?.trim()) { res.status(400).json({ error: "jobTitle required" }); return; }
   if (!companyName?.trim()) { res.status(400).json({ error: "companyName required" }); return; }
 
   const [app] = await db.insert(externalApplicationsTable).values({
-    profileId, jobTitle: jobTitle.trim(), companyName: companyName.trim(),
+    profileId: profileIdNum, jobTitle: jobTitle.trim(), companyName: companyName.trim(),
     platform: platform ?? "other", jobUrl: jobUrl ?? null,
     status: status ?? "applied", appliedDate: appliedDate ?? null,
     location: location ?? null,
@@ -97,19 +99,18 @@ router.post("/external-applications", async (req, res): Promise<void> => {
 });
 
 // ── PATCH /api/external-applications/:id ─────────────────────────────────────
-// Requires ownerId in body to enforce ownership
+// Requires ownerId in body — enforces ownership against DB record.
 router.patch("/external-applications/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const ownerId = req.body.ownerId != null ? parseInt(String(req.body.ownerId), 10) : NaN;
+  if (isNaN(ownerId)) { res.status(400).json({ error: "ownerId required" }); return; }
 
-  if (!isNaN(ownerId)) {
-    const [existing] = await db.select({ profileId: externalApplicationsTable.profileId })
-      .from(externalApplicationsTable).where(eq(externalApplicationsTable.id, id));
-    if (!existing) { res.status(404).json({ error: "Not found" }); return; }
-    if (existing.profileId !== ownerId) { res.status(403).json({ error: "Forbidden" }); return; }
-  }
+  const [existing] = await db.select({ profileId: externalApplicationsTable.profileId })
+    .from(externalApplicationsTable).where(eq(externalApplicationsTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+  if (existing.profileId !== ownerId) { res.status(403).json({ error: "Forbidden" }); return; }
 
   const allowed = ["jobTitle", "companyName", "platform", "jobUrl", "status",
     "appliedDate", "location", "salaryMin", "salaryMax", "notes"];
@@ -131,18 +132,18 @@ router.patch("/external-applications/:id", async (req, res): Promise<void> => {
 });
 
 // ── DELETE /api/external-applications/:id ─────────────────────────────────────
-// Requires ownerId query param to enforce ownership
+// Requires ownerId query param — enforces ownership against DB record.
 router.delete("/external-applications/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const ownerId = req.query.ownerId != null ? parseInt(String(req.query.ownerId), 10) : NaN;
-  if (!isNaN(ownerId)) {
-    const [existing] = await db.select({ profileId: externalApplicationsTable.profileId })
-      .from(externalApplicationsTable).where(eq(externalApplicationsTable.id, id));
-    if (!existing) { res.status(404).json({ error: "Not found" }); return; }
-    if (existing.profileId !== ownerId) { res.status(403).json({ error: "Forbidden" }); return; }
-  }
+  if (isNaN(ownerId)) { res.status(400).json({ error: "ownerId required" }); return; }
+
+  const [existing] = await db.select({ profileId: externalApplicationsTable.profileId })
+    .from(externalApplicationsTable).where(eq(externalApplicationsTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+  if (existing.profileId !== ownerId) { res.status(403).json({ error: "Forbidden" }); return; }
 
   await db.delete(externalApplicationsTable).where(eq(externalApplicationsTable.id, id));
   res.status(204).send();
@@ -153,22 +154,26 @@ router.patch("/profiles/:id/platform-links", async (req, res): Promise<void> => 
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { indeedUrl, glassdoorUrl, wellfoundUrl, angellistUrl, ownerId } = req.body;
+  const { indeedUrl, glassdoorUrl, wellfoundUrl, angellistUrl, linkedinUrl, ownerId } = req.body;
 
-  if (ownerId != null && parseInt(String(ownerId), 10) !== id) {
-    res.status(403).json({ error: "Forbidden" }); return;
-  }
+  const ownerIdNum = ownerId != null ? parseInt(String(ownerId), 10) : NaN;
+  if (isNaN(ownerIdNum)) { res.status(400).json({ error: "ownerId required" }); return; }
+  if (ownerIdNum !== id) { res.status(403).json({ error: "Forbidden" }); return; }
 
   const [updated] = await db.update(profilesTable).set({
     indeedUrl: indeedUrl ?? null,
     glassdoorUrl: glassdoorUrl ?? null,
     wellfoundUrl: wellfoundUrl ?? null,
     angellistUrl: angellistUrl ?? null,
+    linkedinUrl: linkedinUrl ?? null,
   }).where(eq(profilesTable.id, id)).returning({
     indeedUrl: profilesTable.indeedUrl,
     glassdoorUrl: profilesTable.glassdoorUrl,
     wellfoundUrl: profilesTable.wellfoundUrl,
     angellistUrl: profilesTable.angellistUrl,
+    linkedinUrl: profilesTable.linkedinUrl,
+    gmailConnected: profilesTable.gmailConnected,
+    outlookConnected: profilesTable.outlookConnected,
   });
   res.json(updated);
 });

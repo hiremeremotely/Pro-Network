@@ -791,3 +791,268 @@ export const ListFeaturedJobsResponseItem = zod.object({
   updatedAt: zod.string(),
 });
 export const ListFeaturedJobsResponse = zod.array(ListFeaturedJobsResponseItem);
+
+/**
+ * @summary Get unified job tracker (external + native applications) for a profile
+ */
+export const GetJobTrackerParams = zod.object({
+  profileId: zod.coerce.number(),
+});
+
+export const GetJobTrackerResponse = zod.object({
+  applications: zod.array(
+    zod
+      .object({
+        uid: zod
+          .string()
+          .describe('Unique identifier prefixed with \"ext-\" or \"native-\"'),
+        id: zod.number(),
+        type: zod.enum(["external", "native"]),
+        source: zod.string(),
+        jobTitle: zod.string(),
+        companyName: zod.string(),
+        platform: zod.string(),
+        jobUrl: zod.string().nullish(),
+        status: zod.string(),
+        appliedDate: zod.string().nullish(),
+        location: zod.string().nullish(),
+        salaryMin: zod.number().nullish(),
+        salaryMax: zod.number().nullish(),
+        notes: zod.string().nullish(),
+        nativeJobId: zod
+          .number()
+          .optional()
+          .describe('Present only when type is \"native\"'),
+        createdAt: zod.string().nullish(),
+        updatedAt: zod.string().nullish(),
+      })
+      .describe(
+        "Unified application entry merging external and native (Hire Me Remotely) applications",
+      ),
+  ),
+  platformLinks: zod
+    .object({
+      indeedUrl: zod.string().nullish(),
+      glassdoorUrl: zod.string().nullish(),
+      wellfoundUrl: zod.string().nullish(),
+      angellistUrl: zod.string().nullish(),
+      linkedinUrl: zod.string().nullish(),
+      gmailConnected: zod.boolean().optional(),
+      outlookConnected: zod.boolean().optional(),
+    })
+    .nullish(),
+});
+
+/**
+ * @summary Create a manually tracked external application
+ */
+export const CreateExternalApplicationBody = zod.object({
+  profileId: zod.number(),
+  jobTitle: zod.string(),
+  companyName: zod.string(),
+  platform: zod.string().optional(),
+  jobUrl: zod.string().nullish(),
+  status: zod.string().optional(),
+  appliedDate: zod.string().nullish(),
+  location: zod.string().nullish(),
+  salaryMin: zod.number().nullish(),
+  salaryMax: zod.number().nullish(),
+  notes: zod.string().nullish(),
+  source: zod.string().optional(),
+});
+
+/**
+ * @summary Update an external application (requires ownerId for ownership verification)
+ */
+export const UpdateExternalApplicationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateExternalApplicationBody = zod.object({
+  ownerId: zod
+    .number()
+    .describe(
+      "Profile ID of the requesting user — required for ownership verification",
+    ),
+  jobTitle: zod.string().optional(),
+  companyName: zod.string().optional(),
+  platform: zod.string().optional(),
+  jobUrl: zod.string().nullish(),
+  status: zod.string().optional(),
+  appliedDate: zod.string().nullish(),
+  location: zod.string().nullish(),
+  salaryMin: zod.number().nullish(),
+  salaryMax: zod.number().nullish(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateExternalApplicationResponse = zod.object({
+  id: zod.number(),
+  profileId: zod.number(),
+  jobTitle: zod.string(),
+  companyName: zod.string(),
+  platform: zod.enum([
+    "linkedin",
+    "indeed",
+    "glassdoor",
+    "wellfound",
+    "angellist",
+    "weworkremotely",
+    "hiremeremotely",
+    "other",
+  ]),
+  jobUrl: zod.string().nullish(),
+  status: zod.enum([
+    "saved",
+    "applied",
+    "screening",
+    "interview",
+    "offer",
+    "accepted",
+    "rejected",
+  ]),
+  appliedDate: zod.string().nullish(),
+  location: zod.string().nullish(),
+  salaryMin: zod.number().nullish(),
+  salaryMax: zod.number().nullish(),
+  notes: zod.string().nullish(),
+  emailMessageId: zod.string().nullish(),
+  source: zod.enum(["manual", "email", "native"]),
+  createdAt: zod.string(),
+  updatedAt: zod.string(),
+});
+
+/**
+ * @summary Delete an external application (requires ownerId query param)
+ */
+export const DeleteExternalApplicationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteExternalApplicationQueryParams = zod.object({
+  ownerId: zod.coerce
+    .number()
+    .describe("Profile ID of the requesting user for ownership verification"),
+});
+
+/**
+ * @summary Update job platform profile URLs for an individual user
+ */
+export const UpdatePlatformLinksParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdatePlatformLinksBody = zod.object({
+  ownerId: zod
+    .number()
+    .describe("Must match the path id for ownership verification"),
+  indeedUrl: zod.string().nullish(),
+  glassdoorUrl: zod.string().nullish(),
+  wellfoundUrl: zod.string().nullish(),
+  angellistUrl: zod.string().nullish(),
+  linkedinUrl: zod.string().nullish(),
+});
+
+export const UpdatePlatformLinksResponse = zod.object({
+  indeedUrl: zod.string().nullish(),
+  glassdoorUrl: zod.string().nullish(),
+  wellfoundUrl: zod.string().nullish(),
+  angellistUrl: zod.string().nullish(),
+  linkedinUrl: zod.string().nullish(),
+  gmailConnected: zod.boolean().optional(),
+  outlookConnected: zod.boolean().optional(),
+});
+
+/**
+ * @summary Scan inbox preview — marks the account as connected and returns found application previews WITHOUT saving them. Frontend shows a confirmation step before import. Note: requires real OAuth credentials in production; returns simulated data when credentials are not configured.
+
+ */
+export const PreviewEmailInboxBody = zod.object({
+  profileId: zod.number(),
+  provider: zod.enum(["gmail", "outlook"]),
+});
+
+export const PreviewEmailInboxResponse = zod.object({
+  connected: zod.boolean(),
+  previews: zod.array(
+    zod.object({
+      jobTitle: zod.string(),
+      companyName: zod.string(),
+      platform: zod.string(),
+      status: zod.string(),
+      appliedDate: zod.string().nullish(),
+      source: zod.string(),
+      emailSubject: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Save user-selected email-imported applications after inbox preview
+ */
+export const ConfirmEmailImportBody = zod.object({
+  profileId: zod.number(),
+  apps: zod.array(
+    zod.object({
+      jobTitle: zod.string(),
+      companyName: zod.string(),
+      platform: zod.string(),
+      status: zod.string(),
+      appliedDate: zod.string().nullish(),
+      source: zod.string(),
+      emailSubject: zod.string().nullish(),
+    }),
+  ),
+});
+
+export const ConfirmEmailImportResponse = zod.object({
+  imported: zod.array(
+    zod.object({
+      id: zod.number(),
+      profileId: zod.number(),
+      jobTitle: zod.string(),
+      companyName: zod.string(),
+      platform: zod.enum([
+        "linkedin",
+        "indeed",
+        "glassdoor",
+        "wellfound",
+        "angellist",
+        "weworkremotely",
+        "hiremeremotely",
+        "other",
+      ]),
+      jobUrl: zod.string().nullish(),
+      status: zod.enum([
+        "saved",
+        "applied",
+        "screening",
+        "interview",
+        "offer",
+        "accepted",
+        "rejected",
+      ]),
+      appliedDate: zod.string().nullish(),
+      location: zod.string().nullish(),
+      salaryMin: zod.number().nullish(),
+      salaryMax: zod.number().nullish(),
+      notes: zod.string().nullish(),
+      emailMessageId: zod.string().nullish(),
+      source: zod.enum(["manual", "email", "native"]),
+      createdAt: zod.string(),
+      updatedAt: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Disconnect a Gmail or Outlook integration
+ */
+export const DisconnectEmailIntegrationBody = zod.object({
+  profileId: zod.number(),
+  provider: zod.enum(["gmail", "outlook"]),
+});
+
+export const DisconnectEmailIntegrationResponse = zod.object({
+  disconnected: zod.boolean(),
+});

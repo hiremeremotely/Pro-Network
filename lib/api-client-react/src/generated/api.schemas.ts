@@ -232,6 +232,199 @@ export interface UploadUrlResponse {
   metadata?: UploadUrlRequest;
 }
 
+export type ExternalApplicationPlatform =
+  (typeof ExternalApplicationPlatform)[keyof typeof ExternalApplicationPlatform];
+
+export const ExternalApplicationPlatform = {
+  linkedin: "linkedin",
+  indeed: "indeed",
+  glassdoor: "glassdoor",
+  wellfound: "wellfound",
+  angellist: "angellist",
+  weworkremotely: "weworkremotely",
+  hiremeremotely: "hiremeremotely",
+  other: "other",
+} as const;
+
+export type ExternalApplicationStatus =
+  (typeof ExternalApplicationStatus)[keyof typeof ExternalApplicationStatus];
+
+export const ExternalApplicationStatus = {
+  saved: "saved",
+  applied: "applied",
+  screening: "screening",
+  interview: "interview",
+  offer: "offer",
+  accepted: "accepted",
+  rejected: "rejected",
+} as const;
+
+export type ExternalApplicationSource =
+  (typeof ExternalApplicationSource)[keyof typeof ExternalApplicationSource];
+
+export const ExternalApplicationSource = {
+  manual: "manual",
+  email: "email",
+  native: "native",
+} as const;
+
+export interface ExternalApplication {
+  id: number;
+  profileId: number;
+  jobTitle: string;
+  companyName: string;
+  platform: ExternalApplicationPlatform;
+  jobUrl?: string | null;
+  status: ExternalApplicationStatus;
+  appliedDate?: string | null;
+  location?: string | null;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  notes?: string | null;
+  emailMessageId?: string | null;
+  source: ExternalApplicationSource;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TrackedApplicationType =
+  (typeof TrackedApplicationType)[keyof typeof TrackedApplicationType];
+
+export const TrackedApplicationType = {
+  external: "external",
+  native: "native",
+} as const;
+
+/**
+ * Unified application entry merging external and native (Hire Me Remotely) applications
+ */
+export interface TrackedApplication {
+  /** Unique identifier prefixed with "ext-" or "native-" */
+  uid: string;
+  id: number;
+  type: TrackedApplicationType;
+  source: string;
+  jobTitle: string;
+  companyName: string;
+  platform: string;
+  jobUrl?: string | null;
+  status: string;
+  appliedDate?: string | null;
+  location?: string | null;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  notes?: string | null;
+  /** Present only when type is "native" */
+  nativeJobId?: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface PlatformLinks {
+  indeedUrl?: string | null;
+  glassdoorUrl?: string | null;
+  wellfoundUrl?: string | null;
+  angellistUrl?: string | null;
+  linkedinUrl?: string | null;
+  gmailConnected?: boolean;
+  outlookConnected?: boolean;
+}
+
+export interface JobTrackerResponse {
+  applications: TrackedApplication[];
+  platformLinks?: PlatformLinks | null;
+}
+
+export interface CreateExternalApplicationBody {
+  profileId: number;
+  jobTitle: string;
+  companyName: string;
+  platform?: string;
+  jobUrl?: string | null;
+  status?: string;
+  appliedDate?: string | null;
+  location?: string | null;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  notes?: string | null;
+  source?: string;
+}
+
+export interface UpdateExternalApplicationBody {
+  /** Profile ID of the requesting user — required for ownership verification */
+  ownerId: number;
+  jobTitle?: string;
+  companyName?: string;
+  platform?: string;
+  jobUrl?: string | null;
+  status?: string;
+  appliedDate?: string | null;
+  location?: string | null;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  notes?: string | null;
+}
+
+export interface UpdatePlatformLinksBody {
+  /** Must match the path id for ownership verification */
+  ownerId: number;
+  indeedUrl?: string | null;
+  glassdoorUrl?: string | null;
+  wellfoundUrl?: string | null;
+  angellistUrl?: string | null;
+  linkedinUrl?: string | null;
+}
+
+export interface EmailPreviewItem {
+  jobTitle: string;
+  companyName: string;
+  platform: string;
+  status: string;
+  appliedDate?: string | null;
+  source: string;
+  emailSubject?: string | null;
+}
+
+export type PreviewInboxBodyProvider =
+  (typeof PreviewInboxBodyProvider)[keyof typeof PreviewInboxBodyProvider];
+
+export const PreviewInboxBodyProvider = {
+  gmail: "gmail",
+  outlook: "outlook",
+} as const;
+
+export interface PreviewInboxBody {
+  profileId: number;
+  provider: PreviewInboxBodyProvider;
+}
+
+export interface PreviewInboxResponse {
+  connected: boolean;
+  previews: EmailPreviewItem[];
+}
+
+export interface ConfirmImportBody {
+  profileId: number;
+  apps: EmailPreviewItem[];
+}
+
+export interface ConfirmImportResponse {
+  imported: ExternalApplication[];
+}
+
+export type DisconnectEmailBodyProvider =
+  (typeof DisconnectEmailBodyProvider)[keyof typeof DisconnectEmailBodyProvider];
+
+export const DisconnectEmailBodyProvider = {
+  gmail: "gmail",
+  outlook: "outlook",
+} as const;
+
+export interface DisconnectEmailBody {
+  profileId: number;
+  provider: DisconnectEmailBodyProvider;
+}
+
 export interface ErrorEnvelope {
   error: string;
 }
@@ -259,4 +452,15 @@ export type ListJobsParams = {
 export type ListJobs200 = {
   jobs: Job[];
   total: number;
+};
+
+export type DeleteExternalApplicationParams = {
+  /**
+   * Profile ID of the requesting user for ownership verification
+   */
+  ownerId: number;
+};
+
+export type DisconnectEmailIntegration200 = {
+  disconnected: boolean;
 };

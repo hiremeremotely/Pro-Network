@@ -28,6 +28,10 @@ tags:
     description: Job application operations
   - name: feed
     description: Activity feed and stats
+  - name: job-tracker
+    description: Unified job application tracker for individual users
+  - name: email-integration
+    description: Email inbox integration for scanning and importing job applications
 
 paths:
   /storage/uploads/request-url:
@@ -786,6 +790,250 @@ paths:
                 items:
                   $ref: "#/components/schemas/Job"
 
+  /job-tracker/{profileId}:
+    get:
+      operationId: getJobTracker
+      tags: [job-tracker]
+      summary: Get unified job tracker (external + native applications) for a profile
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Unified tracker data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobTrackerResponse"
+        "400":
+          description: Invalid profileId
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /external-applications:
+    post:
+      operationId: createExternalApplication
+      tags: [job-tracker]
+      summary: Create a manually tracked external application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExternalApplicationBody"
+      responses:
+        "201":
+          description: Application created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExternalApplication"
+        "400":
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /external-applications/{id}:
+    patch:
+      operationId: updateExternalApplication
+      tags: [job-tracker]
+      summary: Update an external application (requires ownerId for ownership verification)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateExternalApplicationBody"
+      responses:
+        "200":
+          description: Updated application
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExternalApplication"
+        "400":
+          description: Missing ownerId
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Forbidden — ownerId does not match record owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: deleteExternalApplication
+      tags: [job-tracker]
+      summary: Delete an external application (requires ownerId query param)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: ownerId
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: Profile ID of the requesting user for ownership verification
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Missing ownerId
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /profiles/{id}/platform-links:
+    patch:
+      operationId: updatePlatformLinks
+      tags: [job-tracker]
+      summary: Update job platform profile URLs for an individual user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlatformLinksBody"
+      responses:
+        "200":
+          description: Updated platform links
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformLinks"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /email-integration/preview-inbox:
+    post:
+      operationId: previewEmailInbox
+      tags: [email-integration]
+      summary: >
+        Scan inbox preview — marks the account as connected and returns found
+        application previews WITHOUT saving them. Frontend shows a confirmation
+        step before import. Note: requires real OAuth credentials in production;
+        returns simulated data when credentials are not configured.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PreviewInboxBody"
+      responses:
+        "200":
+          description: Preview of found applications (not yet saved)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreviewInboxResponse"
+        "400":
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /email-integration/confirm-import:
+    post:
+      operationId: confirmEmailImport
+      tags: [email-integration]
+      summary: Save user-selected email-imported applications after inbox preview
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmImportBody"
+      responses:
+        "200":
+          description: Imported applications
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfirmImportResponse"
+        "400":
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /email-integration/disconnect:
+    post:
+      operationId: disconnectEmailIntegration
+      tags: [email-integration]
+      summary: Disconnect a Gmail or Outlook integration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisconnectEmailBody"
+      responses:
+        "200":
+          description: Disconnected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  disconnected:
+                    type: boolean
+                required: [disconnected]
+        "400":
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
 components:
   schemas:
     HealthStatus:
@@ -1273,6 +1521,303 @@ components:
           description: Normalized object path (e.g. /objects/uploads/uuid).
         metadata:
           $ref: '#/components/schemas/UploadUrlRequest'
+    ExternalApplication:
+      type: object
+      properties:
+        id:
+          type: integer
+        profileId:
+          type: integer
+        jobTitle:
+          type: string
+        companyName:
+          type: string
+        platform:
+          type: string
+          enum: [linkedin, indeed, glassdoor, wellfound, angellist, weworkremotely, hiremeremotely, other]
+        jobUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [saved, applied, screening, interview, offer, accepted, rejected]
+        appliedDate:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        salaryMin:
+          type: integer
+          nullable: true
+        salaryMax:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        emailMessageId:
+          type: string
+          nullable: true
+        source:
+          type: string
+          enum: [manual, email, native]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required: [id, profileId, jobTitle, companyName, platform, status, source, createdAt, updatedAt]
+
+    TrackedApplication:
+      type: object
+      description: Unified application entry merging external and native (Hire Me Remotely) applications
+      properties:
+        uid:
+          type: string
+          description: Unique identifier prefixed with "ext-" or "native-"
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [external, native]
+        source:
+          type: string
+        jobTitle:
+          type: string
+        companyName:
+          type: string
+        platform:
+          type: string
+        jobUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+        appliedDate:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        salaryMin:
+          type: integer
+          nullable: true
+        salaryMax:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        nativeJobId:
+          type: integer
+          description: Present only when type is "native"
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required: [uid, id, type, source, jobTitle, companyName, platform, status]
+
+    PlatformLinks:
+      type: object
+      properties:
+        indeedUrl:
+          type: string
+          nullable: true
+        glassdoorUrl:
+          type: string
+          nullable: true
+        wellfoundUrl:
+          type: string
+          nullable: true
+        angellistUrl:
+          type: string
+          nullable: true
+        linkedinUrl:
+          type: string
+          nullable: true
+        gmailConnected:
+          type: boolean
+        outlookConnected:
+          type: boolean
+
+    JobTrackerResponse:
+      type: object
+      properties:
+        applications:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrackedApplication"
+        platformLinks:
+          $ref: "#/components/schemas/PlatformLinks"
+          nullable: true
+      required: [applications]
+
+    CreateExternalApplicationBody:
+      type: object
+      properties:
+        profileId:
+          type: integer
+        jobTitle:
+          type: string
+        companyName:
+          type: string
+        platform:
+          type: string
+        jobUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+        appliedDate:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        salaryMin:
+          type: integer
+          nullable: true
+        salaryMax:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        source:
+          type: string
+      required: [profileId, jobTitle, companyName]
+
+    UpdateExternalApplicationBody:
+      type: object
+      properties:
+        ownerId:
+          type: integer
+          description: Profile ID of the requesting user — required for ownership verification
+        jobTitle:
+          type: string
+        companyName:
+          type: string
+        platform:
+          type: string
+        jobUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+        appliedDate:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        salaryMin:
+          type: integer
+          nullable: true
+        salaryMax:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      required: [ownerId]
+
+    UpdatePlatformLinksBody:
+      type: object
+      properties:
+        ownerId:
+          type: integer
+          description: Must match the path id for ownership verification
+        indeedUrl:
+          type: string
+          nullable: true
+        glassdoorUrl:
+          type: string
+          nullable: true
+        wellfoundUrl:
+          type: string
+          nullable: true
+        angellistUrl:
+          type: string
+          nullable: true
+        linkedinUrl:
+          type: string
+          nullable: true
+      required: [ownerId]
+
+    EmailPreviewItem:
+      type: object
+      properties:
+        jobTitle:
+          type: string
+        companyName:
+          type: string
+        platform:
+          type: string
+        status:
+          type: string
+        appliedDate:
+          type: string
+          nullable: true
+        source:
+          type: string
+        emailSubject:
+          type: string
+          nullable: true
+      required: [jobTitle, companyName, platform, status, source]
+
+    PreviewInboxBody:
+      type: object
+      properties:
+        profileId:
+          type: integer
+        provider:
+          type: string
+          enum: [gmail, outlook]
+      required: [profileId, provider]
+
+    PreviewInboxResponse:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        previews:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailPreviewItem"
+      required: [connected, previews]
+
+    ConfirmImportBody:
+      type: object
+      properties:
+        profileId:
+          type: integer
+        apps:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailPreviewItem"
+      required: [profileId, apps]
+
+    ConfirmImportResponse:
+      type: object
+      properties:
+        imported:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExternalApplication"
+      required: [imported]
+
+    DisconnectEmailBody:
+      type: object
+      properties:
+        profileId:
+          type: integer
+        provider:
+          type: string
+          enum: [gmail, outlook]
+      required: [profileId, provider]
+
     ErrorEnvelope:
       type: object
       required: [error]

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ interface TrackedApp {
 interface PlatformLinks {
   indeedUrl?: string | null; glassdoorUrl?: string | null;
   wellfoundUrl?: string | null; angellistUrl?: string | null;
+  linkedinUrl?: string | null;
   gmailConnected: boolean; outlookConnected: boolean;
 }
 
@@ -109,9 +110,22 @@ function MultiSelect({
   options, values, onChange, placeholder,
 }: { options: { label: string; value: string }[]; values: string[]; onChange: (v: string[]) => void; placeholder: string }) {
   const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const label = values.length === 0 ? placeholder : `${placeholder} (${values.length})`;
+
+  useEffect(() => {
+    if (!open) return;
+    function onMouseDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [open]);
+
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <button
         onClick={() => setOpen(!open)}
         className={`h-9 px-3 flex items-center gap-1.5 rounded-lg border text-sm min-w-[140px] ${
@@ -122,29 +136,26 @@ function MultiSelect({
         <ChevronDownIcon className="w-3.5 h-3.5 flex-shrink-0" />
       </button>
       {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute top-10 left-0 z-20 bg-white border border-gray-200 rounded-xl shadow-lg p-1 min-w-[160px]">
-            <button onClick={() => { onChange([]); setOpen(false); }} className="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-lg">
-              Clear all
+        <div className="absolute top-10 left-0 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-1 min-w-[160px]">
+          <button onClick={() => { onChange([]); setOpen(false); }} className="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-lg">
+            Clear all
+          </button>
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => {
+                const next = values.includes(opt.value) ? values.filter((v) => v !== opt.value) : [...values, opt.value];
+                onChange(next);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-50 text-left"
+            >
+              <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${values.includes(opt.value) ? "bg-primary border-primary" : "border-gray-300"}`}>
+                {values.includes(opt.value) && <CheckIcon className="w-2.5 h-2.5 text-white" />}
+              </div>
+              {opt.label}
             </button>
-            {options.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => {
-                  const next = values.includes(opt.value) ? values.filter((v) => v !== opt.value) : [...values, opt.value];
-                  onChange(next);
-                }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-50 text-left"
-              >
-                <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${values.includes(opt.value) ? "bg-primary border-primary" : "border-gray-300"}`}>
-                  {values.includes(opt.value) && <CheckIcon className="w-2.5 h-2.5 text-white" />}
-                </div>
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -189,6 +200,7 @@ function PlatformStrip({ links, profileId, onRefetch }: { links: PlatformLinks |
   const [linkForm, setLinkForm] = useState({
     indeedUrl: links?.indeedUrl ?? "", glassdoorUrl: links?.glassdoorUrl ?? "",
     wellfoundUrl: links?.wellfoundUrl ?? "", angellistUrl: links?.angellistUrl ?? "",
+    linkedinUrl: links?.linkedinUrl ?? "",
   });
   const [scanning, setScanning] = useState(false);
   const [previews, setPreviews] = useState<EmailPreview[] | null>(null);
@@ -280,7 +292,7 @@ function PlatformStrip({ links, profileId, onRefetch }: { links: PlatformLinks |
             <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
               <LinkIcon className="w-4 h-4 text-gray-400" /> My Platforms
             </h3>
-            <button onClick={() => { setLinkForm({ indeedUrl: links?.indeedUrl ?? "", glassdoorUrl: links?.glassdoorUrl ?? "", wellfoundUrl: links?.wellfoundUrl ?? "", angellistUrl: links?.angellistUrl ?? "" }); setLinksModal(true); }} className="text-xs text-primary font-medium hover:underline">
+            <button onClick={() => { setLinkForm({ indeedUrl: links?.indeedUrl ?? "", glassdoorUrl: links?.glassdoorUrl ?? "", wellfoundUrl: links?.wellfoundUrl ?? "", angellistUrl: links?.angellistUrl ?? "", linkedinUrl: links?.linkedinUrl ?? "" }); setLinksModal(true); }} className="text-xs text-primary font-medium hover:underline">
               Edit profile links
             </button>
           </div>
@@ -316,7 +328,8 @@ function PlatformStrip({ links, profileId, onRefetch }: { links: PlatformLinks |
 
             {/* Profile links */}
             {[
-              { key: "indeedUrl", label: "Indeed", url: links?.indeedUrl },
+              { key: "linkedinUrl",  label: "LinkedIn",  url: links?.linkedinUrl  },
+              { key: "indeedUrl",    label: "Indeed",    url: links?.indeedUrl    },
               { key: "glassdoorUrl", label: "Glassdoor", url: links?.glassdoorUrl },
               { key: "wellfoundUrl", label: "Wellfound", url: links?.wellfoundUrl },
               { key: "angellistUrl", label: "AngelList", url: links?.angellistUrl },
@@ -418,7 +431,8 @@ function PlatformStrip({ links, profileId, onRefetch }: { links: PlatformLinks |
           <DialogHeader><DialogTitle>Edit Platform Profile Links</DialogTitle></DialogHeader>
           <div className="space-y-3 py-1">
             {([
-              { key: "indeedUrl" as const, label: "Indeed Profile URL" },
+              { key: "linkedinUrl" as const,  label: "LinkedIn Profile URL"  },
+              { key: "indeedUrl" as const,    label: "Indeed Profile URL"    },
               { key: "glassdoorUrl" as const, label: "Glassdoor Profile URL" },
               { key: "wellfoundUrl" as const, label: "Wellfound Profile URL" },
               { key: "angellistUrl" as const, label: "AngelList Profile URL" },
@@ -454,14 +468,31 @@ function AppModal({ open, onClose, initial, profileId, editId, onSaved }: {
   open: boolean; onClose: () => void; initial?: Partial<AppForm>; profileId: number; editId?: number; onSaved: () => void;
 }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [form, setForm] = useState<AppForm>({ ...BLANK_FORM, ...initial });
+  const [errors, setErrors] = useState<{ jobTitle?: string; companyName?: string }>({});
+
   function field(k: keyof AppForm) {
-    return { value: form[k], onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [k]: e.target.value })) };
+    return {
+      value: form[k],
+      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+        setForm((f) => ({ ...f, [k]: e.target.value })),
+      onInput: (e: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+        setForm((f) => ({ ...f, [k]: (e.target as HTMLInputElement).value })),
+    };
   }
+
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const jobTitle = form.jobTitle.trim();
+      const companyName = form.companyName.trim();
+      const errs: { jobTitle?: string; companyName?: string } = {};
+      if (!jobTitle) errs.jobTitle = "Required";
+      if (!companyName) errs.companyName = "Required";
+      if (Object.keys(errs).length) { setErrors(errs); throw new Error("validation"); }
+      setErrors({});
       const payload = {
-        profileId, jobTitle: form.jobTitle.trim(), companyName: form.companyName.trim(),
+        profileId, jobTitle, companyName,
         platform: form.platform, jobUrl: form.jobUrl || null, status: form.status,
         appliedDate: form.appliedDate || null, location: form.location || null,
         salaryMin: form.salaryMin ? parseInt(form.salaryMin, 10) : null,
@@ -471,70 +502,87 @@ function AppModal({ open, onClose, initial, profileId, editId, onSaved }: {
       };
       const url = editId ? `${BASE}api/external-applications/${editId}` : `${BASE}api/external-applications`;
       const r = await fetch(url, { method: editId ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (!r.ok) { const err = await r.json().catch(() => ({})); throw new Error(err.error ?? "Failed to save"); }
       return r.json();
     },
-    onSuccess: () => { toast({ title: editId ? "Application updated" : "Application added" }); onSaved(); onClose(); },
-    onError: () => toast({ title: "Failed to save", variant: "destructive" }),
+    onSuccess: () => {
+      toast({ title: editId ? "Application updated" : "Application added" });
+      queryClient.invalidateQueries({ queryKey: ["job-tracker", profileId] });
+      onSaved();
+      onClose();
+    },
+    onError: (err: Error) => {
+      if (err.message !== "validation") toast({ title: "Failed to save", variant: "destructive" });
+    },
   });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    saveMutation.mutate();
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{editId ? "Edit Application" : "Track New Application"}</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-2 gap-3 py-1">
-          <div className="col-span-2">
-            <label className="text-xs font-semibold text-gray-700 block mb-1">Job Title *</label>
-            <Input placeholder="e.g. Senior Frontend Engineer" {...field("jobTitle")} />
+        <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-2 gap-3 py-1">
+            <div className="col-span-2">
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Job Title *</label>
+              <Input placeholder="e.g. Senior Frontend Engineer" {...field("jobTitle")} aria-label="Job Title" />
+              {errors.jobTitle && <p className="text-xs text-red-500 mt-0.5">{errors.jobTitle}</p>}
+            </div>
+            <div className="col-span-2">
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Company *</label>
+              <Input placeholder="e.g. Stripe" {...field("companyName")} aria-label="Company" />
+              {errors.companyName && <p className="text-xs text-red-500 mt-0.5">{errors.companyName}</p>}
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Platform</label>
+              <Select value={form.platform} onValueChange={(v) => setForm((f) => ({ ...f, platform: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{PLATFORMS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Status</label>
+              <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{STATUSES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Applied Date</label>
+              <Input type="date" {...field("appliedDate")} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Location</label>
+              <Input placeholder="Remote / New York" {...field("location")} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Min Salary (USD)</label>
+              <Input type="number" placeholder="80000" {...field("salaryMin")} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Max Salary (USD)</label>
+              <Input type="number" placeholder="120000" {...field("salaryMax")} />
+            </div>
+            <div className="col-span-2">
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Job URL</label>
+              <Input placeholder="https://..." {...field("jobUrl")} />
+            </div>
+            <div className="col-span-2">
+              <label className="text-xs font-semibold text-gray-700 block mb-1">Notes</label>
+              <Textarea placeholder="Cover letter snippets, interview notes…" rows={3} {...field("notes")} />
+            </div>
           </div>
-          <div className="col-span-2">
-            <label className="text-xs font-semibold text-gray-700 block mb-1">Company *</label>
-            <Input placeholder="e.g. Stripe" {...field("companyName")} />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">Platform</label>
-            <Select value={form.platform} onValueChange={(v) => setForm((f) => ({ ...f, platform: v }))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{PLATFORMS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">Status</label>
-            <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{STATUSES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">Applied Date</label>
-            <Input type="date" {...field("appliedDate")} />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">Location</label>
-            <Input placeholder="Remote / New York" {...field("location")} />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">Min Salary (USD)</label>
-            <Input type="number" placeholder="80000" {...field("salaryMin")} />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-700 block mb-1">Max Salary (USD)</label>
-            <Input type="number" placeholder="120000" {...field("salaryMax")} />
-          </div>
-          <div className="col-span-2">
-            <label className="text-xs font-semibold text-gray-700 block mb-1">Job URL</label>
-            <Input placeholder="https://..." {...field("jobUrl")} />
-          </div>
-          <div className="col-span-2">
-            <label className="text-xs font-semibold text-gray-700 block mb-1">Notes</label>
-            <Textarea placeholder="Cover letter snippets, interview notes…" rows={3} {...field("notes")} />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !form.jobTitle.trim() || !form.companyName.trim()}>
-            {saveMutation.isPending ? "Saving…" : editId ? "Save Changes" : "Add Application"}
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="mt-4">
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? "Saving…" : editId ? "Save Changes" : "Add Application"}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
@@ -830,7 +878,7 @@ export default function JobTracker() {
     queryKey: ["job-tracker", user?.id],
     queryFn: () => fetch(`${BASE}api/job-tracker/${user!.id}`).then((r) => r.json()),
     enabled: !!user?.id,
-    staleTime: 10_000,
+    staleTime: 0,
   });
 
   const apps = data?.applications ?? [];

@@ -18,28 +18,41 @@ import type {
 
 import type {
   Application,
+  ConfirmImportBody,
+  ConfirmImportResponse,
   CreateApplicationBody,
   CreateEducationBody,
   CreateExperienceBody,
+  CreateExternalApplicationBody,
   CreateJobBody,
   CreatePortfolioProjectBody,
   CreateProfileBody,
   CreateSkillBody,
+  DeleteExternalApplicationParams,
+  DisconnectEmailBody,
+  DisconnectEmailIntegration200,
   Education,
   Error,
   ErrorEnvelope,
   Experience,
+  ExternalApplication,
   FeedStats,
   HealthStatus,
   Job,
+  JobTrackerResponse,
   ListJobs200,
   ListJobsParams,
   ListProfiles200,
   ListProfilesParams,
+  PlatformLinks,
   PortfolioProject,
+  PreviewInboxBody,
+  PreviewInboxResponse,
   Profile,
   ProfileFull,
   Skill,
+  UpdateExternalApplicationBody,
+  UpdatePlatformLinksBody,
   UpdateProfileBody,
   UploadUrlRequest,
   UploadUrlResponse,
@@ -2983,3 +2996,717 @@ export function useListFeaturedJobs<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get unified job tracker (external + native applications) for a profile
+ */
+export const getGetJobTrackerUrl = (profileId: number) => {
+  return `/api/job-tracker/${profileId}`;
+};
+
+export const getJobTracker = async (
+  profileId: number,
+  options?: RequestInit,
+): Promise<JobTrackerResponse> => {
+  return customFetch<JobTrackerResponse>(getGetJobTrackerUrl(profileId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetJobTrackerQueryKey = (profileId: number) => {
+  return [`/api/job-tracker/${profileId}`] as const;
+};
+
+export const getGetJobTrackerQueryOptions = <
+  TData = Awaited<ReturnType<typeof getJobTracker>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  profileId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getJobTracker>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetJobTrackerQueryKey(profileId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getJobTracker>>> = ({
+    signal,
+  }) => getJobTracker(profileId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!profileId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getJobTracker>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetJobTrackerQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getJobTracker>>
+>;
+export type GetJobTrackerQueryError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Get unified job tracker (external + native applications) for a profile
+ */
+
+export function useGetJobTracker<
+  TData = Awaited<ReturnType<typeof getJobTracker>>,
+  TError = ErrorType<ErrorEnvelope>,
+>(
+  profileId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getJobTracker>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetJobTrackerQueryOptions(profileId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a manually tracked external application
+ */
+export const getCreateExternalApplicationUrl = () => {
+  return `/api/external-applications`;
+};
+
+export const createExternalApplication = async (
+  createExternalApplicationBody: CreateExternalApplicationBody,
+  options?: RequestInit,
+): Promise<ExternalApplication> => {
+  return customFetch<ExternalApplication>(getCreateExternalApplicationUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createExternalApplicationBody),
+  });
+};
+
+export const getCreateExternalApplicationMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createExternalApplication>>,
+    TError,
+    { data: BodyType<CreateExternalApplicationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createExternalApplication>>,
+  TError,
+  { data: BodyType<CreateExternalApplicationBody> },
+  TContext
+> => {
+  const mutationKey = ["createExternalApplication"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createExternalApplication>>,
+    { data: BodyType<CreateExternalApplicationBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createExternalApplication(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateExternalApplicationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createExternalApplication>>
+>;
+export type CreateExternalApplicationMutationBody =
+  BodyType<CreateExternalApplicationBody>;
+export type CreateExternalApplicationMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Create a manually tracked external application
+ */
+export const useCreateExternalApplication = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createExternalApplication>>,
+    TError,
+    { data: BodyType<CreateExternalApplicationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createExternalApplication>>,
+  TError,
+  { data: BodyType<CreateExternalApplicationBody> },
+  TContext
+> => {
+  return useMutation(getCreateExternalApplicationMutationOptions(options));
+};
+
+/**
+ * @summary Update an external application (requires ownerId for ownership verification)
+ */
+export const getUpdateExternalApplicationUrl = (id: number) => {
+  return `/api/external-applications/${id}`;
+};
+
+export const updateExternalApplication = async (
+  id: number,
+  updateExternalApplicationBody: UpdateExternalApplicationBody,
+  options?: RequestInit,
+): Promise<ExternalApplication> => {
+  return customFetch<ExternalApplication>(getUpdateExternalApplicationUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateExternalApplicationBody),
+  });
+};
+
+export const getUpdateExternalApplicationMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateExternalApplication>>,
+    TError,
+    { id: number; data: BodyType<UpdateExternalApplicationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateExternalApplication>>,
+  TError,
+  { id: number; data: BodyType<UpdateExternalApplicationBody> },
+  TContext
+> => {
+  const mutationKey = ["updateExternalApplication"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateExternalApplication>>,
+    { id: number; data: BodyType<UpdateExternalApplicationBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateExternalApplication(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateExternalApplicationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateExternalApplication>>
+>;
+export type UpdateExternalApplicationMutationBody =
+  BodyType<UpdateExternalApplicationBody>;
+export type UpdateExternalApplicationMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Update an external application (requires ownerId for ownership verification)
+ */
+export const useUpdateExternalApplication = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateExternalApplication>>,
+    TError,
+    { id: number; data: BodyType<UpdateExternalApplicationBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateExternalApplication>>,
+  TError,
+  { id: number; data: BodyType<UpdateExternalApplicationBody> },
+  TContext
+> => {
+  return useMutation(getUpdateExternalApplicationMutationOptions(options));
+};
+
+/**
+ * @summary Delete an external application (requires ownerId query param)
+ */
+export const getDeleteExternalApplicationUrl = (
+  id: number,
+  params: DeleteExternalApplicationParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/external-applications/${id}?${stringifiedParams}`
+    : `/api/external-applications/${id}`;
+};
+
+export const deleteExternalApplication = async (
+  id: number,
+  params: DeleteExternalApplicationParams,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteExternalApplicationUrl(id, params), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteExternalApplicationMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteExternalApplication>>,
+    TError,
+    { id: number; params: DeleteExternalApplicationParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteExternalApplication>>,
+  TError,
+  { id: number; params: DeleteExternalApplicationParams },
+  TContext
+> => {
+  const mutationKey = ["deleteExternalApplication"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteExternalApplication>>,
+    { id: number; params: DeleteExternalApplicationParams }
+  > = (props) => {
+    const { id, params } = props ?? {};
+
+    return deleteExternalApplication(id, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteExternalApplicationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteExternalApplication>>
+>;
+
+export type DeleteExternalApplicationMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Delete an external application (requires ownerId query param)
+ */
+export const useDeleteExternalApplication = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteExternalApplication>>,
+    TError,
+    { id: number; params: DeleteExternalApplicationParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteExternalApplication>>,
+  TError,
+  { id: number; params: DeleteExternalApplicationParams },
+  TContext
+> => {
+  return useMutation(getDeleteExternalApplicationMutationOptions(options));
+};
+
+/**
+ * @summary Update job platform profile URLs for an individual user
+ */
+export const getUpdatePlatformLinksUrl = (id: number) => {
+  return `/api/profiles/${id}/platform-links`;
+};
+
+export const updatePlatformLinks = async (
+  id: number,
+  updatePlatformLinksBody: UpdatePlatformLinksBody,
+  options?: RequestInit,
+): Promise<PlatformLinks> => {
+  return customFetch<PlatformLinks>(getUpdatePlatformLinksUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updatePlatformLinksBody),
+  });
+};
+
+export const getUpdatePlatformLinksMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePlatformLinks>>,
+    TError,
+    { id: number; data: BodyType<UpdatePlatformLinksBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePlatformLinks>>,
+  TError,
+  { id: number; data: BodyType<UpdatePlatformLinksBody> },
+  TContext
+> => {
+  const mutationKey = ["updatePlatformLinks"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePlatformLinks>>,
+    { id: number; data: BodyType<UpdatePlatformLinksBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updatePlatformLinks(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePlatformLinksMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePlatformLinks>>
+>;
+export type UpdatePlatformLinksMutationBody = BodyType<UpdatePlatformLinksBody>;
+export type UpdatePlatformLinksMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Update job platform profile URLs for an individual user
+ */
+export const useUpdatePlatformLinks = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePlatformLinks>>,
+    TError,
+    { id: number; data: BodyType<UpdatePlatformLinksBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updatePlatformLinks>>,
+  TError,
+  { id: number; data: BodyType<UpdatePlatformLinksBody> },
+  TContext
+> => {
+  return useMutation(getUpdatePlatformLinksMutationOptions(options));
+};
+
+/**
+ * @summary Scan inbox preview — marks the account as connected and returns found application previews WITHOUT saving them. Frontend shows a confirmation step before import. Note: requires real OAuth credentials in production; returns simulated data when credentials are not configured.
+
+ */
+export const getPreviewEmailInboxUrl = () => {
+  return `/api/email-integration/preview-inbox`;
+};
+
+export const previewEmailInbox = async (
+  previewInboxBody: PreviewInboxBody,
+  options?: RequestInit,
+): Promise<PreviewInboxResponse> => {
+  return customFetch<PreviewInboxResponse>(getPreviewEmailInboxUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(previewInboxBody),
+  });
+};
+
+export const getPreviewEmailInboxMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof previewEmailInbox>>,
+    TError,
+    { data: BodyType<PreviewInboxBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof previewEmailInbox>>,
+  TError,
+  { data: BodyType<PreviewInboxBody> },
+  TContext
+> => {
+  const mutationKey = ["previewEmailInbox"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof previewEmailInbox>>,
+    { data: BodyType<PreviewInboxBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return previewEmailInbox(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PreviewEmailInboxMutationResult = NonNullable<
+  Awaited<ReturnType<typeof previewEmailInbox>>
+>;
+export type PreviewEmailInboxMutationBody = BodyType<PreviewInboxBody>;
+export type PreviewEmailInboxMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Scan inbox preview — marks the account as connected and returns found application previews WITHOUT saving them. Frontend shows a confirmation step before import. Note: requires real OAuth credentials in production; returns simulated data when credentials are not configured.
+
+ */
+export const usePreviewEmailInbox = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof previewEmailInbox>>,
+    TError,
+    { data: BodyType<PreviewInboxBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof previewEmailInbox>>,
+  TError,
+  { data: BodyType<PreviewInboxBody> },
+  TContext
+> => {
+  return useMutation(getPreviewEmailInboxMutationOptions(options));
+};
+
+/**
+ * @summary Save user-selected email-imported applications after inbox preview
+ */
+export const getConfirmEmailImportUrl = () => {
+  return `/api/email-integration/confirm-import`;
+};
+
+export const confirmEmailImport = async (
+  confirmImportBody: ConfirmImportBody,
+  options?: RequestInit,
+): Promise<ConfirmImportResponse> => {
+  return customFetch<ConfirmImportResponse>(getConfirmEmailImportUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(confirmImportBody),
+  });
+};
+
+export const getConfirmEmailImportMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmEmailImport>>,
+    TError,
+    { data: BodyType<ConfirmImportBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof confirmEmailImport>>,
+  TError,
+  { data: BodyType<ConfirmImportBody> },
+  TContext
+> => {
+  const mutationKey = ["confirmEmailImport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof confirmEmailImport>>,
+    { data: BodyType<ConfirmImportBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return confirmEmailImport(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConfirmEmailImportMutationResult = NonNullable<
+  Awaited<ReturnType<typeof confirmEmailImport>>
+>;
+export type ConfirmEmailImportMutationBody = BodyType<ConfirmImportBody>;
+export type ConfirmEmailImportMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Save user-selected email-imported applications after inbox preview
+ */
+export const useConfirmEmailImport = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof confirmEmailImport>>,
+    TError,
+    { data: BodyType<ConfirmImportBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof confirmEmailImport>>,
+  TError,
+  { data: BodyType<ConfirmImportBody> },
+  TContext
+> => {
+  return useMutation(getConfirmEmailImportMutationOptions(options));
+};
+
+/**
+ * @summary Disconnect a Gmail or Outlook integration
+ */
+export const getDisconnectEmailIntegrationUrl = () => {
+  return `/api/email-integration/disconnect`;
+};
+
+export const disconnectEmailIntegration = async (
+  disconnectEmailBody: DisconnectEmailBody,
+  options?: RequestInit,
+): Promise<DisconnectEmailIntegration200> => {
+  return customFetch<DisconnectEmailIntegration200>(
+    getDisconnectEmailIntegrationUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(disconnectEmailBody),
+    },
+  );
+};
+
+export const getDisconnectEmailIntegrationMutationOptions = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disconnectEmailIntegration>>,
+    TError,
+    { data: BodyType<DisconnectEmailBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof disconnectEmailIntegration>>,
+  TError,
+  { data: BodyType<DisconnectEmailBody> },
+  TContext
+> => {
+  const mutationKey = ["disconnectEmailIntegration"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof disconnectEmailIntegration>>,
+    { data: BodyType<DisconnectEmailBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return disconnectEmailIntegration(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DisconnectEmailIntegrationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof disconnectEmailIntegration>>
+>;
+export type DisconnectEmailIntegrationMutationBody =
+  BodyType<DisconnectEmailBody>;
+export type DisconnectEmailIntegrationMutationError = ErrorType<ErrorEnvelope>;
+
+/**
+ * @summary Disconnect a Gmail or Outlook integration
+ */
+export const useDisconnectEmailIntegration = <
+  TError = ErrorType<ErrorEnvelope>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disconnectEmailIntegration>>,
+    TError,
+    { data: BodyType<DisconnectEmailBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof disconnectEmailIntegration>>,
+  TError,
+  { data: BodyType<DisconnectEmailBody> },
+  TContext
+> => {
+  return useMutation(getDisconnectEmailIntegrationMutationOptions(options));
+};
