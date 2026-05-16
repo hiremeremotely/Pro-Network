@@ -243,6 +243,9 @@ function PlatformStrip({ links, profileId, authToken, onRefetch }: {
   const previewMutation = useMutation({
     mutationFn: async (provider: "gmail" | "outlook") => {
       setScanning(true);
+      if (!popupRef.current || popupRef.current.closed) {
+        throw Object.assign(new Error("popup_blocked"), { _popupBlocked: true });
+      }
       const initRes = await fetch(`${BASE}api/email-integration/initiate`, {
         method: "POST",
         headers: authHeader,
@@ -256,6 +259,7 @@ function PlatformStrip({ links, profileId, authToken, onRefetch }: {
         headers: authHeader,
         body: JSON.stringify({ provider }),
       });
+      if (syncRes.status === 403) throw Object.assign(new Error("not_connected"), { _notConnected: true });
       if (!syncRes.ok) throw new Error("Failed to scan inbox");
       return syncRes.json();
     },
@@ -268,9 +272,15 @@ function PlatformStrip({ links, profileId, authToken, onRefetch }: {
       queryClient.invalidateQueries({ queryKey: ["job-tracker", profileId] });
       onRefetch();
     },
-    onError: () => {
+    onError: (err: unknown) => {
       setScanning(false);
-      toast({ title: "Scan failed", variant: "destructive" });
+      if (err instanceof Error && (err as { _popupBlocked?: boolean })._popupBlocked) {
+        toast({ title: "Allow popups", description: "Your browser blocked the authorization window. Please allow popups for this site and try again.", variant: "destructive" });
+      } else if (err instanceof Error && (err as { _notConnected?: boolean })._notConnected) {
+        toast({ title: "Authorization incomplete", description: "Please complete the authorization in the popup window before scanning.", variant: "destructive" });
+      } else {
+        toast({ title: "Scan failed", description: "Something went wrong. Please try again.", variant: "destructive" });
+      }
     },
   });
 

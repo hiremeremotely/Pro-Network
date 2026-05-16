@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 
 const SESSION_KEY = "app_user_session";
 
@@ -44,6 +44,26 @@ function loadUser(): AppUser | null {
 export function AppAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(loadUser);
   const BASE = import.meta.env.BASE_URL;
+
+  useEffect(() => {
+    if (user && !user.authToken) {
+      fetch(`${BASE}api/auth/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileId: user.id }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (d?.authToken) {
+            const updated = { ...user, authToken: d.authToken };
+            localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
+            setUser(updated);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user?.id]);
+
 
   const login = useCallback(async (email: string, password: string, allowedAccountType?: string) => {
     try {
