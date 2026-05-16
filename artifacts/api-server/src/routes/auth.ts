@@ -2,8 +2,30 @@ import { Router, type IRouter } from "express";
 import { createHash, createHmac } from "crypto";
 import { eq } from "drizzle-orm";
 import { db, profilesTable } from "@workspace/db";
+import { IS_DEMO, DEMO_TOKEN_BUNDLE } from "../lib/email-provider";
+import { encryptToken } from "../lib/crypto";
 
 const router: IRouter = Router();
+
+const GMAIL_DOMAINS = ["@gmail.com", "@googlemail.com"];
+const OUTLOOK_DOMAINS = ["@outlook.com", "@hotmail.com", "@live.com", "@msn.com"];
+
+async function autoConnectEmailByDomain(profileId: number, email: string): Promise<void> {
+  if (!IS_DEMO) return;
+  const lower = email.toLowerCase();
+  const updates: Record<string, unknown> = {};
+  if (GMAIL_DOMAINS.some((d) => lower.endsWith(d))) {
+    updates.gmailConnected = true;
+    updates.gmailToken = encryptToken(DEMO_TOKEN_BUNDLE);
+  }
+  if (OUTLOOK_DOMAINS.some((d) => lower.endsWith(d))) {
+    updates.outlookConnected = true;
+    updates.outlookToken = encryptToken(DEMO_TOKEN_BUNDLE);
+  }
+  if (Object.keys(updates).length > 0) {
+    await db.update(profilesTable).set(updates).where(eq(profilesTable.id, profileId));
+  }
+}
 
 function hashPassword(password: string): string {
   return createHash("sha256").update(password + "hmr_salt_2026").digest("hex");
@@ -68,6 +90,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     openToWork: false,
   }).returning();
 
+  await autoConnectEmailByDomain(profile.id, email);
   const { passwordHash: _pw, ...safe } = profile;
   res.status(201).json({ profile: safe, authToken: generateAuthToken(profile.id) });
 });
@@ -103,6 +126,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
+  await autoConnectEmailByDomain(profile.id, profile.email);
   const { passwordHash: _pw, ...safe } = profile;
   res.json({ profile: safe, authToken: generateAuthToken(profile.id) });
 });

@@ -211,6 +211,7 @@ function PlatformStrip({ links, profileId, authToken, onRefetch }: {
   const queryClient = useQueryClient();
   const [emailModal, setEmailModal] = useState<"gmail" | "outlook" | null>(null);
   const [linksModal, setLinksModal] = useState(false);
+  const popupRef = useRef<Window | null>(null);
   const [linkForm, setLinkForm] = useState({
     indeedUrl: links?.indeedUrl ?? "", glassdoorUrl: links?.glassdoorUrl ?? "",
     wellfoundUrl: links?.wellfoundUrl ?? "", angellistUrl: links?.angellistUrl ?? "",
@@ -224,10 +225,9 @@ function PlatformStrip({ links, profileId, authToken, onRefetch }: {
 
   function openOAuthPopup(authUrl: string): Promise<void> {
     return new Promise((resolve) => {
-      const left = Math.round(window.screenX + (window.outerWidth - 500) / 2);
-      const top = Math.round(window.screenY + (window.outerHeight - 600) / 2);
-      const popup = window.open(authUrl, "email_oauth", `width=500,height=600,left=${left},top=${top}`);
-      if (!popup) { resolve(); return; }
+      const popup = popupRef.current;
+      if (!popup || popup.closed) { resolve(); return; }
+      popup.location.href = authUrl;
       const check = setInterval(() => {
         if (popup.closed) { clearInterval(check); resolve(); return; }
         try {
@@ -420,7 +420,16 @@ function PlatformStrip({ links, profileId, authToken, onRefetch }: {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEmailModal(null)}>Cancel</Button>
-            <Button onClick={() => emailModal && previewMutation.mutate(emailModal)} disabled={scanning}>
+            <Button
+              onClick={() => {
+                if (!emailModal) return;
+                const left = Math.round(window.screenX + (window.outerWidth - 500) / 2);
+                const top = Math.round(window.screenY + (window.outerHeight - 600) / 2);
+                popupRef.current = window.open("about:blank", "email_oauth", `width=500,height=600,left=${left},top=${top}`);
+                previewMutation.mutate(emailModal);
+              }}
+              disabled={scanning}
+            >
               {scanning ? <><RefreshCwIcon className="w-4 h-4 mr-2 animate-spin" />Scanning inbox…</> : "Scan Inbox"}
             </Button>
           </DialogFooter>
