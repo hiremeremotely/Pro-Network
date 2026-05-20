@@ -28,6 +28,7 @@ import Analytics from "@/pages/analytics";
 import SalaryEstimator from "@/pages/salary-estimator";
 import MyWork from "@/pages/my-work";
 import JobTracker from "@/pages/job-tracker";
+import CompanyInterests from "@/pages/company-interests";
 
 const queryClient = new QueryClient();
 
@@ -134,6 +135,7 @@ function Router() {
               <Route path="/job-tracker">
                 <RequireIndividual><JobTracker /></RequireIndividual>
               </Route>
+              <Route path="/company/interests" component={CompanyInterests} />
               <Route component={NotFound} />
             </Switch>
           </Layout>

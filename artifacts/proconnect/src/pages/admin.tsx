@@ -22,7 +22,7 @@ import { formatDistanceToNow } from "date-fns";
 
 const BASE = import.meta.env.BASE_URL;
 
-type Section = "dashboard" | "users" | "jobs" | "applications" | "subscriptions";
+type Section = "dashboard" | "users" | "jobs" | "applications" | "subscriptions" | "interests";
 
 const STATUS_COLORS: Record<string, string> = {
   pending:   "#f59e0b",
@@ -106,6 +106,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType }[] = [
   { id: "users",         label: "Users",         icon: UsersIcon },
   { id: "jobs",          label: "Jobs",          icon: BriefcaseIcon },
   { id: "applications",  label: "Applications",  icon: FileTextIcon },
+  { id: "interests",     label: "Interests",     icon: UserPlusIcon },
   { id: "subscriptions", label: "Subscriptions", icon: CreditCardIcon },
 ];
 
@@ -742,6 +743,260 @@ function SubscriptionsSection() {
   );
 }
 
+// ── Interests section ────────────────────────────────────────────────────────
+
+const ADMIN_TOKEN = "bo_super_admin_token_2026";
+
+type AdminInterest = {
+  id: number;
+  status: "pending" | "approved" | "declined";
+  companyNote: string | null;
+  adminNote: string | null;
+  jobTitle: string | null;
+  createdAt: string;
+  respondedAt: string | null;
+  company:   { id: number; name: string; avatarUrl: string | null; headline: string } | null;
+  candidate: { id: number; name: string; avatarUrl: string | null; headline: string; email: string | null } | null;
+};
+
+function useAdminInterests(status: string) {
+  return useQuery<{ requests: AdminInterest[]; counts: Record<string, number> }>({
+    queryKey: ["admin-interests", status],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}api/admin/interest-requests?status=${status}`, {
+        headers: { "x-admin-token": ADMIN_TOKEN },
+      });
+      if (!res.ok) throw new Error("Failed to load interest requests");
+      return res.json();
+    },
+    refetchInterval: 30_000,
+  });
+}
+
+function ApproveDialog({ req, onClose, onDone }: { req: AdminInterest; onClose: () => void; onDone: () => void }) {
+  const [msg, setMsg] = useState(
+    `Hi ${req.candidate?.name?.split(" ")[0] ?? "there"} — ${req.company?.name ?? "a hiring team"} on Hire Me Remotely is interested in connecting with you${req.jobTitle ? ` about a "${req.jobTitle}" role` : ""}. ${req.companyNote ? `\n\nThey wrote: "${req.companyNote}"\n\n` : "\n\n"}Reply here if you'd like to learn more.`
+  );
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function submit() {
+    setBusy(true); setErr(null);
+    try {
+      const res = await fetch(`${BASE}api/admin/interest-requests/${req.id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-token": ADMIN_TOKEN },
+        body: JSON.stringify({ introMessage: msg }),
+      });
+      if (!res.ok) { setErr((await res.json()).error || "Failed"); return; }
+      onDone();
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="text-base font-bold text-gray-900">Approve & introduce</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><XIcon className="w-5 h-5" /></button>
+        </div>
+        <div className="px-6 py-5 space-y-3">
+          <p className="text-xs text-gray-500">
+            This sends a message from <span className="font-semibold">{req.company?.name}</span> to <span className="font-semibold">{req.candidate?.name}</span> and opens a conversation between them.
+          </p>
+          <textarea
+            value={msg}
+            onChange={(e) => setMsg(e.target.value)}
+            rows={9}
+            className="w-full text-sm border border-gray-200 rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          {err && <p className="text-xs text-red-500">{err}</p>}
+        </div>
+        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2 bg-gray-50">
+          <Button variant="ghost" onClick={onClose} className="rounded-full">Cancel</Button>
+          <Button onClick={submit} disabled={busy || !msg.trim()} className="rounded-full">{busy ? "Sending…" : "Approve & send"}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeclineDialog({ req, onClose, onDone }: { req: AdminInterest; onClose: () => void; onDone: () => void }) {
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function submit() {
+    setBusy(true);
+    try {
+      await fetch(`${BASE}api/admin/interest-requests/${req.id}/decline`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-token": ADMIN_TOKEN },
+        body: JSON.stringify({ adminNote: note.trim() || null }),
+      });
+      onDone();
+    } finally { setBusy(false); }
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="text-base font-bold text-gray-900">Decline request</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><XIcon className="w-5 h-5" /></button>
+        </div>
+        <div className="px-6 py-5 space-y-2">
+          <p className="text-xs text-gray-500">Optional note shown to {req.company?.name}.</p>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value.slice(0, 500))}
+            rows={4}
+            placeholder="e.g. Candidate is not currently looking, or already in another HMR pipeline."
+            className="w-full text-sm border border-gray-200 rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </div>
+        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2 bg-gray-50">
+          <Button variant="ghost" onClick={onClose} className="rounded-full">Cancel</Button>
+          <Button onClick={submit} disabled={busy} variant="destructive" className="rounded-full">{busy ? "Saving…" : "Decline"}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InterestsSection() {
+  const [filter, setFilter] = useState<"pending" | "approved" | "declined" | "all">("pending");
+  const { data, isLoading, error, refetch } = useAdminInterests(filter);
+  const [approving, setApproving] = useState<AdminInterest | null>(null);
+  const [declining, setDeclining] = useState<AdminInterest | null>(null);
+
+  const counts = data?.counts ?? {};
+  const requests = data?.requests ?? [];
+
+  return (
+    <>
+      <Header title="Interest Requests" subtitle="Company → candidate intros mediated by HMR" />
+      <div className="px-8 py-6 space-y-6">
+        <div className="flex items-center gap-2 flex-wrap">
+          {(["pending","approved","declined","all"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors capitalize ${
+                filter === f
+                  ? "bg-primary text-white border-primary"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              {f} {f !== "all" && counts[f] != null && <span className="ml-1 opacity-80">({counts[f]})</span>}
+            </button>
+          ))}
+        </div>
+
+        {isLoading ? <LoadingState message="Loading interest requests..." /> :
+         error ? <ErrorState error={error as Error} retry={refetch} /> :
+         requests.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-200 px-6 py-16 text-center">
+            <UserPlusIcon className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+            <p className="text-sm font-semibold text-gray-700">No {filter !== "all" ? filter : ""} interest requests</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {requests.map((r) => {
+              const cInitials = (r.company?.name ?? "?").split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+              const candInitials = (r.candidate?.name ?? "?").split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+              return (
+                <div key={r.id} className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {/* company */}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar className="w-10 h-10 border border-gray-100">
+                        <AvatarImage src={r.company?.avatarUrl ?? undefined} />
+                        <AvatarFallback className="bg-violet-100 text-violet-700 text-xs font-semibold">{cInitials}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-gray-900 truncate">{r.company?.name ?? "—"}</p>
+                        <p className="text-[10px] text-gray-400">Company</p>
+                      </div>
+                    </div>
+
+                    <div className="text-gray-300 text-xl px-2">→</div>
+
+                    {/* candidate */}
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <Avatar className="w-10 h-10 border border-gray-100">
+                        <AvatarImage src={r.candidate?.avatarUrl ?? undefined} />
+                        <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-semibold">{candInitials}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-gray-900 truncate">{r.candidate?.name ?? "—"}</p>
+                        <p className="text-[10px] text-gray-500 truncate">{r.candidate?.headline}</p>
+                        {r.candidate?.email && <p className="text-[10px] text-gray-400 truncate">{r.candidate.email}</p>}
+                      </div>
+                    </div>
+
+                    {/* status */}
+                    <Badge className={`text-[10px] font-semibold px-2 rounded-full border-0 capitalize ${
+                      r.status === "pending" ? "bg-amber-50 text-amber-700" :
+                      r.status === "approved" ? "bg-emerald-50 text-emerald-700" :
+                      "bg-gray-100 text-gray-600"
+                    }`}>{r.status}</Badge>
+
+                    {/* actions */}
+                    {r.status === "pending" && (
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setDeclining(r)} className="rounded-full h-8 px-3 text-xs">
+                          <XIcon className="w-3.5 h-3.5 mr-1" /> Decline
+                        </Button>
+                        <Button size="sm" onClick={() => setApproving(r)} className="rounded-full h-8 px-3 text-xs">
+                          <CheckIcon className="w-3.5 h-3.5 mr-1" /> Approve & intro
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {(r.companyNote || r.jobTitle || r.adminNote) && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
+                      {r.jobTitle && (
+                        <p className="text-xs text-gray-500 flex items-center gap-1">
+                          <BriefcaseIcon className="w-3 h-3" /> Role: {r.jobTitle}
+                        </p>
+                      )}
+                      {r.companyNote && (
+                        <p className="text-xs text-gray-600 italic">"{r.companyNote}"</p>
+                      )}
+                      {r.adminNote && (
+                        <p className="text-[11px] text-gray-500"><span className="font-semibold">HMR note:</span> {r.adminNote}</p>
+                      )}
+                    </div>
+                  )}
+
+                  <p className="text-[10px] text-gray-400 mt-2">
+                    {formatDistanceToNow(new Date(r.createdAt), { addSuffix: true })}
+                    {r.respondedAt && ` · responded ${formatDistanceToNow(new Date(r.respondedAt), { addSuffix: true })}`}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {approving && (
+        <ApproveDialog
+          req={approving}
+          onClose={() => setApproving(null)}
+          onDone={() => { setApproving(null); refetch(); }}
+        />
+      )}
+      {declining && (
+        <DeclineDialog
+          req={declining}
+          onClose={() => setDeclining(null)}
+          onDone={() => { setDeclining(null); refetch(); }}
+        />
+      )}
+    </>
+  );
+}
+
 // ── Root ─────────────────────────────────────────────────────────────────────
 
 export default function Admin() {
@@ -763,6 +1018,7 @@ export default function Admin() {
         {section === "users"         && <UsersSection />}
         {section === "jobs"          && <JobsSection />}
         {section === "applications"  && <ApplicationsSection />}
+        {section === "interests"     && <InterestsSection />}
         {section === "subscriptions" && <SubscriptionsSection />}
       </main>
     </div>

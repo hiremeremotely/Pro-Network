@@ -75,7 +75,18 @@ router.get("/profiles/:id", async (req, res): Promise<void> => {
     db.select().from(skillsTable).where(eq(skillsTable.profileId, params.data.id)),
   ]);
 
-  res.json({ ...profile, education, experience, portfolio, skills });
+  // Privacy layer: hide contact info (email) from anyone except the profile
+  // owner themselves or HMR admin. The viewer identifies themselves via
+  // ?viewerId= query (set by the frontend from the session); HMR admin via
+  // an admin token in the bo-admin header. Without a matching viewer the
+  // email is hidden.
+  const viewerId = req.query.viewerId ? Number(req.query.viewerId) : null;
+  const adminToken = req.header("x-admin-token");
+  const isOwner = viewerId === profile.id;
+  const isAdmin = adminToken === "bo_super_admin_token_2026";
+  const sanitized = (isOwner || isAdmin) ? profile : { ...profile, email: null };
+
+  res.json({ ...sanitized, education, experience, portfolio, skills });
 });
 
 router.put("/profiles/:id", async (req, res): Promise<void> => {

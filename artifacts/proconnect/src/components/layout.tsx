@@ -533,6 +533,7 @@ export function Layout({ children }: LayoutProps) {
     ? [
         { href: "/company-dashboard", label: "Dashboard",   icon: HomeIcon           },
         { href: "/profiles",          label: "Talent",       icon: UsersIcon          },
+        { href: "/company/interests", label: "My Interests", icon: UserPlusIcon       },
         { href: "/applications",      label: "Hiring",       icon: ClipboardListIcon  },
         { href: "/messaging",         label: "Messaging",    icon: MessageSquareIcon  },
       ]

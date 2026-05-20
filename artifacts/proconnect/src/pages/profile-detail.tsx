@@ -34,6 +34,7 @@ import { useStartChat } from "@/hooks/use-start-chat";
 import { useConnections } from "@/hooks/use-connections";
 import { ConnectModal } from "@/components/connect-modal";
 import { DisconnectConfirmDialog } from "@/components/disconnect-confirm-dialog";
+import { ExpressInterestModal } from "@/components/express-interest-modal";
 
 // ── Modal wrapper ─────────────────────────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -637,7 +638,7 @@ export default function ProfileDetail() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
-  const [modal, setModal] = useState<"info" | "exp" | "edu" | "skill" | null>(null);
+  const [modal, setModal] = useState<"info" | "exp" | "edu" | "skill" | "interest" | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [coverUploading, setCoverUploading] = useState(false);
   const [msgLoading, setMsgLoading] = useState(false);
@@ -792,6 +793,14 @@ export default function ProfileDetail() {
       {modal === "exp"   && <AddExperienceModal profileId={id} onClose={() => setModal(null)} />}
       {modal === "edu"   && <AddEducationModal  profileId={id} onClose={() => setModal(null)} />}
       {modal === "skill" && <AddSkillModal      profileId={id} onClose={() => setModal(null)} />}
+      {modal === "interest" && user && (
+        <ExpressInterestModal
+          candidateId={id}
+          candidateName={profile.name}
+          companyProfileId={user.id}
+          onClose={() => setModal(null)}
+        />
+      )}
       {showConnectModal && (
         <ConnectModal
           profile={profile}
@@ -869,6 +878,15 @@ export default function ProfileDetail() {
                     {isOwn ? (
                       <Button variant="outline" size="sm" onClick={() => setModal("info")} className="rounded-full h-9 px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
                         <PencilIcon className="w-3.5 h-3.5" /> Edit profile
+                      </Button>
+                    ) : user?.accountType === "company" ? (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => setModal("interest")}
+                        className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5"
+                      >
+                        <UserPlusIcon className="w-3.5 h-3.5" /> Express Interest
                       </Button>
                     ) : (
                       <>

@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "NujSn9VD15i0nlj8riwfT"
+uri = "file://.local/HMR-Revenue-Model.pdf"
+type = "pdf"
+title = "HMR Revenue Model & LinkedIn Comparison"

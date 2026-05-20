@@ -1,0 +1,40 @@
+#27 - Platform Privacy & Two-Door Experience
+What & Why
+Restructure HireMeRemotely from an open network (anyone messages anyone) into a managed placement platform where HMR sits in the middle of every company–candidate interaction. Candidates control what companies see; companies can only express interest through HMR, not contact candidates directly. This protects the proprietary candidate database and keeps HMR essential to every hire.
+
+Done looks like
+Company-facing profile view shows skills, experience, portfolio, and availability but never email, phone, or any direct contact detail
+The "Message" button is replaced with an "Express Interest" button on candidate profiles when viewed by a company account
+Expressing interest creates an admin-visible record in the backoffice dashboard — no notification goes directly to the candidate
+Candidates see inbound interest only via HMR-mediated messages (admin can forward or hold them)
+The messaging system is disabled for company → candidate direction; companies only see their own job pipeline and candidate shortlists
+Candidates can still message each other freely (networking)
+Admin backoffice gets an "Interest Requests" panel showing company, candidate, job title, date — with Approve / Hold / Decline actions
+Approved interests trigger an HMR-authored introduction message to the candidate (from the admin account, not the company directly)
+A privacy badge ("Protected by HMR") appears on the candidate profile to signal the protection model to both sides
+Out of scope
+Payment / billing for placement fees (tracked separately)
+Candidate anonymization (showing initials only) — can be a follow-up toggle
+Background checks or vetting workflow
+Email notifications outside the platform
+Steps
+Profile privacy layer — Add an isCompanyViewer flag to the profile detail page. When true, hide email, phone, and any raw contact fields. Show only professional content (headline, skills, experience, portfolio, availability).
+
+Replace Message → Express Interest on candidate profiles — When a company account views an individual profile, swap the "Message" button for "Express Interest". POST to a new /api/interest-requests endpoint that records { companyId, candidateId, jobId? } in a new interest_requests DB table. Show a confirmation: "Your interest has been sent to HMR. We'll be in touch."
+
+interest_requests DB table — Add schema: id, companyProfileId, candidateProfileId, jobId (nullable), status (pending/approved/declined), note (admin note), createdAt. Push migration.
+
+Backoffice Interest Requests panel — Add a new tab in /bo/dashboard listing all interest requests with company name, candidate name, job (if any), status, and date. Approve action sends a pre-written introduction message from the HMR admin account via the existing messaging system. Decline sends nothing.
+
+Disable company → candidate direct messaging — In the messaging routes and widget, check if the initiating profile is a company account and the target is individual. Block the conversation creation and return a clear error: "Direct messaging is managed by HMR. Use Express Interest on a candidate profile."
+
+Privacy badge on candidate profiles — Add a small "🔒 Contact managed by HMR" badge to the candidate profile header, visible to all viewers, reinforcing the trust model.
+
+Relevant files
+artifacts/proconnect/src/pages/profile-detail.tsx
+artifacts/proconnect/src/components/messaging-widget.tsx
+artifacts/proconnect/src/pages/backoffice.tsx
+artifacts/api-server/src/routes/messages.ts
+lib/db/src/schema/posts.ts
+lib/db/src/schema/index.ts
+lib/api-spec/openapi.yaml

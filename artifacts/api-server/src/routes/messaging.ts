@@ -173,9 +173,13 @@ router.post("/conversations", async (req, res): Promise<void> => {
     res.status(400).json({ error: "myProfileId and otherProfileId required" });
     return;
   }
-  const [p1, p2] = orderedPair(Number(myProfileId), Number(otherProfileId));
+  const myId = Number(myProfileId);
+  const otherId = Number(otherProfileId);
+  const [p1, p2] = orderedPair(myId, otherId);
 
-  // Try to find existing direct conversation
+  // Try to find existing direct conversation FIRST — allows existing convos
+  // (e.g. ones created by an HMR-approved interest request) to be opened by
+  // either side without re-running the policy guard.
   const [existing] = await db
     .select()
     .from(conversationsTable)
@@ -188,6 +192,23 @@ router.post("/conversations", async (req, res): Promise<void> => {
 
   if (existing) {
     res.json(existing);
+    return;
+  }
+
+  // Policy guard: a company account cannot initiate a direct conversation with
+  // an individual candidate. They must go through "Express Interest" which is
+  // mediated by HMR admin.
+  const [me, other] = await Promise.all([
+    db.select({ accountType: profilesTable.accountType }).from(profilesTable).where(eq(profilesTable.id, myId)).limit(1),
+    db.select({ accountType: profilesTable.accountType }).from(profilesTable).where(eq(profilesTable.id, otherId)).limit(1),
+  ]);
+  const myType = me[0]?.accountType;
+  const otherType = other[0]?.accountType;
+  if (myType === "company" && otherType === "individual") {
+    res.status(403).json({
+      error: "mediated_only",
+      message: "Direct messaging is managed by HMR. Use Express Interest on a candidate profile.",
+    });
     return;
   }
 

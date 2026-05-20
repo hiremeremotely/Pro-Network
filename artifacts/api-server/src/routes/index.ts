@@ -24,6 +24,7 @@ import salaryRouter from "./salary";
 import contractsRouter from "./contracts";
 import attendanceRouter from "./attendance";
 import externalApplicationsRouter from "./external-applications";
+import interestRequestsRouter from "./interest-requests";
 
 const router: IRouter = Router();
 
@@ -41,6 +42,7 @@ router.use(salaryRouter);
 router.use(contractsRouter);
 router.use(attendanceRouter);
 router.use(externalApplicationsRouter);
+router.use(interestRequestsRouter);
 router.use(profilesRouter);
 router.use(educationRouter);
 router.use(experienceRouter);

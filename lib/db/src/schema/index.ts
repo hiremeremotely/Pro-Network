@@ -13,3 +13,4 @@ export * from "./posts";
 export * from "./connections";
 export * from "./bookmarks";
 export * from "./external-applications";
+export * from "./interest-requests";
