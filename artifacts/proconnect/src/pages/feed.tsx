@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGetFeedStats, getGetFeedStatsQueryKey, useListFeaturedJobs, getListFeaturedJobsQueryKey } from "@workspace/api-client-react";
@@ -1039,7 +1039,13 @@ export default function Home() {
   const currentId       = user?.id ?? 1;
   const currentName     = user?.name ?? "Guest";
   const currentHeadline = user?.headline ?? "";
-  const currentAvatar   = user?.avatarUrl ?? undefined;
+  const currentAvatar = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("app_user_session");
+      const session = raw ? JSON.parse(raw) : null;
+      return session?.avatarUrl || user?.avatarUrl || undefined;
+    } catch { return user?.avatarUrl ?? undefined; }
+  }, [user?.id]);
   const currentInitials = currentName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
 
   // Avatar upload / remove / lightbox

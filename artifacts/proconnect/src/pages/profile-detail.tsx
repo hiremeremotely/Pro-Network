@@ -656,6 +656,7 @@ export default function ProfileDetail() {
         {
           onSuccess: () => {
             qc.invalidateQueries({ queryKey: getGetProfileQueryKey(id) });
+            qc.invalidateQueries({ queryKey: ["my-full-profile", id] });
             const stored = localStorage.getItem("app_user_session");
             if (stored) {
               const parsed = JSON.parse(stored);
