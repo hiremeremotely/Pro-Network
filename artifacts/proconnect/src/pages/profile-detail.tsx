@@ -689,6 +689,7 @@ export default function ProfileDetail() {
         {
           onSuccess: () => {
             qc.invalidateQueries({ queryKey: getGetProfileQueryKey(id) });
+            qc.invalidateQueries({ queryKey: ["my-full-profile", id] });
             toast({ title: "Cover photo updated!" });
             setCoverUploading(false);
           },
