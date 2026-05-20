@@ -332,9 +332,6 @@ function CompanyProfileView({ profile, id, isOwn, onEditInfo, avatarInputRef, av
                   </Button>
                 ) : (
                   <>
-                    <Button variant="outline" size="sm" onClick={onMessage} disabled={msgLoading} className="rounded-full h-9 px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
-                      <MessageSquareIcon className="w-3.5 h-3.5" /> {msgLoading ? "Opening…" : "Message"}
-                    </Button>
                     <Button
                       size="sm"
                       variant={isFollowing ? "secondary" : "default"}
