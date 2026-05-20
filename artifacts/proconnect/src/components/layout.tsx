@@ -37,7 +37,6 @@ import { useAppAuth } from "@/contexts/app-auth";
 import { useListProfiles, getListProfilesQueryKey } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { MessagingWidget } from "@/components/messaging-widget";
 
 // ── Global typeahead search ───────────────────────────────────────────────────
 function GlobalSearch() {
@@ -677,8 +676,6 @@ export function Layout({ children }: LayoutProps) {
         {children}
       </main>
 
-      {/* Floating messaging widget — hidden on /messaging page */}
-      {location !== "/messaging" && <MessagingWidget />}
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-white shadow-lg">
         <nav className="flex items-stretch h-14">
