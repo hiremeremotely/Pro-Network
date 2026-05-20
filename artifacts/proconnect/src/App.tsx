@@ -31,6 +31,7 @@ import JobTracker from "@/pages/job-tracker";
 import CompanyInterests from "@/pages/company-interests";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
+import VerifyEmail from "@/pages/verify-email";
 
 const queryClient = new QueryClient();
 
@@ -106,6 +107,7 @@ function Router() {
       </Route>
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
+      <Route path="/verify-email" component={VerifyEmail} />
 
       {/* Backoffice login (public) */}
       <Route path="/bo" component={BoLogin} />

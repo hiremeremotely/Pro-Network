@@ -14,8 +14,8 @@ export interface AppUser {
 
 interface AppAuthCtx {
   user: AppUser | null;
-  login: (email: string, password: string, allowedAccountType?: string) => Promise<{ ok: boolean; error?: string }>;
-  signup: (data: SignupData) => Promise<{ ok: boolean; error?: string }>;
+  login: (email: string, password: string, allowedAccountType?: string) => Promise<{ ok: boolean; error?: string; unverified?: boolean }>;
+  signup: (data: SignupData) => Promise<{ ok: boolean; error?: string; verificationToken?: string }>;
   logout: () => void;
 }
 
@@ -73,6 +73,9 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
+      if (res.status === 403 && data.error === "unverified") {
+        return { ok: false, error: data.message ?? "Please verify your email address before signing in.", unverified: true };
+      }
       if (res.ok && data.profile) {
         const u: AppUser = {
           id: data.profile.id,
@@ -108,18 +111,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
       });
       const json = await res.json();
       if (res.ok && json.profile) {
-        const u: AppUser = {
-          id: json.profile.id,
-          name: json.profile.name,
-          email: json.profile.email,
-          accountType: json.profile.accountType,
-          headline: json.profile.headline,
-          avatarUrl: json.profile.avatarUrl,
-          authToken: json.authToken,
-        };
-        localStorage.setItem(SESSION_KEY, JSON.stringify(u));
-        setUser(u);
-        return { ok: true };
+        return { ok: true, verificationToken: json.verificationToken as string | undefined };
       }
       return { ok: false, error: json.error ?? "Registration failed." };
     } catch {

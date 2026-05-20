@@ -10,6 +10,32 @@ const router: IRouter = Router();
 const GMAIL_DOMAINS = ["@gmail.com", "@googlemail.com"];
 const OUTLOOK_DOMAINS = ["@outlook.com", "@hotmail.com", "@live.com", "@msn.com"];
 
+const CONSUMER_DOMAINS = new Set([
+  "gmail.com", "googlemail.com",
+  "yahoo.com", "yahoo.co.uk", "yahoo.co.in", "yahoo.fr", "yahoo.de", "yahoo.es", "yahoo.it",
+  "hotmail.com", "hotmail.co.uk", "hotmail.fr", "hotmail.de", "hotmail.es", "hotmail.it",
+  "outlook.com", "outlook.co.uk", "outlook.fr", "outlook.de",
+  "live.com", "live.co.uk", "live.fr",
+  "msn.com",
+  "icloud.com", "me.com", "mac.com",
+  "protonmail.com", "proton.me", "pm.me",
+  "aol.com",
+  "zoho.com",
+  "yandex.com", "yandex.ru",
+  "mail.com", "email.com",
+  "inbox.com",
+  "gmx.com", "gmx.net", "gmx.de",
+  "web.de",
+  "qq.com", "163.com", "126.com",
+]);
+
+function isConsumerDomain(email: string): boolean {
+  const at = email.lastIndexOf("@");
+  if (at < 0) return false;
+  const domain = email.slice(at + 1).toLowerCase();
+  return CONSUMER_DOMAINS.has(domain);
+}
+
 async function autoConnectEmailByDomain(profileId: number, email: string): Promise<void> {
   if (!IS_DEMO) return;
   const lower = email.toLowerCase();
@@ -72,11 +98,20 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
 
+  if (accountType === "company" && isConsumerDomain(email)) {
+    res.status(400).json({ error: "Company accounts require a business email address." });
+    return;
+  }
+
   const existing = await db.select({ id: profilesTable.id }).from(profilesTable).where(eq(profilesTable.email, email));
   if (existing.length > 0) {
     res.status(409).json({ error: "An account with this email already exists." });
     return;
   }
+
+  const rawToken = randomBytes(32).toString("hex");
+  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+  const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   const [profile] = await db.insert(profilesTable).values({
     name,
@@ -88,11 +123,66 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     industry: industry || undefined,
     interests: Array.isArray(interests) ? interests : [],
     openToWork: false,
+    emailVerified: false,
+    emailVerificationToken: tokenHash,
+    emailVerificationTokenExpiry: expiry,
   }).returning();
 
   await autoConnectEmailByDomain(profile.id, email);
-  const { passwordHash: _pw, ...safe } = profile;
-  res.status(201).json({ profile: safe, authToken: generateAuthToken(profile.id) });
+  const { passwordHash: _pw, emailVerificationToken: _evt, ...safe } = profile;
+  res.status(201).json({ profile: safe, verificationToken: rawToken });
+});
+
+router.post("/auth/verify-email", async (req, res): Promise<void> => {
+  const { token } = req.body as { token?: string };
+  if (!token) { res.status(400).json({ error: "Token is required." }); return; }
+
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const [profile] = await db
+    .select()
+    .from(profilesTable)
+    .where(eq(profilesTable.emailVerificationToken, tokenHash));
+
+  if (!profile) { res.status(400).json({ error: "Invalid or expired verification link." }); return; }
+  if (!profile.emailVerificationTokenExpiry || profile.emailVerificationTokenExpiry < new Date()) {
+    res.status(400).json({ error: "This verification link has expired. Please request a new one." }); return;
+  }
+
+  await db.update(profilesTable)
+    .set({ emailVerified: true, emailVerificationToken: null, emailVerificationTokenExpiry: null })
+    .where(eq(profilesTable.id, profile.id));
+
+  const { passwordHash: _pw, emailVerificationToken: _evt, ...safe } = profile;
+  res.json({ profile: { ...safe, emailVerified: true }, authToken: generateAuthToken(profile.id), message: "Email verified successfully." });
+});
+
+router.post("/auth/resend-verification", async (req, res): Promise<void> => {
+  const { email } = req.body as { email?: string };
+  if (!email) { res.status(400).json({ error: "Email is required." }); return; }
+
+  const [profile] = await db
+    .select({ id: profilesTable.id, email: profilesTable.email, emailVerified: profilesTable.emailVerified })
+    .from(profilesTable)
+    .where(eq(profilesTable.email, email));
+
+  if (!profile) {
+    res.json({ message: "If that email is registered and unverified, a new link has been sent." });
+    return;
+  }
+  if (profile.emailVerified) {
+    res.json({ message: "This account is already verified." });
+    return;
+  }
+
+  const rawToken = randomBytes(32).toString("hex");
+  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+  const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  await db.update(profilesTable)
+    .set({ emailVerificationToken: tokenHash, emailVerificationTokenExpiry: expiry })
+    .where(eq(profilesTable.id, profile.id));
+
+  res.json({ verificationToken: rawToken, message: "Verification token generated." });
 });
 
 router.post("/auth/token", async (req, res): Promise<void> => {
@@ -135,8 +225,13 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
+  if (!profile.emailVerified) {
+    res.status(403).json({ error: "unverified", message: "Please verify your email address before signing in." });
+    return;
+  }
+
   await autoConnectEmailByDomain(profile.id, profile.email);
-  const { passwordHash: _pw, ...safe } = profile;
+  const { passwordHash: _pw, emailVerificationToken: _evt, ...safe } = profile;
   res.json({ profile: safe, authToken: generateAuthToken(profile.id) });
 });
 

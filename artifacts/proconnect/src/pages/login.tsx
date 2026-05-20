@@ -3,8 +3,10 @@ import { Link, useLocation } from "wouter";
 import { useAppAuth } from "@/contexts/app-auth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { EyeIcon, EyeOffIcon, AlertCircleIcon, BuildingIcon } from "lucide-react";
+import { EyeIcon, EyeOffIcon, AlertCircleIcon, BuildingIcon, CheckCircleIcon, CopyIcon, RefreshCwIcon } from "lucide-react";
 import logo from "@assets/hr_1775483051104.png";
+
+const BASE = import.meta.env.BASE_URL;
 
 export default function Login() {
   const { user, login } = useAppAuth();
@@ -18,6 +20,11 @@ export default function Login() {
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [unverified, setUnverified] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendLink, setResendLink] = useState("");
+  const [resendCopied, setResendCopied] = useState(false);
+  const [verifiedBanner] = useState(() => new URLSearchParams(window.location.search).get("verified") === "1");
 
   useEffect(() => {
     if (user) navigate(user.accountType === "company" ? "/company-dashboard" : "/feed");
@@ -26,13 +33,48 @@ export default function Login() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setUnverified(false);
+    setResendLink("");
     if (!email || !password) { setError("Please enter your email and password."); return; }
     setLoading(true);
     const result = await login(email, password, "individual");
     setLoading(false);
     if (result.ok) {
       navigate("/feed");
-    } else setError(result.error ?? "Login failed.");
+    } else {
+      if (result.unverified) setUnverified(true);
+      setError(result.error ?? "Login failed.");
+    }
+  }
+
+  async function handleResend() {
+    setResendLink("");
+    setResendLoading(true);
+    try {
+      const res = await fetch(`${BASE}api/auth/resend-verification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (res.ok && data.verificationToken) {
+        const link = `${window.location.origin}${import.meta.env.BASE_URL}verify-email?token=${data.verificationToken}`;
+        setResendLink(link);
+      } else {
+        setError(data.error ?? "Could not resend. Please try again.");
+      }
+    } catch {
+      setError("Server unreachable. Please try again.");
+    } finally {
+      setResendLoading(false);
+    }
+  }
+
+  function copyResendLink() {
+    navigator.clipboard.writeText(resendLink).then(() => {
+      setResendCopied(true);
+      setTimeout(() => setResendCopied(false), 2000);
+    });
   }
 
   return (
@@ -45,6 +87,12 @@ export default function Login() {
 
       <div className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-sm bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
+          {verifiedBanner && (
+            <div className="flex items-start gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2.5 mb-5">
+              <CheckCircleIcon className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-green-700 font-medium">Email verified! You can now sign in.</p>
+            </div>
+          )}
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Sign in</h1>
           <p className="text-sm text-gray-500 mb-6">Stay updated with your professional world.</p>
 
@@ -83,9 +131,42 @@ export default function Login() {
             </div>
 
             {error && (
-              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
-                <AlertCircleIcon className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-600">{error}</p>
+              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+                <div className="flex items-start gap-2">
+                  <AlertCircleIcon className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+                {unverified && (
+                  <div className="mt-3 pl-6">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={resendLoading}
+                      onClick={handleResend}
+                      className="h-8 px-3 rounded-full text-xs font-semibold text-primary hover:bg-primary/10 gap-1.5 -ml-2"
+                    >
+                      <RefreshCwIcon className={`w-3 h-3 ${resendLoading ? "animate-spin" : ""}`} />
+                      {resendLoading ? "Generating link…" : "Resend verification link"}
+                    </Button>
+                    {resendLink && (
+                      <div className="mt-2">
+                        <div className="bg-white border border-gray-200 rounded-lg p-2 mb-2 break-all text-[10px] text-gray-600 font-mono">
+                          {resendLink}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button type="button" size="sm" variant="outline" onClick={copyResendLink} className="h-7 px-2.5 rounded-full text-xs gap-1">
+                            <CopyIcon className="w-3 h-3" />
+                            {resendCopied ? "Copied!" : "Copy"}
+                          </Button>
+                          <Button type="button" size="sm" onClick={() => window.location.href = resendLink} className="h-7 px-2.5 rounded-full text-xs">
+                            Open link
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

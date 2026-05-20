@@ -9,6 +9,29 @@ import {
 } from "lucide-react";
 import logo from "@assets/hr_1775483051104.png";
 
+// ── Consumer domain blocklist (mirrors server-side list) ─────────────────────
+
+const CONSUMER_DOMAINS = new Set([
+  "gmail.com", "googlemail.com",
+  "yahoo.com", "yahoo.co.uk", "yahoo.co.in", "yahoo.fr", "yahoo.de", "yahoo.es", "yahoo.it",
+  "hotmail.com", "hotmail.co.uk", "hotmail.fr", "hotmail.de", "hotmail.es", "hotmail.it",
+  "outlook.com", "outlook.co.uk", "outlook.fr", "outlook.de",
+  "live.com", "live.co.uk", "live.fr",
+  "msn.com",
+  "icloud.com", "me.com", "mac.com",
+  "protonmail.com", "proton.me", "pm.me",
+  "aol.com", "zoho.com", "yandex.com", "yandex.ru",
+  "mail.com", "email.com", "inbox.com",
+  "gmx.com", "gmx.net", "gmx.de", "web.de",
+  "qq.com", "163.com", "126.com",
+]);
+
+function isConsumerDomain(email: string): boolean {
+  const at = email.lastIndexOf("@");
+  if (at < 0) return false;
+  return CONSUMER_DOMAINS.has(email.slice(at + 1).toLowerCase());
+}
+
 // ── Data constants ────────────────────────────────────────────────────────────
 
 const INDUSTRIES = [
@@ -274,6 +297,10 @@ export default function Signup() {
     setError("");
     if (!name || !email || !password) { setError("All fields are required."); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
+    if (accountType === "company" && isConsumerDomain(email)) {
+      setError("Company accounts require a business email address (not gmail, yahoo, hotmail, etc.).");
+      return;
+    }
     setStep(2);
   }
 
@@ -294,8 +321,14 @@ export default function Signup() {
       interests: skipInterests ? [] : interests,
     });
     setLoading(false);
-    if (result.ok) navigate(accountType === "company" ? "/company-dashboard" : "/feed");
-    else setError(result.error ?? "Registration failed.");
+    if (result.ok) {
+      const token = result.verificationToken ?? "";
+      sessionStorage.setItem("verify_email_address", email);
+      sessionStorage.setItem("verify_token", token);
+      navigate("/verify-email");
+    } else {
+      setError(result.error ?? "Registration failed.");
+    }
   }
 
   return (
