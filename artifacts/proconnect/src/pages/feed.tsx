@@ -1090,14 +1090,16 @@ export default function Home() {
 
   const { data: stats } = useGetFeedStats({ query: { queryKey: getGetFeedStatsQueryKey() } });
 
-  // Personalized application data for the sidebar widget
-  const { data: myApplications = [] } = useQuery<any[]>({
-    queryKey: ["my-applications", user?.id],
+  // Personalized application data for the sidebar widget — uses job-tracker
+  // endpoint so extension/email/manual apps are all counted, same as /job-tracker page
+  const { data: trackerData } = useQuery<{ applications: any[] }>({
+    queryKey: ["job-tracker", user?.id],
     queryFn: () =>
-      fetch(`${import.meta.env.BASE_URL}api/profiles/${user!.id}/applications`).then(r => r.json()),
+      fetch(`${import.meta.env.BASE_URL}api/job-tracker/${user!.id}`).then(r => r.json()),
     enabled: !!user?.id && user.accountType === "individual",
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
+  const myApplications = trackerData?.applications ?? [];
 
   const appStatusCounts = myApplications.reduce<Record<string, number>>((acc, a) => {
     acc[a.status] = (acc[a.status] ?? 0) + 1;
@@ -1306,8 +1308,8 @@ export default function Home() {
                     <>
                       <div className="flex flex-wrap gap-1.5 mb-3">
                         {[
-                          { key: "pending",   label: "Submitted", color: "bg-amber-50 text-amber-700" },
-                          { key: "reviewing", label: "Reviewing", color: "bg-blue-50 text-blue-700" },
+                          { key: "applied",   label: "Applied",   color: "bg-blue-50 text-blue-700"   },
+                          { key: "screening", label: "Screening", color: "bg-violet-50 text-violet-700" },
                           { key: "interview", label: "Interview", color: "bg-purple-50 text-purple-700" },
                           { key: "offer",     label: "Offer",     color: "bg-green-50 text-green-700" },
                         ]
@@ -1326,8 +1328,8 @@ export default function Home() {
                               <BriefcaseIcon className="w-3 h-3 text-primary" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs font-semibold text-gray-800 truncate leading-tight">{mostRecentApp.job?.title}</p>
-                              <p className="text-[10px] text-gray-400 truncate">{mostRecentApp.job?.company}</p>
+                              <p className="text-xs font-semibold text-gray-800 truncate leading-tight">{mostRecentApp.jobTitle}</p>
+                              <p className="text-[10px] text-gray-400 truncate">{mostRecentApp.companyName}</p>
                             </div>
                           </div>
                         </Link>
@@ -1527,10 +1529,10 @@ export default function Home() {
                     {/* Status breakdown */}
                     <div className="flex flex-wrap gap-1.5 mb-3">
                       {[
-                        { key: "pending",   label: "Submitted", color: "bg-amber-50 text-amber-700" },
-                        { key: "reviewing", label: "Reviewing", color: "bg-blue-50 text-blue-700" },
+                        { key: "applied",   label: "Applied",   color: "bg-blue-50 text-blue-700"    },
+                        { key: "screening", label: "Screening", color: "bg-violet-50 text-violet-700" },
                         { key: "interview", label: "Interview", color: "bg-purple-50 text-purple-700" },
-                        { key: "offer",     label: "Offer",     color: "bg-green-50 text-green-700" },
+                        { key: "offer",     label: "Offer",     color: "bg-green-50 text-green-700"  },
                       ]
                         .filter(s => appStatusCounts[s.key])
                         .map(s => (
@@ -1550,9 +1552,9 @@ export default function Home() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-semibold text-gray-800 group-hover:text-primary transition-colors truncate leading-tight">
-                              {mostRecentApp.job?.title}
+                              {mostRecentApp.jobTitle}
                             </p>
-                            <p className="text-[10px] text-gray-400 truncate">{mostRecentApp.job?.company}</p>
+                            <p className="text-[10px] text-gray-400 truncate">{mostRecentApp.companyName}</p>
                           </div>
                         </div>
                       </Link>
