@@ -60,3 +60,33 @@ id = "LgK0d0n-U0qAsYiwR8yws"
 uri = "file://logo/wordmark.png"
 type = "image"
 title = "Wordmark only — Hire Me Remotely"
+
+[[outputs]]
+id = "1vbUiZl-c9AebPmuMCdDP"
+uri = "file://logo/traced/logo-traced-1024.png"
+type = "image"
+title = "Traced logo — 1024px wide (transparent bg)"
+
+[[outputs]]
+id = "6cmU1h0wVFjG99GiGLATW"
+uri = "file://logo/traced/logo-traced-1024-white.png"
+type = "image"
+title = "Traced logo — white background"
+
+[[outputs]]
+id = "GpeFYs2wKZQrL-_FvVW2J"
+uri = "file://logo/traced/logo-traced-1024-dark.png"
+type = "image"
+title = "Traced logo — dark background"
+
+[[outputs]]
+id = "vIJ4g69XxAsRIyj_CAAjJ"
+uri = "file://logo/traced/logo-traced-512.png"
+type = "image"
+title = "Traced logo — 512px wide"
+
+[[outputs]]
+id = "W9GqzmDS3AckaYLo62qM_"
+uri = "file://logo/traced/logo-traced.svg"
+type = "image"
+title = "Traced logo — SVG (infinitely scalable)"
