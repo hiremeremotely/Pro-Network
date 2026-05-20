@@ -1291,7 +1291,7 @@ export default function Home() {
               <Card className="rounded-xl border border-gray-200 shadow-none bg-white overflow-hidden">
                 <CardContent className="px-3 py-3 space-y-0">
                   <div className="flex items-center justify-between mb-2.5">
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">My Applications</p>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Job Tracker</p>
                     <span className="text-xs font-bold text-primary bg-primary/8 px-2 py-0.5 rounded-full">{myApplications.length}</span>
                   </div>
                   {myApplications.length === 0 ? (
@@ -1320,7 +1320,7 @@ export default function Home() {
                         }
                       </div>
                       {mostRecentApp && (
-                        <Link href="/applications" onClick={() => setSidebarOpen(false)}>
+                        <Link href="/job-tracker" onClick={() => setSidebarOpen(false)}>
                           <div className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 hover:bg-primary/5 transition-colors cursor-pointer -mx-0.5">
                             <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                               <BriefcaseIcon className="w-3 h-3 text-primary" />
@@ -1335,8 +1335,8 @@ export default function Home() {
                     </>
                   )}
                   <div className="pt-2.5">
-                    <Link href="/applications" onClick={() => setSidebarOpen(false)} className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5">
-                      View all applications <ChevronRightIcon className="w-3.5 h-3.5" />
+                    <Link href="/job-tracker" onClick={() => setSidebarOpen(false)} className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5">
+                      Open Job Tracker <ChevronRightIcon className="w-3.5 h-3.5" />
                     </Link>
                   </div>
                 </CardContent>
@@ -1508,7 +1508,7 @@ export default function Home() {
             <Card className="rounded-xl border border-gray-200 shadow-none bg-white overflow-hidden">
               <CardContent className="px-3 py-3 space-y-0">
                 <div className="flex items-center justify-between mb-2.5">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">My Applications</p>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Job Tracker</p>
                   <span className="text-xs font-bold text-primary bg-primary/8 px-2 py-0.5 rounded-full">
                     {myApplications.length}
                   </span>
@@ -1543,7 +1543,7 @@ export default function Home() {
 
                     {/* Most recent application */}
                     {mostRecentApp && (
-                      <Link href="/applications">
+                      <Link href="/job-tracker">
                         <div className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 hover:bg-primary/5 transition-colors cursor-pointer group -mx-0.5">
                           <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                             <BriefcaseIcon className="w-3 h-3 text-primary" />
@@ -1561,8 +1561,8 @@ export default function Home() {
                 )}
 
                 <div className="pt-2.5">
-                  <Link href="/applications" className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5">
-                    View all applications <ChevronRightIcon className="w-3.5 h-3.5" />
+                  <Link href="/job-tracker" className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5">
+                    Open Job Tracker <ChevronRightIcon className="w-3.5 h-3.5" />
                   </Link>
                 </div>
               </CardContent>
