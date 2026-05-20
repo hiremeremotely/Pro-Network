@@ -335,13 +335,12 @@ router.patch("/profiles/:id/platform-links", requireTrackerAuth, async (req, res
   const callerProfileId: number = res.locals.callerProfileId;
   if (callerProfileId !== id) { res.status(403).json({ error: "Forbidden" }); return; }
 
-  const { indeedUrl, glassdoorUrl, wellfoundUrl, angellistUrl, linkedinUrl } = req.body;
+  const { indeedUrl, glassdoorUrl, wellfoundUrl, angellistUrl } = req.body;
   const [updated] = await db.update(profilesTable).set({
     indeedUrl: indeedUrl ?? null,
     glassdoorUrl: glassdoorUrl ?? null,
     wellfoundUrl: wellfoundUrl ?? null,
     angellistUrl: angellistUrl ?? null,
-    linkedinUrl: linkedinUrl ?? null,
   }).where(eq(profilesTable.id, id)).returning({
     indeedUrl: profilesTable.indeedUrl,
     glassdoorUrl: profilesTable.glassdoorUrl,

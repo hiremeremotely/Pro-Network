@@ -215,7 +215,6 @@ function PlatformStrip({ links, profileId, authToken, onRefetch }: {
   const [linkForm, setLinkForm] = useState({
     indeedUrl: links?.indeedUrl ?? "", glassdoorUrl: links?.glassdoorUrl ?? "",
     wellfoundUrl: links?.wellfoundUrl ?? "", angellistUrl: links?.angellistUrl ?? "",
-    linkedinUrl: links?.linkedinUrl ?? "",
   });
   const [scanning, setScanning] = useState(false);
   const [previews, setPreviews] = useState<EmailPreview[] | null>(null);
@@ -503,8 +502,10 @@ function PlatformStrip({ links, profileId, authToken, onRefetch }: {
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Edit Platform Profile Links</DialogTitle></DialogHeader>
           <div className="space-y-3 py-1">
+            <p className="text-xs text-gray-500 pb-1">
+              These links are private to your job tracker. To update your LinkedIn, edit your public profile.
+            </p>
             {([
-              { key: "linkedinUrl" as const,  label: "LinkedIn Profile URL"  },
               { key: "indeedUrl" as const,    label: "Indeed Profile URL"    },
               { key: "glassdoorUrl" as const, label: "Glassdoor Profile URL" },
               { key: "wellfoundUrl" as const, label: "Wellfound Profile URL" },
