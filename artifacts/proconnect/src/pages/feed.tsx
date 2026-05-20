@@ -1336,12 +1336,9 @@ export default function Home() {
                       )}
                     </>
                   )}
-                  <div className="pt-2.5 flex items-center justify-between">
+                  <div className="pt-2.5">
                     <Link href="/job-tracker" onClick={() => setSidebarOpen(false)} className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5">
                       Open Job Tracker <ChevronRightIcon className="w-3.5 h-3.5" />
-                    </Link>
-                    <Link href="/jobs" onClick={() => setSidebarOpen(false)} className="text-xs text-primary font-semibold hover:underline">
-                      Browse roles →
                     </Link>
                   </div>
                 </CardContent>
@@ -1565,12 +1562,9 @@ export default function Home() {
                   </>
                 )}
 
-                <div className="pt-2.5 flex items-center justify-between">
+                <div className="pt-2.5">
                   <Link href="/job-tracker" className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5">
                     Open Job Tracker <ChevronRightIcon className="w-3.5 h-3.5" />
-                  </Link>
-                  <Link href="/jobs" className="text-xs text-primary font-semibold hover:underline">
-                    Browse roles →
                   </Link>
                 </div>
               </CardContent>
