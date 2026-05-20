@@ -99,7 +99,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }
 
   if (accountType === "company" && isConsumerDomain(email)) {
-    res.status(400).json({ error: "Company accounts require a business email address." });
+    res.status(400).json({ error: "Business email required", message: "Company accounts require a business email address." });
     return;
   }
 
@@ -189,8 +189,9 @@ router.post("/auth/token", async (req, res): Promise<void> => {
   if (!IS_DEMO) { res.status(403).json({ error: "Only available in demo mode" }); return; }
   const profileId = parseInt(req.body?.profileId, 10);
   if (!profileId || profileId <= 0) { res.status(400).json({ error: "profileId required" }); return; }
-  const [profile] = await db.select({ id: profilesTable.id }).from(profilesTable).where(eq(profilesTable.id, profileId));
+  const [profile] = await db.select({ id: profilesTable.id, emailVerified: profilesTable.emailVerified }).from(profilesTable).where(eq(profilesTable.id, profileId));
   if (!profile) { res.status(404).json({ error: "Profile not found" }); return; }
+  if (!profile.emailVerified) { res.status(403).json({ error: "unverified", message: "Please verify your email address before signing in." }); return; }
   res.json({ authToken: generateAuthToken(profile.id) });
 });
 

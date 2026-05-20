@@ -4,8 +4,10 @@ import { useAppAuth } from "@/contexts/app-auth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { EyeIcon, EyeOffIcon, AlertCircleIcon, BuildingIcon } from "lucide-react";
+import { EyeIcon, EyeOffIcon, AlertCircleIcon, BuildingIcon, CopyIcon, RefreshCwIcon } from "lucide-react";
 import logo from "@assets/hr_1775483051104.png";
+
+const BASE = import.meta.env.BASE_URL;
 
 export default function CompanyLogin() {
   const { user, login } = useAppAuth();
@@ -15,6 +17,10 @@ export default function CompanyLogin() {
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [unverified, setUnverified] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendLink, setResendLink] = useState("");
+  const [resendCopied, setResendCopied] = useState(false);
 
   useEffect(() => {
     if (user) navigate(user.accountType === "company" ? "/company-dashboard" : "/feed");
@@ -23,6 +29,8 @@ export default function CompanyLogin() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setUnverified(false);
+    setResendLink("");
     if (!email || !password) { setError("Please enter your email and password."); return; }
     setLoading(true);
     const result = await login(email, password, "company");
@@ -30,8 +38,39 @@ export default function CompanyLogin() {
     if (result.ok) {
       navigate("/company-dashboard");
     } else {
+      if (result.unverified) setUnverified(true);
       setError(result.error ?? "Login failed.");
     }
+  }
+
+  async function handleResend() {
+    setResendLink("");
+    setResendLoading(true);
+    try {
+      const res = await fetch(`${BASE}api/auth/resend-verification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (res.ok && data.verificationToken) {
+        const link = `${window.location.origin}${import.meta.env.BASE_URL}verify-email?token=${data.verificationToken}`;
+        setResendLink(link);
+      } else {
+        setError(data.error ?? "Could not resend. Please try again.");
+      }
+    } catch {
+      setError("Server unreachable. Please try again.");
+    } finally {
+      setResendLoading(false);
+    }
+  }
+
+  function copyResendLink() {
+    navigator.clipboard.writeText(resendLink).then(() => {
+      setResendCopied(true);
+      setTimeout(() => setResendCopied(false), 2000);
+    });
   }
 
   function handleRegister() {
@@ -100,9 +139,42 @@ export default function CompanyLogin() {
             </div>
 
             {error && (
-              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
-                <AlertCircleIcon className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-600">{error}</p>
+              <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+                <div className="flex items-start gap-2">
+                  <AlertCircleIcon className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+                {unverified && (
+                  <div className="mt-3 pl-6">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={resendLoading}
+                      onClick={handleResend}
+                      className="h-8 px-3 rounded-full text-xs font-semibold text-primary hover:bg-primary/10 gap-1.5 -ml-2"
+                    >
+                      <RefreshCwIcon className={`w-3 h-3 ${resendLoading ? "animate-spin" : ""}`} />
+                      {resendLoading ? "Generating link…" : "Resend verification link"}
+                    </Button>
+                    {resendLink && (
+                      <div className="mt-2">
+                        <div className="bg-white border border-gray-200 rounded-lg p-2 mb-2 break-all text-[10px] text-gray-600 font-mono">
+                          {resendLink}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button type="button" size="sm" variant="outline" onClick={copyResendLink} className="h-7 px-2.5 rounded-full text-xs gap-1">
+                            <CopyIcon className="w-3 h-3" />
+                            {resendCopied ? "Copied!" : "Copy"}
+                          </Button>
+                          <Button type="button" size="sm" onClick={() => window.location.href = resendLink} className="h-7 px-2.5 rounded-full text-xs">
+                            Open link
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
