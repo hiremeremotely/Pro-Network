@@ -253,7 +253,12 @@ function PlatformStrip({ links, profileId, authToken, onRefetch }: {
       });
       if (!initRes.ok) throw new Error("Failed to initiate email connection");
       const { authUrl, connected } = await initRes.json();
-      if (!connected) await openOAuthPopup(authUrl);
+      if (!connected) {
+        await openOAuthPopup(authUrl);
+      } else if (popupRef.current && !popupRef.current.closed) {
+        popupRef.current.close();
+        popupRef.current = null;
+      }
       const syncRes = await fetch(`${BASE}api/email-integration/sync`, {
         method: "POST",
         headers: authHeader,

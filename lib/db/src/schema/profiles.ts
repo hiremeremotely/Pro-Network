@@ -28,6 +28,8 @@ export const profilesTable = pgTable("profiles", {
   outlookConnected: boolean("outlook_connected").notNull().default(false),
   gmailToken: text("gmail_token"),
   outlookToken: text("outlook_token"),
+  resetToken: text("reset_token"),
+  resetTokenExpiry: timestamp("reset_token_expiry", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

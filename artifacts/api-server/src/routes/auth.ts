@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { createHash, createHmac } from "crypto";
+import { createHash, createHmac, randomBytes } from "crypto";
 import { eq } from "drizzle-orm";
 import { db, profilesTable } from "@workspace/db";
 import { IS_DEMO, DEMO_TOKEN_BUNDLE } from "../lib/email-provider";
@@ -138,6 +138,56 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   await autoConnectEmailByDomain(profile.id, profile.email);
   const { passwordHash: _pw, ...safe } = profile;
   res.json({ profile: safe, authToken: generateAuthToken(profile.id) });
+});
+
+router.post("/auth/forgot-password", async (req, res): Promise<void> => {
+  const { email } = req.body as { email?: string };
+  if (!email) { res.status(400).json({ error: "Email is required." }); return; }
+
+  const [profile] = await db
+    .select({ id: profilesTable.id, email: profilesTable.email })
+    .from(profilesTable)
+    .where(eq(profilesTable.email, email));
+
+  if (!profile) {
+    // Don't reveal whether the email exists
+    res.json({ message: "If that email is registered, a reset link has been sent." });
+    return;
+  }
+
+  const rawToken = randomBytes(32).toString("hex");
+  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+  const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+  await db.update(profilesTable)
+    .set({ resetToken: tokenHash, resetTokenExpiry: expiry })
+    .where(eq(profilesTable.id, profile.id));
+
+  // In production this token would be emailed; for demo we return it directly
+  res.json({ resetToken: rawToken, message: "Reset token generated." });
+});
+
+router.post("/auth/reset-password", async (req, res): Promise<void> => {
+  const { token, password } = req.body as { token?: string; password?: string };
+  if (!token || !password) { res.status(400).json({ error: "Token and password are required." }); return; }
+  if (password.length < 6) { res.status(400).json({ error: "Password must be at least 6 characters." }); return; }
+
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const [profile] = await db
+    .select({ id: profilesTable.id, resetToken: profilesTable.resetToken, resetTokenExpiry: profilesTable.resetTokenExpiry })
+    .from(profilesTable)
+    .where(eq(profilesTable.resetToken, tokenHash));
+
+  if (!profile) { res.status(400).json({ error: "Invalid or expired reset link." }); return; }
+  if (!profile.resetTokenExpiry || profile.resetTokenExpiry < new Date()) {
+    res.status(400).json({ error: "This reset link has expired. Please request a new one." }); return;
+  }
+
+  await db.update(profilesTable)
+    .set({ passwordHash: hashPassword(password), resetToken: null, resetTokenExpiry: null })
+    .where(eq(profilesTable.id, profile.id));
+
+  res.json({ message: "Password updated successfully." });
 });
 
 export default router;

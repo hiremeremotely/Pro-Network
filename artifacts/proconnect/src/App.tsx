@@ -29,6 +29,8 @@ import SalaryEstimator from "@/pages/salary-estimator";
 import MyWork from "@/pages/my-work";
 import JobTracker from "@/pages/job-tracker";
 import CompanyInterests from "@/pages/company-interests";
+import ForgotPassword from "@/pages/forgot-password";
+import ResetPassword from "@/pages/reset-password";
 
 const queryClient = new QueryClient();
 
@@ -102,6 +104,8 @@ function Router() {
       <Route path="/signup">
         <RedirectIfAuth><Signup /></RedirectIfAuth>
       </Route>
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password" component={ResetPassword} />
 
       {/* Backoffice login (public) */}
       <Route path="/bo" component={BoLogin} />
