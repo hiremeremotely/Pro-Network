@@ -6,3 +6,9 @@ id = "NujSn9VD15i0nlj8riwfT"
 uri = "file://.local/HMR-Revenue-Model.pdf"
 type = "pdf"
 title = "HMR Revenue Model & LinkedIn Comparison"
+
+[[outputs]]
+id = "3n5Bg1FklKqri0PgWCHM1"
+uri = "file://artifacts/hmr-extension/hmr-extension.zip"
+type = "unspecified"
+title = "Hire Me Remotely – Chrome Extension (v1.0.0)"
