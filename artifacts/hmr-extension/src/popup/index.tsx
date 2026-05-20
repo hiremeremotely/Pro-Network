@@ -419,12 +419,31 @@ function App() {
   const [recentApps, setRecentApps] = useState<RecentApp[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  async function loadData() {
-    const data = (await chrome.storage.local.get(["session", "apiBaseUrl", "recentApps"])) as StoredData;
-    setSession(data.session ?? null);
-    setApiBaseUrl(data.apiBaseUrl);
-    setRecentApps(data.recentApps ?? []);
-    return data;
+  /**
+   * Ask the background service worker to pull a fresh session from any open
+   * HMR tab via chrome.scripting.executeScript, update chrome.storage.local,
+   * and return the result. Falls back gracefully to whatever is cached.
+   */
+  async function refreshSessionFromBackground(): Promise<{
+    session: AppSession | null;
+    apiBaseUrl: string | null;
+  }> {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: "REFRESH_SESSION" }, (res) => {
+        if (chrome.runtime.lastError || !res) {
+          resolve({ session: null, apiBaseUrl: null });
+        } else {
+          resolve({
+            session: (res as { session: AppSession | null }).session ?? null,
+            apiBaseUrl: (res as { apiBaseUrl: string | null }).apiBaseUrl ?? null,
+          });
+        }
+      });
+    });
+  }
+
+  async function loadStoredData(): Promise<StoredData> {
+    return chrome.storage.local.get(["session", "apiBaseUrl", "recentApps"]) as Promise<StoredData>;
   }
 
   async function fetchRecentFromApi(storedSession: AppSession, base: string) {
@@ -434,7 +453,7 @@ function App() {
         headers: { Authorization: `Bearer ${storedSession.authToken}` },
       });
       if (!res.ok) return;
-      const json = await res.json() as { applications: RecentApp[] };
+      const json = (await res.json()) as { applications: RecentApp[] };
       const apps: RecentApp[] = (json.applications ?? []).map((a) => ({
         ...a,
         createdAt: a.createdAt ?? new Date().toISOString(),
@@ -447,19 +466,43 @@ function App() {
   }
 
   useEffect(() => {
-    loadData().then(async (data) => {
+    (async () => {
+      // 1. First, try to pull a fresh session from any open HMR tab
+      const refreshed = await refreshSessionFromBackground();
+
+      // 2. Read the (now-updated) storage — background may have written a newer session
+      const stored = await loadStoredData();
+
+      const activeSession = refreshed.session ?? stored.session ?? null;
+      const activeBase =
+        refreshed.apiBaseUrl ?? stored.apiBaseUrl ?? undefined;
+
+      setSession(activeSession);
+      setApiBaseUrl(activeBase);
+      setRecentApps(stored.recentApps ?? []);
       setLoading(false);
-      if (data.session?.authToken && data.apiBaseUrl) {
-        await fetchRecentFromApi(data.session, data.apiBaseUrl);
+
+      // 3. If authenticated, also fetch fresh applications from the API
+      if (activeSession?.authToken && activeBase) {
+        await fetchRecentFromApi(activeSession, activeBase);
       }
-    });
+    })();
   }, []);
 
   async function handleRefresh() {
     setRefreshing(true);
-    const data = await loadData();
-    if (data.session?.authToken && data.apiBaseUrl) {
-      await fetchRecentFromApi(data.session, data.apiBaseUrl);
+    const refreshed = await refreshSessionFromBackground();
+    const stored = await loadStoredData();
+
+    const activeSession = refreshed.session ?? stored.session ?? null;
+    const activeBase = refreshed.apiBaseUrl ?? stored.apiBaseUrl ?? undefined;
+
+    setSession(activeSession);
+    setApiBaseUrl(activeBase);
+    setRecentApps(stored.recentApps ?? []);
+
+    if (activeSession?.authToken && activeBase) {
+      await fetchRecentFromApi(activeSession, activeBase);
     }
     setRefreshing(false);
   }

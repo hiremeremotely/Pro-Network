@@ -44,9 +44,79 @@ interface CheckAuthMessage {
   type: "CHECK_AUTH";
 }
 
-type IncomingMessage = ApplicationMessage | SessionSyncMessage | CheckAuthMessage;
+interface RefreshSessionMessage {
+  type: "REFRESH_SESSION";
+}
 
-// Handle messages from content scripts
+type IncomingMessage =
+  | ApplicationMessage
+  | SessionSyncMessage
+  | CheckAuthMessage
+  | RefreshSessionMessage;
+
+// Origins that host the HMR app — used to find a live tab to extract the session from
+const HMR_ORIGINS = [
+  "*://hiremeremotely.com/*",
+  "*://*.hiremeremotely.com/*",
+  "*://*.replit.dev/*",
+  "*://localhost/*",
+  "*://127.0.0.1/*",
+];
+
+const HMR_URL_PATTERNS = [
+  /^https?:\/\/hiremeremotely\.com(\/.*)?$/,
+  /^https?:\/\/[^/]+\.hiremeremotely\.com(\/.*)?$/,
+  /^https?:\/\/[^/]+\.replit\.dev(\/.*)?$/,
+  /^https?:\/\/localhost(:\d+)?(\/.*)?$/,
+  /^https?:\/\/127\.0\.0\.1(:\d+)?(\/.*)?$/,
+];
+
+function isHmrUrl(url: string): boolean {
+  return HMR_URL_PATTERNS.some((re) => re.test(url));
+}
+
+/**
+ * Find an open tab running the HMR app and use chrome.scripting.executeScript
+ * to read localStorage["app_user_session"] directly from that tab.
+ * Returns the parsed session + apiBaseUrl, or null if no HMR tab is found or
+ * no session is stored there.
+ */
+async function readSessionFromHmrTab(): Promise<{
+  session: AppSession;
+  apiBaseUrl: string;
+} | null> {
+  // Query all tabs — chrome.tabs.query with url patterns requires host permissions
+  const tabs = await chrome.tabs.query({});
+  const hmrTab = tabs.find((t) => t.url && isHmrUrl(t.url) && t.id !== undefined);
+  if (!hmrTab?.id) return null;
+
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: hmrTab.id },
+      func: () => {
+        // Runs in the page context — reads localStorage directly
+        const raw = localStorage.getItem("app_user_session");
+        const origin = location.origin;
+        return { raw, origin };
+      },
+    });
+
+    const result = results?.[0]?.result as { raw: string | null; origin: string } | undefined;
+    if (!result?.raw) return null;
+
+    const parsed = JSON.parse(result.raw) as AppSession;
+    if (!parsed?.authToken) return null;
+
+    // Derive the API base URL from the tab's origin (same origin as the app)
+    const apiBaseUrl = result.origin;
+    return { session: parsed, apiBaseUrl };
+  } catch {
+    // Tab may have navigated away, scripting blocked, or permission denied
+    return null;
+  }
+}
+
+// Handle messages from content scripts and popup
 chrome.runtime.onMessage.addListener(
   (message: IncomingMessage, _sender, sendResponse: (r: unknown) => void) => {
     if (message.type === "SESSION_SYNC") {
@@ -69,6 +139,28 @@ chrome.runtime.onMessage.addListener(
       return true; // async
     }
 
+    if (message.type === "REFRESH_SESSION") {
+      // Actively pull session from any open HMR tab, update storage, return result
+      readSessionFromHmrTab().then(async (fresh) => {
+        if (fresh) {
+          await chrome.storage.local.set({
+            session: fresh.session,
+            apiBaseUrl: fresh.apiBaseUrl,
+          });
+          sendResponse({ ok: true, session: fresh.session, apiBaseUrl: fresh.apiBaseUrl });
+        } else {
+          // Fall back to whatever was cached
+          const data = (await chrome.storage.local.get(["session", "apiBaseUrl"])) as StoredData;
+          sendResponse({
+            ok: false,
+            session: data.session ?? null,
+            apiBaseUrl: data.apiBaseUrl ?? null,
+          });
+        }
+      });
+      return true; // async
+    }
+
     if (message.type === "APPLICATION_DETECTED") {
       handleApplicationDetected(message).then(sendResponse);
       return true; // async
@@ -78,8 +170,14 @@ chrome.runtime.onMessage.addListener(
   },
 );
 
-async function handleApplicationDetected(msg: ApplicationMessage): Promise<{ success: boolean; error?: string }> {
-  const data = (await chrome.storage.local.get(["session", "apiBaseUrl", "recentApps"])) as StoredData;
+async function handleApplicationDetected(
+  msg: ApplicationMessage,
+): Promise<{ success: boolean; error?: string }> {
+  const data = (await chrome.storage.local.get([
+    "session",
+    "apiBaseUrl",
+    "recentApps",
+  ])) as StoredData;
   const session = data.session;
   const apiBaseUrl = data.apiBaseUrl;
 
@@ -112,7 +210,10 @@ async function handleApplicationDetected(msg: ApplicationMessage): Promise<{ suc
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      return { success: false, error: (err as { error?: string }).error ?? `HTTP ${res.status}` };
+      return {
+        success: false,
+        error: (err as { error?: string }).error ?? `HTTP ${res.status}`,
+      };
     }
 
     const newApp = (await res.json()) as StoredApp;
@@ -135,16 +236,21 @@ async function handleApplicationDetected(msg: ApplicationMessage): Promise<{ suc
 
     return { success: true };
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : "Network error" };
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Network error",
+    };
   }
 }
 
-// On install, set up initial state
+// On install, attempt an immediate session read from any open HMR tab
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.get(["session"]).then((data) => {
-    const stored = data as StoredData;
-    if (!stored.session) {
-      // No session found — will show sign-in prompt in popup
+  readSessionFromHmrTab().then((fresh) => {
+    if (fresh) {
+      chrome.storage.local.set({
+        session: fresh.session,
+        apiBaseUrl: fresh.apiBaseUrl,
+      });
     }
   });
 });
