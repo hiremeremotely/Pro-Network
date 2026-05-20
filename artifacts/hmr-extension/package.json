@@ -1,0 +1,25 @@
+{
+  "name": "@workspace/hmr-extension",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "build:firefox": "node build.mjs --firefox",
+    "package": "node build.mjs && node zip.mjs",
+    "package:firefox": "node build.mjs --firefox && node zip.mjs --firefox",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.324",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "esbuild": "0.27.3",
+    "typescript": "^5.9.0"
+  }
+}
