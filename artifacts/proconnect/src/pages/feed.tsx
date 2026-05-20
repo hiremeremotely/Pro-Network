@@ -1338,11 +1338,11 @@ export default function Home() {
                       )}
                     </>
                   )}
-                  <div className="pt-2.5 flex items-center justify-between gap-2">
-                    <Link href="/job-tracker" onClick={() => setSidebarOpen(false)} className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5 whitespace-nowrap">
+                  <div className="pt-2.5 flex flex-col gap-1">
+                    <Link href="/job-tracker" onClick={() => setSidebarOpen(false)} className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5">
                       Open Job Tracker <ChevronRightIcon className="w-3.5 h-3.5" />
                     </Link>
-                    <Link href="/jobs" onClick={() => setSidebarOpen(false)} className="text-xs font-semibold text-primary hover:underline whitespace-nowrap">
+                    <Link href="/jobs" onClick={() => setSidebarOpen(false)} className="text-xs font-semibold text-primary hover:underline">
                       Browse open roles →
                     </Link>
                   </div>
@@ -1567,11 +1567,11 @@ export default function Home() {
                   </>
                 )}
 
-                <div className="pt-2.5 flex items-center justify-between gap-2">
-                  <Link href="/job-tracker" className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5 whitespace-nowrap">
+                <div className="pt-2.5 flex flex-col gap-1">
+                  <Link href="/job-tracker" className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5">
                     Open Job Tracker <ChevronRightIcon className="w-3.5 h-3.5" />
                   </Link>
-                  <Link href="/jobs" className="text-xs font-semibold text-primary hover:underline whitespace-nowrap">
+                  <Link href="/jobs" className="text-xs font-semibold text-primary hover:underline">
                     Browse open roles →
                   </Link>
                 </div>
