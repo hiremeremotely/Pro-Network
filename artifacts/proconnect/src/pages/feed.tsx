@@ -1095,8 +1095,10 @@ export default function Home() {
   const { data: trackerData } = useQuery<{ applications: any[] }>({
     queryKey: ["job-tracker", user?.id],
     queryFn: () =>
-      fetch(`${import.meta.env.BASE_URL}api/job-tracker/${user!.id}`).then(r => r.json()),
-    enabled: !!user?.id && user.accountType === "individual",
+      fetch(`${import.meta.env.BASE_URL}api/job-tracker/${user!.id}`, {
+        headers: { "Authorization": `Bearer ${user!.authToken ?? ""}` },
+      }).then(r => r.json()),
+    enabled: !!user?.id && !!user.authToken && user.accountType === "individual",
     staleTime: 30_000,
   });
   const myApplications = trackerData?.applications ?? [];
