@@ -12,3 +12,51 @@ id = "3n5Bg1FklKqri0PgWCHM1"
 uri = "file://artifacts/hmr-extension/hmr-extension.zip"
 type = "unspecified"
 title = "Hire Me Remotely – Chrome Extension (v1.0.0)"
+
+[[outputs]]
+id = "Ee6kAJ2WcsKRwU0vVf3pS"
+uri = "file://logo/icon-512.png"
+type = "image"
+title = "Icon — 512×512 (transparent bg)"
+
+[[outputs]]
+id = "ZZMdlBDyvkO7Ro4YFKPgU"
+uri = "file://logo/icon-192.png"
+type = "image"
+title = "Icon — 192×192"
+
+[[outputs]]
+id = "glIeG7nOgdr6TEZwM6_m0"
+uri = "file://logo/icon-128.png"
+type = "image"
+title = "Icon — 128×128 (extension / favicon)"
+
+[[outputs]]
+id = "Q08ef3DNxzPBGgqtbjjNf"
+uri = "file://logo/logo-horizontal.png"
+type = "image"
+title = "Horizontal lockup (transparent bg)"
+
+[[outputs]]
+id = "3PHRM7jS_xzKqT4NjG-AT"
+uri = "file://logo/logo-horizontal-white.png"
+type = "image"
+title = "Horizontal lockup — white bg"
+
+[[outputs]]
+id = "tVVPAn71ORrXmzgwyBVu1"
+uri = "file://logo/logo-horizontal-dark.png"
+type = "image"
+title = "Horizontal lockup — dark bg"
+
+[[outputs]]
+id = "Vdl1owPzy9Iu4g8mON7hB"
+uri = "file://logo/logo-vertical.png"
+type = "image"
+title = "Vertical lockup (icon above wordmark)"
+
+[[outputs]]
+id = "LgK0d0n-U0qAsYiwR8yws"
+uri = "file://logo/wordmark.png"
+type = "image"
+title = "Wordmark only — Hire Me Remotely"
