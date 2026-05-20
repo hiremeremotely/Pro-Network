@@ -1267,28 +1267,6 @@ export default function Home() {
                 </Link>
               </div>
               <Separator />
-              <div className="px-3 py-2.5 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-gray-600 font-medium">Profile viewers</p>
-                    <p className="text-[11px] text-gray-400">Past 90 days</p>
-                  </div>
-                  <span className="text-sm font-bold text-primary">{((currentId * 19 + 47) % 251) + 50}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-gray-600 font-medium">Post impressions</p>
-                    <p className="text-[11px] text-gray-400">Past 7 days · <span className="text-green-600">↑ {((currentId * 7 + 11) % 30) + 5}%</span></p>
-                  </div>
-                  <span className="text-sm font-bold text-primary">{(((currentId * 113 + 283) % 1800) + 400).toLocaleString()}</span>
-                </div>
-              </div>
-              <div className="px-3 pb-2.5">
-                <Link href="/analytics" onClick={() => setSidebarOpen(false)} className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5">
-                  View all analytics <ChevronRightIcon className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-              <Separator />
               <div className="px-3 py-2.5">
                 <Link href="/my-items" onClick={() => setSidebarOpen(false)} className="flex items-center gap-2.5 group">
                   <BookmarkIcon className="w-4 h-4 text-gray-500 group-hover:text-primary flex-shrink-0" />
@@ -1477,32 +1455,6 @@ export default function Home() {
                   </Link>
                 )}
               </div>
-            </div>
-
-            <Separator />
-
-            {/* Analytics stats */}
-            <div className="px-3 py-2.5 space-y-2.5">
-              <div className="flex items-center justify-between cursor-pointer group">
-                <div>
-                  <p className="text-xs text-gray-600 group-hover:underline group-hover:text-primary font-medium">Profile viewers</p>
-                  <p className="text-[11px] text-gray-400">Past 90 days</p>
-                </div>
-                <span className="text-sm font-bold text-primary">{((currentId * 19 + 47) % 251) + 50}</span>
-              </div>
-              <div className="flex items-center justify-between cursor-pointer group">
-                <div>
-                  <p className="text-xs text-gray-600 group-hover:underline group-hover:text-primary font-medium">Post impressions</p>
-                  <p className="text-[11px] text-gray-400">Past 7 days · <span className="text-green-600">↑ {((currentId * 7 + 11) % 30) + 5}%</span></p>
-                </div>
-                <span className="text-sm font-bold text-primary">{(((currentId * 113 + 283) % 1800) + 400).toLocaleString()}</span>
-              </div>
-            </div>
-
-            <div className="px-3 pb-3">
-              <Link href="/analytics" className="text-xs font-semibold text-gray-600 hover:text-primary hover:underline flex items-center gap-0.5">
-                View all analytics <ChevronRightIcon className="w-3.5 h-3.5" />
-              </Link>
             </div>
 
             <Separator />
