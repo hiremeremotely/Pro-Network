@@ -1248,11 +1248,7 @@ export default function Home() {
             </div>
             {/* Profile card (mobile) */}
             <Card className="rounded-xl overflow-hidden border border-gray-200 shadow-none bg-white">
-              <div className="h-[54px] relative bg-gradient-to-r from-primary/70 via-primary/45 to-indigo-300/60">
-                {myFullProfile?.coverUrl && (
-                  <img src={myFullProfile.coverUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                )}
-              </div>
+              <div className="h-[54px] bg-gradient-to-r from-primary/70 via-primary/45 to-indigo-300/60" />
               <div className="px-3 -mt-[34px] mb-1">
                 <Avatar className="w-[68px] h-[68px] border-[3px] border-white shadow-sm ring-1 ring-gray-100">
                   <AvatarImage src={myFullProfile?.avatarUrl || currentAvatar} />
@@ -1372,11 +1368,7 @@ export default function Home() {
           <Card className="rounded-xl overflow-hidden border border-gray-200 shadow-none bg-white">
 
             {/* Banner */}
-            <div className="h-[54px] relative bg-gradient-to-r from-primary/70 via-primary/45 to-indigo-300/60">
-              {myFullProfile?.coverUrl && (
-                <img src={myFullProfile.coverUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
-              )}
-            </div>
+            <div className="h-[54px] bg-gradient-to-r from-primary/70 via-primary/45 to-indigo-300/60" />
 
             {/* Avatar with upload / view / remove */}
             <div className="px-3 -mt-[34px] mb-1 flex items-end gap-2">
