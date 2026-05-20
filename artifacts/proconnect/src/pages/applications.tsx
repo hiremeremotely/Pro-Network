@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { Link } from "wouter";
+import { Link, Redirect } from "wouter";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useListProfileApplications, getListProfileApplicationsQueryKey } from "@workspace/api-client-react";
 import { LoadingState, ErrorState } from "@/components/loading-state";
@@ -572,5 +572,5 @@ export default function Applications() {
     return <CompanyApplicationsView />;
   }
 
-  return <IndividualApplicationsView userId={user.id} />;
+  return <Redirect to="/job-tracker" />;
 }
