@@ -14,6 +14,7 @@ import {
   CheckCircleIcon,
 } from "lucide-react";
 import logo from "@assets/hr_1775483051104.png";
+import { ManageCookiesLink } from "@/components/cookie-consent";
 
 const PREVIEW_PROFILES = [
   { name: "Alex Chen", role: "Full-Stack Engineer", loc: "San Francisco", avatar: "https://i.pravatar.cc/80?u=1", open: true },
@@ -268,6 +269,7 @@ export default function Landing() {
             <Link href="/terms" className="hover:text-gray-700">Terms</Link>
             <Link href="/jobs" className="hover:text-gray-700">Browse Jobs</Link>
             <Link href="/profiles" className="hover:text-gray-700">Network</Link>
+            <ManageCookiesLink />
           </div>
           <p className="text-xs text-gray-300">© 2026 Hire Me Remotely</p>
         </div>

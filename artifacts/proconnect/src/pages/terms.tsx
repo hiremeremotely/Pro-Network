@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import logo from "@assets/hr_1775483051104.png";
+import { ManageCookiesLink } from "@/components/cookie-consent";
 
 export default function Terms() {
   return (
@@ -198,6 +199,7 @@ export default function Terms() {
         <div className="max-w-3xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-400">
           <p>© 2026 Hire Me Remotely</p>
           <div className="flex items-center gap-4">
+            <ManageCookiesLink />
             <Link href="/privacy" className="hover:text-gray-700">Privacy Policy</Link>
             <Link href="/" className="hover:text-gray-700">Back to home</Link>
           </div>
