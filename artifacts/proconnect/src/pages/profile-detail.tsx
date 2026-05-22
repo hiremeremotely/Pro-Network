@@ -397,7 +397,7 @@ function CompanyProfileView({ profile, id, isOwn, onEditInfo, avatarInputRef, av
                   )}
                   {profile.twitterUrl && (
                     <a href={profile.twitterUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-primary hover:underline font-medium">
-                      <TwitterIcon className="w-3.5 h-3.5" />Twitter
+                      <TwitterIcon className="w-3.5 h-3.5" />X
                     </a>
                   )}
                   {profile.githubUrl && (
@@ -576,7 +576,7 @@ function CompanyProfileView({ profile, id, isOwn, onEditInfo, avatarInputRef, av
                   {profile.twitterUrl && (
                     <a href={profile.twitterUrl} target="_blank" rel="noopener noreferrer"
                       className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium border border-gray-200 rounded-lg py-2 hover:bg-gray-50 transition-colors text-gray-600">
-                      <TwitterIcon className="w-3.5 h-3.5" />Twitter
+                      <TwitterIcon className="w-3.5 h-3.5" />X
                     </a>
                   )}
                   {(!profile.linkedinUrl && !profile.twitterUrl) && (
@@ -978,7 +978,7 @@ export default function ProfileDetail() {
                       )}
                       {profile.twitterUrl && (
                         <a href={profile.twitterUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline font-medium">
-                          <TwitterIcon className="w-3 h-3" /> Twitter
+                          <TwitterIcon className="w-3 h-3" /> X
                         </a>
                       )}
                     </div>

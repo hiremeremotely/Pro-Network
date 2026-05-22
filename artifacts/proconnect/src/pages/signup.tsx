@@ -408,8 +408,8 @@ export default function Signup() {
 
               <p className="text-xs text-gray-400 mt-4 text-center">
                 By continuing you agree to our{" "}
-                <span className="text-primary cursor-pointer hover:underline">Terms</span> and{" "}
-                <span className="text-primary cursor-pointer hover:underline">Privacy Policy</span>.
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Terms</a> and{" "}
+                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Privacy Policy</a>.
               </p>
             </>
           )}

@@ -29,39 +29,39 @@ function buildSyntheticInbox(profileId: number): InboxEmail[] {
     new Date(Date.now() - n * 86400000).toISOString().split("T")[0];
   return [
     {
-      messageId: `<${profileId}.001@mail.linkedin.com>`,
-      from: "jobs-noreply@linkedin.com",
-      subject: "Your application to Senior Frontend Engineer at Stripe has been received",
+      messageId: `<${profileId}.001@mail.jobnest-demo.com>`,
+      from: "jobs-noreply@jobnest-demo.com",
+      subject: "Your application to Senior Frontend Engineer at CloudPay has been received",
       receivedDate: daysAgo(5),
     },
     {
-      messageId: `<${profileId}.002@app.indeed.com>`,
-      from: "noreply@indeed.com",
-      subject: "Application received: Full-Stack Developer at Notion",
+      messageId: `<${profileId}.002@app.careertrack-demo.com>`,
+      from: "noreply@careertrack-demo.com",
+      subject: "Application received: Full-Stack Developer at Nexnote",
       receivedDate: daysAgo(10),
     },
     {
-      messageId: `<${profileId}.003@mail.wellfound.com>`,
-      from: "noreply@wellfound.com",
-      subject: "Interview invitation: React Engineer at Vercel",
+      messageId: `<${profileId}.003@mail.remotehub-demo.com>`,
+      from: "noreply@remotehub-demo.com",
+      subject: "Interview invitation: React Engineer at Deployly",
       receivedDate: daysAgo(3),
     },
     {
-      messageId: `<${profileId}.004@glassdoor.com>`,
-      from: "noreply@glassdoor.com",
-      subject: "We received your application for TypeScript Developer at Linear",
+      messageId: `<${profileId}.004@workboard-demo.com>`,
+      from: "noreply@workboard-demo.com",
+      subject: "We received your application for TypeScript Developer at Streamline",
       receivedDate: daysAgo(7),
     },
     {
       messageId: `<${profileId}.005@greenhouse.io>`,
       from: "no-reply@greenhouse.io",
-      subject: "Your application to Staff Backend Engineer at Cloudflare",
+      subject: "Your application to Staff Backend Engineer at Edgeflow",
       receivedDate: daysAgo(12),
     },
     {
       messageId: `<${profileId}.006@lever.co>`,
       from: "noreply@lever.co",
-      subject: "Application status update: Moving forward with your application at Figma",
+      subject: "Application status update: Moving forward with your application at Pixelcraft",
       receivedDate: daysAgo(2),
     },
     // Promotional — filtered out

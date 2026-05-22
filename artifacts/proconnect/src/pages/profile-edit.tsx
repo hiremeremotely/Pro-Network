@@ -244,8 +244,8 @@ export default function ProfileEdit() {
                   <Input value={profileForm.githubUrl} onChange={e => setProfileForm(p => ({ ...p, githubUrl: e.target.value }))} placeholder="https://github.com/..." />
                 </div>
                 <div className="space-y-2">
-                  <Label>Twitter/X URL</Label>
-                  <Input value={profileForm.twitterUrl} onChange={e => setProfileForm(p => ({ ...p, twitterUrl: e.target.value }))} placeholder="https://twitter.com/..." />
+                  <Label>X (Twitter) URL</Label>
+                  <Input value={profileForm.twitterUrl} onChange={e => setProfileForm(p => ({ ...p, twitterUrl: e.target.value }))} placeholder="https://x.com/..." />
                 </div>
               </div>
 

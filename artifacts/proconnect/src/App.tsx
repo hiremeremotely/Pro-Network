@@ -32,6 +32,8 @@ import CompanyInterests from "@/pages/company-interests";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
 import VerifyEmail from "@/pages/verify-email";
+import Terms from "@/pages/terms";
+import Privacy from "@/pages/privacy";
 
 const queryClient = new QueryClient();
 
@@ -108,6 +110,8 @@ function Router() {
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/verify-email" component={VerifyEmail} />
+      <Route path="/terms" component={Terms} />
+      <Route path="/privacy" component={Privacy} />
 
       {/* Backoffice login (public) */}
       <Route path="/bo" component={BoLogin} />
