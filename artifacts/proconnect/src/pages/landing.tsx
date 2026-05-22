@@ -107,7 +107,7 @@ export default function Landing() {
           <div className="max-w-sm w-full mx-auto md:mx-0">
             <h1 className="font-black tracking-tight leading-tight text-gray-900 mb-3">
               <span className="block text-lg md:text-xl text-gray-600 font-bold">Remote jobs. Real connections.</span>
-              <span className="block text-4xl md:text-5xl mt-1">One ecosystem.</span>
+              <span className="block text-4xl mt-1">One ecosystem.</span>
             </h1>
             <p className="text-gray-500 text-base mb-8 leading-relaxed">
               Find your next role. Build your remote team.
