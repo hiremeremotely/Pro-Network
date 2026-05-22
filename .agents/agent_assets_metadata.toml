@@ -1,5 +1,22 @@
 uploads = []
-generated = []
+
+[[generated]]
+id = "qacm6pNf1h7UuReF08KKc"
+uri = "file://artifacts/hmr-privacy-demo/public/job-card.png"
+type = "image"
+title = "UI Job Card"
+
+[[generated]]
+id = "JZAldpTtrJ69tQYZ0mPyq"
+uri = "file://artifacts/hmr-privacy-demo/public/profile-card.png"
+type = "image"
+title = "UI Profile Card"
+
+[[generated]]
+id = "KWQVbn5ISNjdFvpcr-rjl"
+uri = "file://artifacts/hmr-privacy-demo/public/company-dashboard.png"
+type = "image"
+title = "UI Company Dashboard"
 
 [[outputs]]
 id = "NujSn9VD15i0nlj8riwfT"

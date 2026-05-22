@@ -1,7 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 :root {
-  --color-primary: #4F46E5; /* Indigo */
+  --color-primary: #5B50E8; /* Indigo */
   --color-secondary: #312E81;
   --color-accent: #818CF8;
 
@@ -19,7 +20,7 @@
   --color-error: #EF4444;
 
   --font-display: 'Plus Jakarta Sans', sans-serif;
-  --font-body: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', sans-serif;
 }
 
 @theme inline {

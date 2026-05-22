@@ -6,82 +6,64 @@ export function Scene3() {
 
   useEffect(() => {
     const timers = [
-      setTimeout(() => setPhase(1), 300),
-      setTimeout(() => setPhase(2), 1000),
-      setTimeout(() => setPhase(3), 1800),
-      setTimeout(() => setPhase(4), 2400),
-      setTimeout(() => setPhase(5), 3800),
+      setTimeout(() => setPhase(1), 500),
+      setTimeout(() => setPhase(2), 2000),
+      setTimeout(() => setPhase(3), 14000), // exit
     ];
     return () => timers.forEach((t) => clearTimeout(t));
   }, []);
 
   return (
     <motion.div
-      className="absolute inset-0 flex flex-col items-center justify-center z-10"
+      className="absolute inset-0 flex flex-col items-center justify-center z-10 px-24"
       initial={{ opacity: 0, scale: 1.1 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, y: '-10vh' }}
       transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
     >
-      <div className="relative w-[60vw] h-[40vh] flex items-center justify-center">
-        {/* Company Node */}
-        <motion.div
-          className="absolute left-0 w-20 h-20 bg-white/10 rounded-full border border-white/20 flex items-center justify-center"
-          initial={{ opacity: 0, x: -50 }}
-          animate={phase >= 1 ? { opacity: 1, x: 0 } : { opacity: 0, x: -50 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      <div className="w-full text-center mb-12">
+        <motion.h2
+          className="text-[4vw] font-bold"
+          initial={{ opacity: 0, y: 20 }}
+          animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+          transition={{ duration: 0.8 }}
         >
-          <span className="text-xs text-white/50">Company</span>
-        </motion.div>
-
-        {/* HMR Node */}
-        <motion.div
-          className="absolute left-1/2 -translate-x-1/2 w-32 h-32 bg-primary/20 rounded-full border-2 border-primary flex items-center justify-center backdrop-blur-sm z-20"
-          initial={{ opacity: 0, scale: 0 }}
-          animate={phase >= 2 ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+          For <span className="text-gradient">Businesses</span>
+        </motion.h2>
+        <motion.p
+          className="text-[1.5vw] text-white/70 mt-4"
+          initial={{ opacity: 0 }}
+          animate={phase >= 1 ? { opacity: 1 } : { opacity: 0 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
         >
-          <span className="text-white font-bold text-xl">HMR</span>
-        </motion.div>
-
-        {/* Candidate Node */}
-        <motion.div
-          className="absolute right-0 w-20 h-20 bg-white/10 rounded-full border border-white/20 flex items-center justify-center"
-          initial={{ opacity: 0, x: 50 }}
-          animate={phase >= 1 ? { opacity: 1, x: 0 } : { opacity: 0, x: 50 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-        >
-          <span className="text-xs text-white/50">You</span>
-        </motion.div>
-
-        {/* Lines */}
-        <motion.div
-          className="absolute left-20 right-[50%] h-[2px] bg-gradient-to-r from-white/10 to-primary/50 top-1/2 -translate-y-1/2"
-          initial={{ scaleX: 0, transformOrigin: 'left' }}
-          animate={phase >= 3 ? { scaleX: 1 } : { scaleX: 0 }}
-          transition={{ duration: 0.6, ease: 'circOut' }}
-        />
-
-        {/* Scanning Effect in HMR Node */}
-        {phase >= 4 && (
-          <motion.div
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 border border-accent/50 rounded-full"
-            animate={{ scale: [1, 1.5, 1], opacity: [0.8, 0, 0.8] }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-          />
-        )}
+          Post jobs. Review applicants. Manage your company.
+        </motion.p>
       </div>
 
-      <motion.div
-        className="mt-8 text-center"
-        initial={{ opacity: 0, y: 20 }}
-        animate={phase >= 2 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-        transition={{ duration: 0.6, delay: 0.2 }}
+      <motion.div 
+        className="w-[70vw] relative perspective-[1200px]"
+        initial={{ opacity: 0, rotateX: 20, y: 100 }}
+        animate={phase >= 2 ? { opacity: 1, rotateX: 0, y: 0 } : { opacity: 0, rotateX: 20, y: 100 }}
+        transition={{ type: "spring", stiffness: 100, damping: 25 }}
       >
-        <h2 className="text-[3vw] font-bold">We vet every request.</h2>
-        <p className="text-[1.2vw] text-text-secondary mt-2 max-w-2xl mx-auto">
-          We review the intent and craft a high-signal intro on the company's behalf.
-        </p>
+        <img 
+          src={`${import.meta.env.BASE_URL}company-dashboard.png`} 
+          className="w-full h-auto rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.5)] border border-white/10"
+        />
+        
+        {/* Floating Accent Cards over Dashboard */}
+        {phase >= 2 && (
+          <motion.div 
+            className="absolute -right-8 top-12 w-64 h-24 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-4"
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 1, type: "spring" }}
+          >
+            <div className="w-8 h-8 rounded-full bg-success/20 mb-2" />
+            <div className="h-2 w-3/4 bg-white/20 rounded mb-2" />
+            <div className="h-2 w-1/2 bg-white/20 rounded" />
+          </motion.div>
+        )}
       </motion.div>
     </motion.div>
   );
