@@ -90,3 +90,9 @@ id = "W9GqzmDS3AckaYLo62qM_"
 uri = "file://logo/traced/logo-traced.svg"
 type = "image"
 title = "Traced logo — SVG (infinitely scalable)"
+
+[[outputs]]
+id = "N01gGHboH2fjnu2pSgnF1"
+uri = "file://.local/seo-plan.pdf"
+type = "pdf"
+title = "SEO Implementation Plan — Hire Me Remotely"
