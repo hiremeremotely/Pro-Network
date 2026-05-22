@@ -106,10 +106,10 @@ export default function Landing() {
           {/* LEFT — Sign up / Sign in */}
           <div className="max-w-sm w-full mx-auto md:mx-0">
             <h1 className="text-4xl md:text-5xl font-black tracking-tight leading-tight text-gray-900 mb-3">
-              Your remote career starts here.
+              Remote jobs. Real connections. One ecosystem.
             </h1>
             <p className="text-gray-500 text-base mb-8 leading-relaxed">
-              Connect with top remote companies, showcase your skills, and land your next opportunity — all in one place.
+              Find your next role. Build your remote team.
             </p>
 
             {/* Email input */}
