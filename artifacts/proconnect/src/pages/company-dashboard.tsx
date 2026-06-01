@@ -150,6 +150,18 @@ interface OfferData {
   companyName: string;
 }
 
+interface TemplateRenderData {
+  employeeName: string;
+  role: string;
+  salary: string;
+  currency: string;
+  startDate: string;
+  companyName: string;
+  salaryLine: string;
+  date: string;
+  year: string;
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -159,49 +171,66 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#039;");
 }
 
-function safeData(d: OfferData): OfferData {
+function buildRenderData(d: OfferData, salaryNote = " per year"): TemplateRenderData {
   return {
     employeeName: escapeHtml(d.employeeName),
     role: escapeHtml(d.role),
-    salary: d.salary,
+    salary: d.salary ? d.salary.toLocaleString() : "",
     currency: escapeHtml(d.currency),
     startDate: escapeHtml(d.startDate),
     companyName: escapeHtml(d.companyName),
+    salaryLine: d.salary
+      ? `${escapeHtml(d.currency)} ${d.salary.toLocaleString()}${salaryNote}`
+      : "a competitive salary to be agreed upon",
+    date: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+    year: String(new Date().getFullYear()),
   };
 }
 
-const OFFER_TEMPLATES = [
+function renderTemplate(content: string, rd: TemplateRenderData): string {
+  return content.replace(/\{\{(\w+)\}\}/g, (_, key) => (rd as Record<string, string>)[key] ?? `{{${key}}}`);
+}
+
+interface EditableTemplate {
+  id: string;
+  label: string;
+  desc: string;
+  color: string;
+  badge: string;
+  accentColor: string;
+  content: string;
+  isCustom?: boolean;
+}
+
+const DEFAULT_TEMPLATES: EditableTemplate[] = [
   {
     id: "full-time",
     label: "Remote Full-Time",
     desc: "Permanent salaried employment",
     color: "border-indigo-200 bg-indigo-50",
     badge: "text-indigo-700 bg-indigo-100",
-    render: (d: OfferData) => {
-      const salaryLine = d.salary ? `an annual salary of ${d.currency} ${d.salary.toLocaleString()}` : "a competitive salary to be agreed upon";
-      return `
-<div style="text-align:center;border-bottom:2px solid #6366f1;padding-bottom:20px;margin-bottom:30px">
-  <div style="font-size:26px;font-weight:bold;color:#6366f1">${d.companyName}</div>
-  <div style="color:#666;font-size:13px;margin-top:6px">${new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"})}</div>
+    accentColor: "#6366f1",
+    content: `<div style="text-align:center;border-bottom:2px solid #6366f1;padding-bottom:20px;margin-bottom:30px">
+  <div style="font-size:26px;font-weight:bold;color:#6366f1">{{companyName}}</div>
+  <div style="color:#666;font-size:13px;margin-top:6px">{{date}}</div>
 </div>
-<p>Dear <strong>${d.employeeName}</strong>,</p>
-<p>We are pleased to extend this formal offer of employment for the position of <strong>${d.role}</strong> at <strong>${d.companyName}</strong>, effective <strong>${d.startDate}</strong>.</p>
+<p>Dear <strong>{{employeeName}}</strong>,</p>
+<p>We are pleased to extend this formal offer of employment for the position of <strong>{{role}}</strong> at <strong>{{companyName}}</strong>, effective <strong>{{startDate}}</strong>.</p>
 <h3>Position Details</h3>
 <ul>
-  <li><strong>Title:</strong> ${d.role}</li>
+  <li><strong>Title:</strong> {{role}}</li>
   <li><strong>Type:</strong> Full-Time, Remote</li>
-  <li><strong>Start Date:</strong> ${d.startDate}</li>
-  <li><strong>Compensation:</strong> ${salaryLine} per year</li>
+  <li><strong>Start Date:</strong> {{startDate}}</li>
+  <li><strong>Compensation:</strong> {{salaryLine}}</li>
 </ul>
 <h3>Employment Terms</h3>
 <p>This offer is contingent upon satisfactory completion of any required background or reference checks. You will receive a comprehensive benefits package including health insurance, paid time off, and remote work allowance in accordance with our remote-first policy.</p>
 <p>Please confirm your acceptance of this offer by signing and returning this letter within <strong>5 business days</strong>.</p>
 <div style="margin-top:60px">
   <p>Sincerely,</p>
-  <p><strong>${d.companyName}</strong></p>
+  <p><strong>{{companyName}}</strong></p>
   <p style="margin-top:40px;border-top:1px solid #ccc;padding-top:10px">Accepted by: _________________________ &nbsp; Date: _____________</p>
-</div>`;
-    },
+</div>`,
   },
   {
     id: "contractor",
@@ -209,31 +238,28 @@ const OFFER_TEMPLATES = [
     desc: "Fixed-term contract engagement",
     color: "border-blue-200 bg-blue-50",
     badge: "text-blue-700 bg-blue-100",
-    render: (d: OfferData) => {
-      const salaryLine = d.salary ? `${d.currency} ${d.salary.toLocaleString()} per year (pro-rated for the contract period)` : "an agreed-upon rate to be documented in the accompanying Schedule A";
-      return `
-<div style="text-align:center;border-bottom:2px solid #3b82f6;padding-bottom:20px;margin-bottom:30px">
-  <div style="font-size:26px;font-weight:bold;color:#3b82f6">${d.companyName}</div>
-  <div style="color:#666;font-size:13px;margin-top:6px">${new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"})}</div>
+    accentColor: "#3b82f6",
+    content: `<div style="text-align:center;border-bottom:2px solid #3b82f6;padding-bottom:20px;margin-bottom:30px">
+  <div style="font-size:26px;font-weight:bold;color:#3b82f6">{{companyName}}</div>
+  <div style="color:#666;font-size:13px;margin-top:6px">{{date}}</div>
 </div>
-<p>Dear <strong>${d.employeeName}</strong>,</p>
-<p>We are pleased to offer you an engagement as a <strong>Contractor</strong> for the role of <strong>${d.role}</strong> at <strong>${d.companyName}</strong>, commencing <strong>${d.startDate}</strong>.</p>
+<p>Dear <strong>{{employeeName}}</strong>,</p>
+<p>We are pleased to offer you an engagement as a <strong>Contractor</strong> for the role of <strong>{{role}}</strong> at <strong>{{companyName}}</strong>, commencing <strong>{{startDate}}</strong>.</p>
 <h3>Contract Details</h3>
 <ul>
-  <li><strong>Role:</strong> ${d.role}</li>
+  <li><strong>Role:</strong> {{role}}</li>
   <li><strong>Engagement Type:</strong> Fixed-Term Contract</li>
-  <li><strong>Start Date:</strong> ${d.startDate}</li>
-  <li><strong>Compensation:</strong> ${salaryLine}</li>
+  <li><strong>Start Date:</strong> {{startDate}}</li>
+  <li><strong>Compensation:</strong> {{salaryLine}}</li>
   <li><strong>Work Arrangement:</strong> Fully Remote</li>
 </ul>
-<h3>Terms & Conditions</h3>
-<p>As a contractor, you will retain independent status and be responsible for your own tax obligations. You will invoice ${d.companyName} according to the schedule outlined in Schedule A. Either party may terminate this agreement with <strong>14 days written notice</strong>.</p>
+<h3>Terms &amp; Conditions</h3>
+<p>As a contractor, you will retain independent status and be responsible for your own tax obligations. You will invoice {{companyName}} according to the schedule outlined in Schedule A. Either party may terminate this agreement with <strong>14 days written notice</strong>.</p>
 <p>Please confirm your acceptance by signing below and returning within <strong>3 business days</strong>.</p>
 <div style="margin-top:60px">
-  <p>For and on behalf of <strong>${d.companyName}</strong>:</p>
+  <p>For and on behalf of <strong>{{companyName}}</strong>:</p>
   <p style="margin-top:40px;border-top:1px solid #ccc;padding-top:10px">Contractor signature: _________________________ &nbsp; Date: _____________</p>
-</div>`;
-    },
+</div>`,
   },
   {
     id: "freelance",
@@ -241,41 +267,95 @@ const OFFER_TEMPLATES = [
     desc: "Project-based collaboration",
     color: "border-purple-200 bg-purple-50",
     badge: "text-purple-700 bg-purple-100",
-    render: (d: OfferData) => {
-      const salaryLine = d.salary ? `a project budget of ${d.currency} ${d.salary.toLocaleString()}` : "a project rate to be agreed in the accompanying Statement of Work";
-      return `
-<div style="text-align:center;border-bottom:2px solid #8b5cf6;padding-bottom:20px;margin-bottom:30px">
-  <div style="font-size:26px;font-weight:bold;color:#8b5cf6">${d.companyName}</div>
-  <div style="color:#666;font-size:13px;margin-top:6px">${new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"})}</div>
+    accentColor: "#8b5cf6",
+    content: `<div style="text-align:center;border-bottom:2px solid #8b5cf6;padding-bottom:20px;margin-bottom:30px">
+  <div style="font-size:26px;font-weight:bold;color:#8b5cf6">{{companyName}}</div>
+  <div style="color:#666;font-size:13px;margin-top:6px">{{date}}</div>
 </div>
-<p>Dear <strong>${d.employeeName}</strong>,</p>
-<p>We would like to engage your services on a freelance basis for the project role of <strong>${d.role}</strong> at <strong>${d.companyName}</strong>, beginning <strong>${d.startDate}</strong>.</p>
+<p>Dear <strong>{{employeeName}}</strong>,</p>
+<p>We would like to engage your services on a freelance basis for the project role of <strong>{{role}}</strong> at <strong>{{companyName}}</strong>, beginning <strong>{{startDate}}</strong>.</p>
 <h3>Project Details</h3>
 <ul>
-  <li><strong>Role:</strong> ${d.role}</li>
+  <li><strong>Role:</strong> {{role}}</li>
   <li><strong>Engagement:</strong> Freelance / Project-Based</li>
-  <li><strong>Estimated Start:</strong> ${d.startDate}</li>
-  <li><strong>Budget:</strong> ${salaryLine}</li>
+  <li><strong>Estimated Start:</strong> {{startDate}}</li>
+  <li><strong>Budget:</strong> {{salaryLine}}</li>
   <li><strong>Work Mode:</strong> 100% Remote</li>
 </ul>
-<h3>Scope & Terms</h3>
-<p>Deliverables and milestones will be specified in the accompanying Statement of Work. You will remain an independent contractor and retain rights to your tools and equipment. Intellectual property created specifically for this project will vest in ${d.companyName} upon full payment.</p>
+<h3>Scope &amp; Terms</h3>
+<p>Deliverables and milestones will be specified in the accompanying Statement of Work. You will remain an independent contractor and retain rights to your tools and equipment. Intellectual property created specifically for this project will vest in {{companyName}} upon full payment.</p>
 <p>Please acknowledge acceptance of these terms within <strong>48 hours</strong>.</p>
 <div style="margin-top:60px">
   <p>Warm regards,</p>
-  <p><strong>${d.companyName}</strong></p>
+  <p><strong>{{companyName}}</strong></p>
   <p style="margin-top:40px;border-top:1px solid #ccc;padding-top:10px">Freelancer signature: _________________________ &nbsp; Date: _____________</p>
-</div>`;
-    },
+</div>`,
   },
-] as const;
+];
 
-type OfferTemplateId = typeof OFFER_TEMPLATES[number]["id"];
+const LS_TEMPLATES_KEY = "hmr_offer_templates_v1";
 
-function downloadOfferLetter(templateId: OfferTemplateId, data: OfferData) {
-  const tmpl = OFFER_TEMPLATES.find(t => t.id === templateId);
-  if (!tmpl) return;
-  const body = tmpl.render(safeData(data));
+function loadStoredOverrides(): Record<string, Partial<EditableTemplate>> {
+  try { return JSON.parse(localStorage.getItem(LS_TEMPLATES_KEY) ?? "{}"); }
+  catch { return {}; }
+}
+
+function saveStoredOverrides(o: Record<string, Partial<EditableTemplate>>) {
+  localStorage.setItem(LS_TEMPLATES_KEY, JSON.stringify(o));
+}
+
+function mergeTemplates(overrides: Record<string, Partial<EditableTemplate>>): EditableTemplate[] {
+  const builtIn = DEFAULT_TEMPLATES.map(t => ({ ...t, ...(overrides[t.id] ?? {}) }));
+  const customs = Object.values(overrides).filter((o): o is EditableTemplate => !!(o.isCustom && o.id));
+  return [...builtIn, ...customs];
+}
+
+function useOfferTemplates() {
+  const [overrides, setOverrides] = useState<Record<string, Partial<EditableTemplate>>>(loadStoredOverrides);
+  const templates = mergeTemplates(overrides);
+
+  const saveTemplate = useCallback((tmpl: EditableTemplate) => {
+    setOverrides(prev => {
+      const next = { ...prev, [tmpl.id]: tmpl };
+      saveStoredOverrides(next);
+      return next;
+    });
+  }, []);
+
+  const deleteTemplate = useCallback((id: string) => {
+    setOverrides(prev => {
+      const next = { ...prev };
+      delete next[id];
+      saveStoredOverrides(next);
+      return next;
+    });
+  }, []);
+
+  const resetTemplate = useCallback((id: string) => {
+    setOverrides(prev => {
+      const next = { ...prev };
+      delete next[id];
+      saveStoredOverrides(next);
+      return next;
+    });
+  }, []);
+
+  return { templates, saveTemplate, deleteTemplate, resetTemplate };
+}
+
+const SAMPLE_OFFER_DATA: OfferData = {
+  employeeName: "Jane Smith",
+  role: "Software Engineer",
+  salary: 95000,
+  currency: "USD",
+  startDate: "January 15, 2026",
+  companyName: "Your Company",
+};
+
+function downloadOfferLetter(tmpl: EditableTemplate, data: OfferData) {
+  const salaryNote = tmpl.id === "freelance" ? " (total project)" : " per year";
+  const rd = buildRenderData(data, salaryNote);
+  const body = renderTemplate(tmpl.content, rd);
   const html = `<!DOCTYPE html><html lang="en"><head>
     <meta charset="UTF-8">
     <title>Offer Letter — ${escapeHtml(data.companyName)}</title>
@@ -296,7 +376,8 @@ function downloadOfferLetter(templateId: OfferTemplateId, data: OfferData) {
 }
 
 function OfferLetterTab({ emp, companyName }: { emp: EmployeeRecord; companyName: string }) {
-  const [selectedTemplate, setSelectedTemplate] = useState<OfferTemplateId | null>(null);
+  const { templates } = useOfferTemplates();
+  const [selectedTemplate, setSelectedTemplate] = useState<EditableTemplate | null>(null);
   const offerData: OfferData = {
     employeeName: emp.profile?.name ?? "Employee",
     role: emp.role,
@@ -314,12 +395,12 @@ function OfferLetterTab({ emp, companyName }: { emp: EmployeeRecord; companyName
         <h3 className="text-sm font-semibold text-gray-800 mb-1">Select a template</h3>
         <p className="text-xs text-gray-500 mb-4">The letter will be pre-filled with {emp.profile?.name ?? "this employee"}'s details. Click "Download PDF" to open a print dialog.</p>
         <div className="space-y-3">
-          {OFFER_TEMPLATES.map(tmpl => (
+          {templates.map(tmpl => (
             <button
               key={tmpl.id}
-              onClick={() => setSelectedTemplate(tmpl.id)}
+              onClick={() => setSelectedTemplate(tmpl)}
               className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
-                selectedTemplate === tmpl.id
+                selectedTemplate?.id === tmpl.id
                   ? tmpl.color + " border-current ring-1 ring-current"
                   : "border-gray-200 hover:border-gray-300 bg-white"
               }`}
@@ -329,7 +410,7 @@ function OfferLetterTab({ emp, companyName }: { emp: EmployeeRecord; companyName
                 <p className="text-sm font-semibold text-gray-900">{tmpl.label}</p>
                 <p className="text-xs text-gray-500">{tmpl.desc}</p>
               </div>
-              {selectedTemplate === tmpl.id && (
+              {selectedTemplate?.id === tmpl.id && (
                 <CheckCircleIcon className="w-4 h-4 text-green-500 flex-shrink-0" />
               )}
             </button>
@@ -338,10 +419,8 @@ function OfferLetterTab({ emp, companyName }: { emp: EmployeeRecord; companyName
       </div>
 
       {selectedTemplate && (() => {
-        const tmpl = OFFER_TEMPLATES.find(t => t.id === selectedTemplate);
-        if (!tmpl) return null;
-        const safeD = safeData(offerData);
-        const renderedBody = tmpl.render(safeD);
+        const rd = buildRenderData(offerData);
+        const renderedBody = renderTemplate(selectedTemplate.content, rd);
         return (
           <div className="rounded-xl border border-gray-200 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-gray-50">
@@ -365,6 +444,334 @@ function OfferLetterTab({ emp, companyName }: { emp: EmployeeRecord; companyName
         <DownloadIcon className="w-4 h-4" />
         Download PDF
       </Button>
+    </div>
+  );
+}
+
+// ── Offer Template Editor Modal ───────────────────────────────────────────────
+const TEMPLATE_VARIABLES = [
+  { key: "employeeName", label: "Employee Name" },
+  { key: "role",         label: "Role / Title" },
+  { key: "companyName",  label: "Company Name" },
+  { key: "startDate",    label: "Start Date" },
+  { key: "salaryLine",   label: "Salary Line" },
+  { key: "date",         label: "Today's Date" },
+];
+
+function OfferTemplateEditorModal({
+  template,
+  onSave,
+  onClose,
+}: {
+  template: EditableTemplate | null;
+  onSave: (t: EditableTemplate) => void;
+  onClose: () => void;
+}) {
+  const isNew = template === null;
+  const defaults = isNew
+    ? { id: `custom-${Date.now()}`, label: "", desc: "", color: "border-gray-200 bg-gray-50", badge: "text-gray-700 bg-gray-100", accentColor: "#6366f1", content: `<p>Dear <strong>{{employeeName}}</strong>,</p>\n<p>We are pleased to offer you the position of <strong>{{role}}</strong> at <strong>{{companyName}}</strong>, effective <strong>{{startDate}}</strong>.</p>\n<p>{{salaryLine}}</p>\n<div style="margin-top:60px"><p>Sincerely,</p><p><strong>{{companyName}}</strong></p></div>`, isCustom: true }
+    : template!;
+
+  const [label, setLabel] = useState(defaults.label);
+  const [desc, setDesc] = useState(defaults.desc);
+  const [content, setContent] = useState(defaults.content);
+  const [showPreview, setShowPreview] = useState(true);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const previewRd = buildRenderData(SAMPLE_OFFER_DATA);
+  const previewHtml = renderTemplate(content, previewRd);
+
+  function insertVariable(key: string) {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const token = `{{${key}}}`;
+    const next = content.slice(0, start) + token + content.slice(end);
+    setContent(next);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(start + token.length, start + token.length);
+    });
+  }
+
+  function handleSave() {
+    if (!label.trim()) return;
+    onSave({ ...defaults, label: label.trim(), desc: desc.trim(), content });
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+          <div>
+            <h2 className="text-base font-bold text-gray-900">{isNew ? "New Template" : `Edit: ${template!.label}`}</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Use <code className="bg-gray-100 px-1 rounded text-[11px]">{"{{variable}}"}</code> placeholders — auto-filled when generating letters</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
+            <XIcon className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 flex overflow-hidden min-h-0">
+          {/* Left: editor */}
+          <div className="flex flex-col w-1/2 border-r border-gray-100 overflow-y-auto">
+            <div className="px-5 py-4 space-y-4 flex-1">
+              {/* Name + desc */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 mb-1 block">Template name *</label>
+                  <input
+                    value={label}
+                    onChange={e => setLabel(e.target.value)}
+                    placeholder="e.g. Senior Engineer Offer"
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 mb-1 block">Short description</label>
+                  <input
+                    value={desc}
+                    onChange={e => setDesc(e.target.value)}
+                    placeholder="e.g. Full-time, equity eligible"
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+              </div>
+
+              {/* Variable chips */}
+              <div>
+                <label className="text-xs font-semibold text-gray-500 mb-2 block">Insert variable</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {TEMPLATE_VARIABLES.map(v => (
+                    <button
+                      key={v.key}
+                      onClick={() => insertVariable(v.key)}
+                      className="text-[11px] font-mono bg-primary/8 text-primary border border-primary/20 rounded px-2 py-0.5 hover:bg-primary/15 transition-colors"
+                    >
+                      {`{{${v.key}}}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* HTML editor */}
+              <div className="flex-1">
+                <label className="text-xs font-semibold text-gray-500 mb-1 block">Letter body (HTML)</label>
+                <textarea
+                  ref={textareaRef}
+                  value={content}
+                  onChange={e => setContent(e.target.value)}
+                  rows={18}
+                  spellCheck={false}
+                  className="w-full text-xs font-mono border border-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none leading-relaxed"
+                  placeholder="<p>Dear <strong>{{employeeName}}</strong>, ...</p>"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Right: live preview */}
+          <div className="flex flex-col w-1/2 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 flex-shrink-0">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Live Preview</p>
+              <button
+                onClick={() => setShowPreview(p => !p)}
+                className="text-[11px] text-primary hover:underline"
+              >
+                {showPreview ? "Hide" : "Show"}
+              </button>
+            </div>
+            {showPreview && (
+              <div className="flex-1 overflow-y-auto p-5">
+                <div
+                  className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm"
+                  style={{ fontFamily: "Georgia, serif", fontSize: "12px", lineHeight: "1.7", color: "#1a1a1a" }}
+                  dangerouslySetInnerHTML={{ __html: previewHtml }}
+                />
+                <p className="text-[10px] text-gray-400 text-center mt-3">Preview uses sample data</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-100 flex gap-3 flex-shrink-0">
+          <Button variant="outline" className="flex-1 rounded-xl" onClick={onClose}>Cancel</Button>
+          <Button
+            className="flex-1 rounded-xl gap-2"
+            disabled={!label.trim()}
+            onClick={handleSave}
+          >
+            <SaveIcon className="w-4 h-4" />
+            {isNew ? "Create Template" : "Save Changes"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Offer Letters Tab ─────────────────────────────────────────────────────────
+function OfferLettersTab({ companyName }: { companyName: string }) {
+  const { templates, saveTemplate, deleteTemplate, resetTemplate } = useOfferTemplates();
+  const [editing, setEditing] = useState<EditableTemplate | null | "new">(undefined as unknown as "new");
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [previewId, setPreviewId] = useState<string | null>(null);
+
+  const isBuiltIn = (id: string) => DEFAULT_TEMPLATES.some(t => t.id === id);
+
+  const previewData: OfferData = {
+    employeeName: "Jane Smith",
+    role: "Software Engineer",
+    salary: 95000,
+    currency: "USD",
+    startDate: new Date(Date.now() + 14 * 86400000).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+    companyName,
+  };
+
+  function openNew() {
+    setEditing(null);
+    setIsEditorOpen(true);
+  }
+
+  function openEdit(tmpl: EditableTemplate) {
+    setEditing(tmpl);
+    setIsEditorOpen(true);
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">Offer Letter Templates</h2>
+          <p className="text-sm text-gray-500 mt-0.5">Create and edit templates — placeholders are auto-filled when generating letters for candidates</p>
+        </div>
+        <Button size="sm" className="rounded-full gap-1.5 text-xs h-9 px-4" onClick={openNew}>
+          <PlusIcon className="w-3.5 h-3.5" />
+          New Template
+        </Button>
+      </div>
+
+      {/* Variable reference */}
+      <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-5 py-4">
+        <p className="text-xs font-semibold text-indigo-700 mb-2">Available placeholders</p>
+        <div className="flex flex-wrap gap-2">
+          {TEMPLATE_VARIABLES.map(v => (
+            <span key={v.key} className="text-[11px] font-mono bg-white text-indigo-700 border border-indigo-200 rounded px-2 py-0.5">
+              {`{{${v.key}}}`} <span className="text-indigo-400 font-sans">— {v.label}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Template cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {templates.map(tmpl => {
+          const isDefault = isBuiltIn(tmpl.id) && !tmpl.isCustom;
+          const isModified = isBuiltIn(tmpl.id) && !!tmpl.isCustom;
+          const previewOpen = previewId === tmpl.id;
+          const rd = buildRenderData(previewData, tmpl.id === "freelance" ? " (total project)" : " per year");
+          const html = renderTemplate(tmpl.content, rd);
+
+          return (
+            <div key={tmpl.id} className={`rounded-xl border-2 overflow-hidden flex flex-col ${tmpl.color}`}>
+              {/* Card header */}
+              <div className="px-4 pt-4 pb-3">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileTextIcon className="w-4 h-4 flex-shrink-0 text-gray-500" />
+                    <span className="text-sm font-bold text-gray-900 truncate">{tmpl.label}</span>
+                  </div>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${tmpl.badge}`}>
+                    {tmpl.isCustom ? "Custom" : "Built-in"}
+                  </span>
+                </div>
+                {tmpl.desc && <p className="text-xs text-gray-500 ml-6">{tmpl.desc}</p>}
+                {isModified && (
+                  <p className="text-[10px] text-amber-600 ml-6 mt-0.5 flex items-center gap-1">
+                    <PencilIcon className="w-3 h-3" /> Modified
+                  </p>
+                )}
+              </div>
+
+              {/* Preview toggle */}
+              <div className="px-4">
+                <button
+                  onClick={() => setPreviewId(previewOpen ? null : tmpl.id)}
+                  className="text-[11px] text-primary hover:underline flex items-center gap-1 mb-3"
+                >
+                  <EyeIcon className="w-3 h-3" />
+                  {previewOpen ? "Hide preview" : "Preview letter"}
+                </button>
+                {previewOpen && (
+                  <div
+                    className="mb-3 max-h-48 overflow-y-auto bg-white rounded-lg border border-gray-200 p-3"
+                    style={{ fontFamily: "Georgia, serif", fontSize: "11px", lineHeight: "1.6", color: "#1a1a1a" }}
+                    dangerouslySetInnerHTML={{ __html: html }}
+                  />
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="mt-auto px-4 pb-4 flex gap-2 flex-wrap">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 gap-1 text-xs h-8 rounded-lg bg-white"
+                  onClick={() => openEdit(tmpl)}
+                >
+                  <PencilIcon className="w-3 h-3" /> Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 gap-1 text-xs h-8 rounded-lg bg-white"
+                  onClick={() => downloadOfferLetter(tmpl, previewData)}
+                >
+                  <DownloadIcon className="w-3 h-3" /> Download
+                </Button>
+                {tmpl.isCustom && !isBuiltIn(tmpl.id) && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-xs h-8 px-2 text-red-500 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => deleteTemplate(tmpl.id)}
+                  >
+                    <TrashIcon className="w-3 h-3" />
+                  </Button>
+                )}
+                {isModified && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-xs h-8 px-2 text-amber-600 hover:bg-amber-50"
+                    onClick={() => resetTemplate(tmpl.id)}
+                  >
+                    <RefreshCwIcon className="w-3 h-3" /> Reset
+                  </Button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Editor modal */}
+      {isEditorOpen && (
+        <OfferTemplateEditorModal
+          template={editing === "new" ? null : editing}
+          onSave={saveTemplate}
+          onClose={() => setIsEditorOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -1394,7 +1801,8 @@ function CandidateOfferModal({
   onClose: () => void;
   onSent: () => void;
 }) {
-  const [selectedTemplate, setSelectedTemplate] = useState<OfferTemplateId | null>(null);
+  const { templates } = useOfferTemplates();
+  const [selectedTemplate, setSelectedTemplate] = useState<EditableTemplate | null>(null);
   const [sending, setSending] = useState(false);
   const { toast } = useToast();
 
@@ -1443,12 +1851,12 @@ function CandidateOfferModal({
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
           <div className="space-y-3">
-            {OFFER_TEMPLATES.map(tmpl => (
+            {templates.map(tmpl => (
               <button
                 key={tmpl.id}
-                onClick={() => setSelectedTemplate(tmpl.id)}
+                onClick={() => setSelectedTemplate(tmpl)}
                 className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
-                  selectedTemplate === tmpl.id
+                  selectedTemplate?.id === tmpl.id
                     ? tmpl.color + " border-current ring-1 ring-current"
                     : "border-gray-200 hover:border-gray-300 bg-white"
                 }`}
@@ -1458,13 +1866,12 @@ function CandidateOfferModal({
                   <p className="text-sm font-semibold text-gray-900">{tmpl.label}</p>
                   <p className="text-xs text-gray-500">{tmpl.desc}</p>
                 </div>
-                {selectedTemplate === tmpl.id && <CheckCircleIcon className="w-4 h-4 text-green-500 flex-shrink-0" />}
+                {selectedTemplate?.id === tmpl.id && <CheckCircleIcon className="w-4 h-4 text-green-500 flex-shrink-0" />}
               </button>
             ))}
           </div>
           {selectedTemplate && (() => {
-            const tmpl = OFFER_TEMPLATES.find(t => t.id === selectedTemplate);
-            if (!tmpl) return null;
+            const rd = buildRenderData(offerData);
             return (
               <div className="rounded-xl border border-gray-200 overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 bg-gray-50">
@@ -1473,7 +1880,7 @@ function CandidateOfferModal({
                 <div
                   className="max-h-40 overflow-y-auto p-4 bg-white"
                   style={{ fontFamily: "Georgia, serif", fontSize: "11px", lineHeight: "1.5", color: "#1a1a1a" }}
-                  dangerouslySetInnerHTML={{ __html: tmpl.render(safeData(offerData)) }}
+                  dangerouslySetInnerHTML={{ __html: renderTemplate(selectedTemplate.content, rd) }}
                 />
               </div>
             );
@@ -1615,7 +2022,7 @@ function PostJobModal({ companyName, companyProfileId, onClose, onCreated }: { c
   );
 }
 
-type DashTab = "overview" | "hiring" | "team" | "onboarding" | "insights";
+type DashTab = "overview" | "hiring" | "team" | "onboarding" | "insights" | "offers";
 
 export default function CompanyDashboard() {
   const { user, logout } = useAppAuth();
@@ -1867,12 +2274,13 @@ export default function CompanyDashboard() {
   })();
 
   const sideNav: Array<{ tab?: DashTab; href?: string; label: string; icon: React.ElementType; badge?: number }> = [
-    { tab: "overview",    label: "Dashboard",   icon: LayoutDashboardIcon },
-    { tab: "hiring",      label: "Hiring",      icon: BriefcaseIcon,   badge: companyApps.filter(a => a.status === "pending").length || undefined },
-    { tab: "team",        label: "Team",        icon: UsersIcon,       badge: employees.length || undefined },
-    { tab: "onboarding",  label: "Onboarding",  icon: GraduationCapIcon, badge: Object.values(onboardingProgress).filter(p => p.total > 0 && p.completed < p.total).length || undefined },
-    { tab: "insights",    label: "Insights",    icon: BarChart2Icon    },
-    { href: "/profile/edit", label: "Settings", icon: Settings2Icon   },
+    { tab: "overview",    label: "Dashboard",      icon: LayoutDashboardIcon },
+    { tab: "hiring",      label: "Hiring",         icon: BriefcaseIcon,   badge: companyApps.filter(a => a.status === "pending").length || undefined },
+    { tab: "team",        label: "Team",           icon: UsersIcon,       badge: employees.length || undefined },
+    { tab: "onboarding",  label: "Onboarding",     icon: GraduationCapIcon, badge: Object.values(onboardingProgress).filter(p => p.total > 0 && p.completed < p.total).length || undefined },
+    { tab: "offers",      label: "Offer Letters",  icon: FileTextIcon     },
+    { tab: "insights",    label: "Insights",       icon: BarChart2Icon    },
+    { href: "/profile/edit", label: "Settings",    icon: Settings2Icon   },
   ];
 
   const SidebarContent = () => (
@@ -3124,6 +3532,11 @@ export default function CompanyDashboard() {
               </div>
             )}
           </div>
+        )}
+
+        {/* ── TAB: Offer Letters ── */}
+        {activeTab === "offers" && (
+          <OfferLettersTab companyName={user?.name ?? "Our Company"} />
         )}
 
         {/* ── TAB: Insights ── */}
