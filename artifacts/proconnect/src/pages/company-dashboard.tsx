@@ -798,6 +798,9 @@ function OnboardingTab({
     basePath: "/api/storage",
   });
 
+  const onProgressRef = useRef(onProgress);
+  onProgressRef.current = onProgress;
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -807,12 +810,12 @@ function OnboardingTab({
         setTasks(data.tasks ?? []);
         setDocuments(data.documents ?? []);
         const completed = (data.tasks ?? []).filter((t: OnboardingTask) => t.completed).length;
-        onProgress(completed, (data.tasks ?? []).length);
+        onProgressRef.current(completed, (data.tasks ?? []).length);
       }
     } finally {
       setLoading(false);
     }
-  }, [emp.id, companyId, onProgress]);
+  }, [emp.id, companyId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -1020,6 +1023,7 @@ interface ContractData {
   startDate: string;
   endDate: string;
   rate: string;
+  ratePeriod: "year" | "hour";
   currency: string;
   paymentStatus: string;
   notes: string;
@@ -1044,6 +1048,7 @@ function ContractTab({ emp, companyId }: { emp: EmployeeRecord; companyId: numbe
     startDate: emp.startDate ? emp.startDate.slice(0, 10) : "",
     endDate: "",
     rate: emp.salary ? String(emp.salary) : "",
+    ratePeriod: "year",
     currency: emp.currency ?? "USD",
     paymentStatus: "paid",
     notes: "",
@@ -1066,6 +1071,7 @@ function ContractTab({ emp, companyId }: { emp: EmployeeRecord; companyId: numbe
               startDate: data.startDate ? data.startDate.slice(0, 10) : "",
               endDate: data.endDate ? data.endDate.slice(0, 10) : "",
               rate: data.rate ?? "",
+              ratePeriod: (data.ratePeriod === "hour" ? "hour" : "year") as "year" | "hour",
               currency: data.currency ?? "USD",
               paymentStatus: data.paymentStatus ?? "paid",
               notes: data.notes ?? "",
@@ -1171,12 +1177,28 @@ function ContractTab({ emp, companyId }: { emp: EmployeeRecord; companyId: numbe
       {/* Rate + currency */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Rate / yr</label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Rate</label>
+            <div className="flex rounded-md border border-gray-200 overflow-hidden text-[10px] font-semibold">
+              <button
+                onClick={() => setContract(c => ({ ...c, ratePeriod: "year" }))}
+                className={`px-2 py-0.5 transition-colors ${contract.ratePeriod === "year" ? "bg-primary text-white" : "text-gray-500 hover:bg-gray-50"}`}
+              >
+                / yr
+              </button>
+              <button
+                onClick={() => setContract(c => ({ ...c, ratePeriod: "hour" }))}
+                className={`px-2 py-0.5 border-l border-gray-200 transition-colors ${contract.ratePeriod === "hour" ? "bg-primary text-white" : "text-gray-500 hover:bg-gray-50"}`}
+              >
+                / hr
+              </button>
+            </div>
+          </div>
           <input
             type="number"
             value={contract.rate}
             onChange={e => setContract(c => ({ ...c, rate: e.target.value }))}
-            placeholder="e.g. 85000"
+            placeholder={contract.ratePeriod === "hour" ? "e.g. 85" : "e.g. 85000"}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/50"
           />
         </div>
