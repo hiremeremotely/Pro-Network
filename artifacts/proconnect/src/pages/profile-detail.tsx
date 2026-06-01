@@ -638,7 +638,6 @@ export default function ProfileDetail() {
   const [modal, setModal] = useState<"info" | "exp" | "edu" | "skill" | "interest" | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
-  const BASE = import.meta.env.BASE_URL;
   const isCompanyViewer = user?.accountType === "company";
   const interestStatusKey = ["interest-status", user?.id, id];
   const { data: interestStatusData, refetch: refetchInterestStatus } = useQuery<{ status: "pending" | "approved" | "declined" | null }>({
