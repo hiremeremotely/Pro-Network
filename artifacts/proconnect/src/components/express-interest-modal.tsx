@@ -62,7 +62,7 @@ export function ExpressInterestModal({
           <div className="px-6 py-8 text-center space-y-3">
             <CheckCircle2Icon className="w-12 h-12 text-emerald-500 mx-auto" />
             <p className="text-sm text-gray-700">
-              HMR will review and reach out to {candidateName}. You'll be notified when they reply.
+              Your interest has been sent to {candidateName}. You'll hear back if they'd like to connect.
             </p>
             <Button onClick={onClose} className="rounded-full mt-2">Got it</Button>
           </div>
@@ -81,7 +81,7 @@ export function ExpressInterestModal({
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2 bg-gray-50">
               <Button variant="ghost" onClick={onClose} className="rounded-full">Cancel</Button>
               <Button onClick={() => mutate.mutate()} disabled={mutate.isPending} className="rounded-full">
-                {mutate.isPending ? "Sending…" : "Send to HMR"}
+                {mutate.isPending ? "Sending…" : "Send Interest"}
               </Button>
             </div>
           </>
