@@ -540,7 +540,8 @@ export default function Profiles() {
   const startChat = useStartChat();
   const [, navigate] = useLocation();
 
-  const [tab, setTab]   = useState<"network" | "discover">(initialTab as "network" | "discover");
+  const isCompany = user?.accountType === "company";
+  const [tab, setTab]   = useState<"network" | "discover">(isCompany ? "discover" : initialTab as "network" | "discover");
   const [view, setView] = useState<ViewMode>("list");
   const [connectingProfile, setConnectingProfile] = useState<Profile | null>(null);
 
@@ -591,15 +592,17 @@ export default function Profiles() {
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-1">
           <UsersIcon className="w-6 h-6 text-primary" />
-          <h1 className="text-2xl font-bold text-gray-900">Network</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{isCompany ? "Talent" : "Network"}</h1>
         </div>
-        <p className="text-sm text-muted-foreground">Manage your connections and discover remote professionals.</p>
+        <p className="text-sm text-muted-foreground">
+          {isCompany ? "Search and discover remote professionals for your open roles." : "Manage your connections and discover remote professionals."}
+        </p>
       </div>
 
       {/* Tabs + View toggle */}
       <div className="flex items-center justify-between border-b border-gray-200 mb-6">
         <div className="flex gap-0">
-          {([
+          {!isCompany && ([
             { key: "network" as const, label: "My Network", count: networkSize, badge: requestCount },
             { key: "discover" as const, label: "Discover", icon: SparklesIcon },
           ]).map(({ key, label, count, badge, icon: Icon }) => (

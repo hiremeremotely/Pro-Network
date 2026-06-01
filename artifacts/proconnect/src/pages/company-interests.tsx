@@ -23,9 +23,9 @@ type InterestRow = {
 };
 
 const STATUS_META: Record<string, { label: string; cls: string; Icon: any }> = {
-  pending:  { label: "Pending HMR review", cls: "bg-amber-50 text-amber-700 border-amber-200",      Icon: ClockIcon },
-  approved: { label: "Approved",           cls: "bg-emerald-50 text-emerald-700 border-emerald-200", Icon: CheckCircle2Icon },
-  declined: { label: "Declined",           cls: "bg-gray-100 text-gray-600 border-gray-200",         Icon: XCircleIcon },
+  pending:  { label: "In review",       cls: "bg-amber-50 text-amber-700 border-amber-200",      Icon: ClockIcon },
+  approved: { label: "Connected",       cls: "bg-emerald-50 text-emerald-700 border-emerald-200", Icon: CheckCircle2Icon },
+  declined: { label: "Not available",   cls: "bg-gray-100 text-gray-600 border-gray-200",         Icon: XCircleIcon },
 };
 
 export default function CompanyInterests() {
@@ -57,14 +57,14 @@ export default function CompanyInterests() {
   return (
     <div className="max-w-3xl mx-auto py-6 px-4 space-y-4">
       <header className="bg-white rounded-2xl border border-gray-200 px-6 py-5">
-        <h1 className="text-xl font-bold text-gray-900">My Interests</h1>
+        <h1 className="text-xl font-bold text-gray-900">Candidate Shortlist</h1>
         <p className="text-sm text-gray-500 mt-1">
-          HMR mediates all candidate outreach. Express interest in a candidate from their profile and our team will introduce you.
+          Candidates you've expressed interest in. We'll take care of making the connection.
         </p>
         <div className="flex gap-2 mt-4 flex-wrap">
-          <Badge className="bg-amber-50 text-amber-700 border-amber-200 font-semibold">{pending.length} pending</Badge>
-          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold">{approved.length} approved</Badge>
-          <Badge className="bg-gray-100 text-gray-600 border-gray-200 font-semibold">{declined.length} declined</Badge>
+          <Badge className="bg-amber-50 text-amber-700 border-amber-200 font-semibold">{pending.length} in review</Badge>
+          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold">{approved.length} connected</Badge>
+          <Badge className="bg-gray-100 text-gray-600 border-gray-200 font-semibold">{declined.length} not available</Badge>
         </div>
       </header>
 
@@ -110,14 +110,7 @@ export default function CompanyInterests() {
                       </p>
                     )}
                     {r.status === "declined" && r.adminNote && (
-                      <p className="text-xs text-gray-600 mt-2"><span className="font-semibold">HMR:</span> {r.adminNote}</p>
-                    )}
-                    {r.status === "approved" && (
-                      <Link href="/messaging">
-                        <span className="text-xs text-primary font-semibold hover:underline mt-2 inline-block cursor-pointer">
-                          → Open conversation
-                        </span>
-                      </Link>
+                      <p className="text-xs text-gray-600 mt-2 p-2 bg-gray-50 rounded-lg border border-gray-100 italic">"{r.adminNote}"</p>
                     )}
                     <p className="text-[10px] text-gray-400 mt-2">
                       Sent {formatDistanceToNow(new Date(r.createdAt), { addSuffix: true })}
