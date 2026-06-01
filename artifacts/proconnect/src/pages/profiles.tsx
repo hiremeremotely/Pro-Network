@@ -496,7 +496,7 @@ function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel
   });
 
   // ── Individual: recommendations ─────────────────────────────────────────────
-  const { data: recData, isLoading: recLoading } = useQuery<{ profiles: Profile[] }>({
+  const { data: recData, isLoading: recLoading } = useQuery<{ profiles: Profile[]; matchedByProfile: boolean }>({
     queryKey: ["connections-recommended", userId],
     queryFn: () => fetch(`${BASE}api/connections/recommended?profileId=${userId}`).then(r => r.json()),
     enabled: !isCompany && !!userId && !query,
@@ -656,8 +656,12 @@ function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel
                 </>
               ) : (
                 <>
-                  <p className="text-sm font-semibold text-gray-700">Recommended for you</p>
-                  <span className="text-xs text-gray-400">· based on your industry &amp; interests</span>
+                  <p className="text-sm font-semibold text-gray-700">
+                    {recData?.matchedByProfile ? "Recommended for you" : "People you may know"}
+                  </p>
+                  {recData?.matchedByProfile && (
+                    <span className="text-xs text-gray-400">· based on your industry &amp; interests</span>
+                  )}
                 </>
               )}
             </div>

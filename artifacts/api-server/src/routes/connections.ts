@@ -130,11 +130,15 @@ router.get("/connections/recommended", async (req, res): Promise<void> => {
   const myIndustry  = myProfile.industry ?? "";
   const myInterests = (myProfile.interests ?? []) as string[];
 
+  // Only suggest individuals — companies are follower targets, not peer connections
+  const individualsOnly = eq(profilesTable.accountType, "individual");
+
   const baseWhere = excludeIds.length > 0
-    ? notInArray(profilesTable.id, excludeIds)
-    : ne(profilesTable.id, profileId);
+    ? and(individualsOnly, notInArray(profilesTable.id, excludeIds))
+    : and(individualsOnly, ne(profilesTable.id, profileId));
 
   let recommended: typeof profilesTable.$inferSelect[] = [];
+  let matchedByProfile = false;
 
   if (myIndustry || myInterests.length > 0) {
     const conditions = [];
@@ -148,6 +152,7 @@ router.get("/connections/recommended", async (req, res): Promise<void> => {
       .where(and(baseWhere, or(...conditions)))
       .orderBy(desc(profilesTable.createdAt))
       .limit(20);
+    if (recommended.length > 0) matchedByProfile = true;
   }
 
   if (recommended.length < 8) {
@@ -155,13 +160,13 @@ router.get("/connections/recommended", async (req, res): Promise<void> => {
     const fallback = await db
       .select()
       .from(profilesTable)
-      .where(notInArray(profilesTable.id, [...already]))
+      .where(and(individualsOnly, notInArray(profilesTable.id, [...already])))
       .orderBy(desc(profilesTable.createdAt))
       .limit(20 - recommended.length);
     recommended = [...recommended, ...fallback];
   }
 
-  res.json({ profiles: recommended.slice(0, 20) });
+  res.json({ profiles: recommended.slice(0, 20), matchedByProfile });
 });
 
 // ── GET /connections/count?profileId=:id ──────────────────────────────────────
