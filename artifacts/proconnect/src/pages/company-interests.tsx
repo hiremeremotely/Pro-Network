@@ -59,7 +59,7 @@ export default function CompanyInterests() {
       <header className="bg-white rounded-2xl border border-gray-200 px-6 py-5">
         <h1 className="text-xl font-bold text-gray-900">Candidate Shortlist</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Candidates you've expressed interest in. We'll take care of making the connection.
+          Your outreach, tracked in one place. Candidates will appear here once contacted.
         </p>
         <div className="flex gap-2 mt-4 flex-wrap">
           <Badge className="bg-amber-50 text-amber-700 border-amber-200 font-semibold">{pending.length} in review</Badge>
