@@ -99,7 +99,7 @@ function MessageButton({ profileId, onMessage, className = "" }: {
 }
 
 // ── Profile list ───────────────────────────────────────────────────────────────
-function ProfileList({ profiles, view, isConnected, isPending, onConnect, onCancel, onDisconnect, onMessage, emptySlot }: {
+function ProfileList({ profiles, view, isConnected, isPending, onConnect, onCancel, onDisconnect, onMessage, emptySlot, hideConnect = false }: {
   profiles: Profile[];
   view: ViewMode;
   isConnected: (id: number) => boolean;
@@ -109,6 +109,7 @@ function ProfileList({ profiles, view, isConnected, isPending, onConnect, onCanc
   onDisconnect: (id: number) => void;
   onMessage: (id: number) => void;
   emptySlot?: React.ReactNode;
+  hideConnect?: boolean;
 }) {
   if (profiles.length === 0 && emptySlot) return <>{emptySlot}</>;
 
@@ -122,15 +123,17 @@ function ProfileList({ profiles, view, isConnected, isPending, onConnect, onCanc
               {isConnected(profile.id) && (
                 <MessageButton profileId={profile.id} onMessage={onMessage} className="flex-1 justify-center" />
               )}
-              <ConnectButton
-                profile={profile}
-                isConnected={isConnected(profile.id)}
-                isPending={isPending(profile.id)}
-                onConnect={onConnect}
-                onCancel={onCancel}
-                onDisconnect={onDisconnect}
-                className="flex-1 justify-center"
-              />
+              {!hideConnect && (
+                <ConnectButton
+                  profile={profile}
+                  isConnected={isConnected(profile.id)}
+                  isPending={isPending(profile.id)}
+                  onConnect={onConnect}
+                  onCancel={onCancel}
+                  onDisconnect={onDisconnect}
+                  className="flex-1 justify-center"
+                />
+              )}
             </div>
           </div>
         ))}
@@ -167,14 +170,16 @@ function ProfileList({ profiles, view, isConnected, isPending, onConnect, onCanc
                   {isConnected(profile.id) && (
                     <MessageButton profileId={profile.id} onMessage={onMessage} />
                   )}
-                  <ConnectButton
-                    profile={profile}
-                    isConnected={isConnected(profile.id)}
-                    isPending={isPending(profile.id)}
-                    onConnect={onConnect}
-                    onCancel={onCancel}
-                    onDisconnect={onDisconnect}
-                  />
+                  {!hideConnect && (
+                    <ConnectButton
+                      profile={profile}
+                      isConnected={isConnected(profile.id)}
+                      isPending={isPending(profile.id)}
+                      onConnect={onConnect}
+                      onCancel={onCancel}
+                      onDisconnect={onDisconnect}
+                    />
+                  )}
                 </div>
               </div>
             </Link>
@@ -233,14 +238,16 @@ function ProfileList({ profiles, view, isConnected, isPending, onConnect, onCanc
                     {isConnected(profile.id) && (
                       <MessageButton profileId={profile.id} onMessage={onMessage} />
                     )}
-                    <ConnectButton
-                      profile={profile}
-                      isConnected={isConnected(profile.id)}
-                      isPending={isPending(profile.id)}
-                      onConnect={onConnect}
-                      onCancel={onCancel}
-                      onDisconnect={onDisconnect}
-                    />
+                    {!hideConnect && (
+                      <ConnectButton
+                        profile={profile}
+                        isConnected={isConnected(profile.id)}
+                        isPending={isPending(profile.id)}
+                        onConnect={onConnect}
+                        onCancel={onCancel}
+                        onDisconnect={onDisconnect}
+                      />
+                    )}
                   </div>
                 </td>
               </tr>
@@ -414,7 +421,7 @@ function MyNetworkTab({ userId, view, isConnected, isPending, onConnect, onCance
 }
 
 // ── Discover tab ───────────────────────────────────────────────────────────────
-function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel, onDisconnect, onMessage, initialSearch }: {
+function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel, onDisconnect, onMessage, initialSearch, hideConnect = false }: {
   userId: number | undefined; view: ViewMode;
   isConnected: (id: number) => boolean;
   isPending: (id: number) => boolean;
@@ -423,6 +430,7 @@ function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel
   onDisconnect: (id: number) => void;
   onMessage: (id: number) => void;
   initialSearch: string;
+  hideConnect?: boolean;
 }) {
   const [search, setSearch] = useState(initialSearch);
   const [query, setQuery]   = useState(initialSearch);
@@ -522,6 +530,7 @@ function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel
             onDisconnect={onDisconnect}
             onMessage={onMessage}
             emptySlot={empty}
+            hideConnect={hideConnect}
           />
         </>
       )}
@@ -542,7 +551,7 @@ export default function Profiles() {
 
   const isCompany = user?.accountType === "company";
   const [tab, setTab]   = useState<"network" | "discover">(isCompany ? "discover" : initialTab as "network" | "discover");
-  const [view, setView] = useState<ViewMode>("list");
+  const [view, setView] = useState<ViewMode>(isCompany ? "table" : "list");
   const [connectingProfile, setConnectingProfile] = useState<Profile | null>(null);
 
   const handleConnect = useCallback((profile: Profile) => {
@@ -675,6 +684,7 @@ export default function Profiles() {
           onDisconnect={disconnect}
           onMessage={handleMessage}
           initialSearch={initialSearch}
+          hideConnect={isCompany}
         />
       )}
     </div>
