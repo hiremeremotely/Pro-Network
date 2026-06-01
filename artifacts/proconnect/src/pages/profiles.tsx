@@ -420,6 +420,14 @@ function MyNetworkTab({ userId, view, isConnected, isPending, onConnect, onCance
   );
 }
 
+// ── Industry options ───────────────────────────────────────────────────────────
+const INDUSTRIES = [
+  "Technology", "Software Engineering", "Product Management", "Design & UX",
+  "Data & Analytics", "DevOps & Infrastructure", "Cybersecurity", "Finance",
+  "Marketing", "Sales", "Customer Success", "Operations", "HR & People",
+  "Legal", "Healthcare", "Education", "Media & Communications", "Research",
+];
+
 // ── Discover tab ───────────────────────────────────────────────────────────────
 function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel, onDisconnect, onMessage, initialSearch, hideConnect = false }: {
   userId: number | undefined; view: ViewMode;
@@ -432,8 +440,15 @@ function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel
   initialSearch: string;
   hideConnect?: boolean;
 }) {
-  const [search, setSearch] = useState(initialSearch);
-  const [query, setQuery]   = useState(initialSearch);
+  const isCompany = hideConnect;
+
+  // Search + filters
+  const [search, setSearch]     = useState(initialSearch);
+  const [query, setQuery]       = useState(initialSearch);
+  const [openToWork, setOpenToWork]   = useState(isCompany);
+  const [industry, setIndustry] = useState("");
+  const [location, setLocation] = useState("");
+  const [skills, setSkills]     = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setSearch(initialSearch); setQuery(initialSearch); }, [initialSearch]);
@@ -442,39 +457,92 @@ function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel
     return () => clearTimeout(t);
   }, [search]);
 
-  const searchParams = new URLSearchParams({ limit: "20", offset: "0" });
-  if (query) searchParams.set("search", query);
-  if (userId) searchParams.set("excludeId", String(userId));
+  const hasFilters = isCompany && (!!industry || !!location || !!skills || !openToWork);
+  const isFiltering = !!query || hasFilters;
 
-  const { data: searchData, isLoading: searchLoading, isFetching } = useQuery<{ profiles: Profile[]; total: number }>({
-    queryKey: ["profiles-search", query, userId],
-    queryFn: () => fetch(`${BASE}api/profiles?${searchParams}`).then(r => r.json()),
-    enabled: !!query,
+  // ── Company: filtered search ────────────────────────────────────────────────
+  const talentSearchParams = new URLSearchParams({ limit: "50", offset: "0", accountType: "individual" });
+  if (query) talentSearchParams.set("search", query);
+  if (openToWork) talentSearchParams.set("openToWork", "true");
+  if (industry) talentSearchParams.set("industry", industry);
+  if (location) talentSearchParams.set("location", location);
+  if (skills) talentSearchParams.set("skills", skills);
+
+  const { data: talentSearchData, isLoading: talentSearchLoading, isFetching: talentFetching } = useQuery<{ profiles: Profile[]; total: number }>({
+    queryKey: ["talent-search", query, openToWork, industry, location, skills],
+    queryFn: () => fetch(`${BASE}api/profiles?${talentSearchParams}`).then(r => r.json()),
+    enabled: isCompany && isFiltering,
     staleTime: 30_000,
   });
-  const searchProfiles = searchData?.profiles ?? [];
 
+  // ── Company: role-matched recommendations ───────────────────────────────────
+  const { data: talentRecData, isLoading: talentRecLoading } = useQuery<{ profiles: Profile[]; matchedByRole: boolean; roleCategories: string[] }>({
+    queryKey: ["talent-recommended", userId],
+    queryFn: () => fetch(`${BASE}api/talent/recommended?companyProfileId=${userId}`).then(r => r.json()),
+    enabled: isCompany && !isFiltering && !!userId,
+    staleTime: 60_000,
+  });
+
+  // ── Individual: search ──────────────────────────────────────────────────────
+  const individualSearchParams = new URLSearchParams({ limit: "20", offset: "0" });
+  if (query) individualSearchParams.set("search", query);
+  if (userId) individualSearchParams.set("excludeId", String(userId));
+
+  const { data: searchData, isLoading: searchLoading, isFetching: indFetching } = useQuery<{ profiles: Profile[]; total: number }>({
+    queryKey: ["profiles-search", query, userId],
+    queryFn: () => fetch(`${BASE}api/profiles?${individualSearchParams}`).then(r => r.json()),
+    enabled: !isCompany && !!query,
+    staleTime: 30_000,
+  });
+
+  // ── Individual: recommendations ─────────────────────────────────────────────
   const { data: recData, isLoading: recLoading } = useQuery<{ profiles: Profile[] }>({
     queryKey: ["connections-recommended", userId],
     queryFn: () => fetch(`${BASE}api/connections/recommended?profileId=${userId}`).then(r => r.json()),
-    enabled: !!userId && !query,
+    enabled: !isCompany && !!userId && !query,
     staleTime: 60_000,
   });
-  const recProfiles = (recData?.profiles ?? []).filter(p => p.id !== userId);
 
-  const isSearching = !!query;
-  const isLoading   = isSearching ? searchLoading : recLoading;
-  const profiles    = isSearching
-    ? searchProfiles.filter(p => !isConnected(p.id) && !isPending(p.id))
-    : recProfiles;
+  // ── Resolve what to show ────────────────────────────────────────────────────
+  let profiles: Profile[] = [];
+  let isLoading = false;
+  let isFetching = false;
+
+  if (isCompany) {
+    if (isFiltering) {
+      profiles = talentSearchData?.profiles ?? [];
+      isLoading = talentSearchLoading;
+      isFetching = talentFetching;
+    } else {
+      profiles = talentRecData?.profiles ?? [];
+      isLoading = talentRecLoading;
+    }
+  } else {
+    if (query) {
+      profiles = (searchData?.profiles ?? []).filter(p => !isConnected(p.id) && !isPending(p.id));
+      isLoading = searchLoading;
+      isFetching = indFetching;
+    } else {
+      profiles = (recData?.profiles ?? []).filter(p => p.id !== userId);
+      isLoading = recLoading;
+    }
+  }
+
+  const clearFilters = () => {
+    setIndustry(""); setLocation(""); setSkills(""); setOpenToWork(true);
+    setSearch(""); setQuery("");
+  };
 
   const empty = (
     <div className="flex flex-col items-center py-20 text-muted-foreground gap-3">
       <SearchIcon className="w-10 h-10 opacity-20" />
       <p className="text-base font-medium">
-        {isSearching ? `No results for "${query}"` : "No recommendations yet"}
+        {isFiltering ? "No candidates match your criteria" : "No recommendations yet"}
       </p>
-      {isSearching && (
+      {isFiltering && isCompany && (
+        <button onClick={clearFilters} className="text-sm text-primary hover:underline">Clear filters</button>
+      )}
+      {isFiltering && !isCompany && (
         <p className="text-sm text-gray-400">Try searching by name, job title, or email</p>
       )}
     </div>
@@ -482,13 +550,14 @@ function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel
 
   return (
     <>
-      <div className="relative mb-6">
+      {/* Search bar */}
+      <div className="relative mb-4">
         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
         <input
           ref={inputRef}
           type="text"
           value={search}
-          placeholder="Search by name, job title, or email address…"
+          placeholder={isCompany ? "Search by name, job title, or skill…" : "Search by name, job title, or email address…"}
           autoComplete="off"
           className="w-full h-11 pl-9 pr-9 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all shadow-sm"
           onChange={e => setSearch(e.target.value)}
@@ -504,20 +573,98 @@ function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel
         </div>
       </div>
 
+      {/* Company filter bar */}
+      {isCompany && (
+        <div className="flex flex-wrap items-center gap-2 mb-6 p-3 bg-white rounded-xl border border-gray-200">
+          {/* Open to work toggle */}
+          <button
+            onClick={() => setOpenToWork(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+              openToWork
+                ? "bg-green-50 text-green-700 border-green-200"
+                : "bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-300"
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${openToWork ? "bg-green-500" : "bg-gray-400"}`} />
+            Open to work
+          </button>
+
+          {/* Industry */}
+          <select
+            value={industry}
+            onChange={e => setIndustry(e.target.value)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors bg-white cursor-pointer ${
+              industry ? "border-primary/40 text-primary" : "border-gray-200 text-gray-500 hover:border-gray-300"
+            }`}
+          >
+            <option value="">All industries</option>
+            {INDUSTRIES.map(i => <option key={i} value={i}>{i}</option>)}
+          </select>
+
+          {/* Location */}
+          <input
+            type="text"
+            value={location}
+            placeholder="Location…"
+            onChange={e => setLocation(e.target.value)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors bg-white placeholder:text-gray-400 focus:outline-none ${
+              location ? "border-primary/40 text-primary" : "border-gray-200 text-gray-500 hover:border-gray-300"
+            }`}
+          />
+
+          {/* Skills */}
+          <input
+            type="text"
+            value={skills}
+            placeholder="Skills (e.g. React, Python)…"
+            onChange={e => setSkills(e.target.value)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors bg-white placeholder:text-gray-400 focus:outline-none min-w-[180px] ${
+              skills ? "border-primary/40 text-primary" : "border-gray-200 text-gray-500 hover:border-gray-300"
+            }`}
+          />
+
+          {/* Clear */}
+          {hasFilters && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold text-red-500 border border-red-200 hover:bg-red-50 transition-colors ml-auto"
+            >
+              <XIcon className="w-3 h-3" /> Clear
+            </button>
+          )}
+        </div>
+      )}
+
       {isLoading ? (
-        <LoadingState message={isSearching ? "Searching…" : "Finding recommendations…"} />
+        <LoadingState message={isFiltering ? "Searching candidates…" : "Finding candidates matched to your roles…"} />
       ) : (
         <>
-          {!isSearching && profiles.length > 0 && (
+          {/* Section header */}
+          {!isFiltering && profiles.length > 0 && (
             <div className="flex items-center gap-2 mb-4">
               <SparklesIcon className="w-4 h-4 text-primary" />
-              <p className="text-sm font-semibold text-gray-700">Recommended for you</p>
-              <span className="text-xs text-gray-400">· based on your industry &amp; interests</span>
+              {isCompany ? (
+                <>
+                  <p className="text-sm font-semibold text-gray-700">
+                    {talentRecData?.matchedByRole ? "Matched to your open roles" : "Open to work"}
+                  </p>
+                  {talentRecData?.matchedByRole && talentRecData.roleCategories.length > 0 && (
+                    <span className="text-xs text-gray-400">
+                      · {talentRecData.roleCategories.slice(0, 2).join(", ")}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-gray-700">Recommended for you</p>
+                  <span className="text-xs text-gray-400">· based on your industry &amp; interests</span>
+                </>
+              )}
             </div>
           )}
-          {isSearching && profiles.length > 0 && (
+          {isFiltering && profiles.length > 0 && (
             <p className="text-sm text-muted-foreground mb-4">
-              {profiles.length} result{profiles.length !== 1 ? "s" : ""} for <span className="font-medium text-gray-700">"{query}"</span>
+              {profiles.length} candidate{profiles.length !== 1 ? "s" : ""}{query ? ` for "${query}"` : ""}
             </p>
           )}
           <ProfileList

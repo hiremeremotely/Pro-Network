@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq, ilike, ne, or, sql } from "drizzle-orm";
+import { and, eq, ilike, ne, or, sql, inArray } from "drizzle-orm";
 import { db, profilesTable, educationTable, experienceTable, portfolioTable, skillsTable } from "@workspace/db";
 import {
   CreateProfileBody,
@@ -20,20 +20,57 @@ router.get("/profiles", async (req, res): Promise<void> => {
   }
   const { search, limit = 20, offset = 0, excludeId } = query.data;
 
-  const searchClause = search
-    ? or(
+  // Extra talent filters (read directly — not in generated Zod schema)
+  const accountTypeFilter  = req.query.accountType as string | undefined;
+  const openToWorkRaw      = req.query.openToWork as string | undefined;
+  const openToWorkFilter   = openToWorkRaw === "true" ? true : openToWorkRaw === "false" ? false : undefined;
+  const industryFilter     = req.query.industry as string | undefined;
+  const locationFilter     = req.query.location as string | undefined;
+  const skillsFilter       = req.query.skills as string | undefined; // comma-separated names
+
+  const clauses = [];
+
+  if (search) {
+    clauses.push(
+      or(
         ilike(profilesTable.name, `%${search}%`),
         ilike(profilesTable.headline, `%${search}%`),
         ilike(profilesTable.location, `%${search}%`),
         ilike(profilesTable.email, `%${search}%`),
-      )
-    : undefined;
+      )!
+    );
+  }
 
-  const excludeClause = excludeId ? ne(profilesTable.id, excludeId) : undefined;
+  if (excludeId) clauses.push(ne(profilesTable.id, excludeId));
+  if (accountTypeFilter) clauses.push(eq(profilesTable.accountType, accountTypeFilter));
+  if (openToWorkFilter !== undefined) clauses.push(eq(profilesTable.openToWork, openToWorkFilter));
+  if (industryFilter) clauses.push(eq(profilesTable.industry, industryFilter));
+  if (locationFilter) clauses.push(ilike(profilesTable.location, `%${locationFilter}%`));
 
-  const whereClause = searchClause && excludeClause
-    ? and(searchClause, excludeClause)
-    : searchClause ?? excludeClause;
+  let profileIds: number[] | null = null;
+  if (skillsFilter) {
+    const skillNames = skillsFilter.split(",").map(s => s.trim()).filter(Boolean);
+    if (skillNames.length > 0) {
+      const skillRows = await db
+        .select({ profileId: skillsTable.profileId })
+        .from(skillsTable)
+        .where(
+          or(...skillNames.map(n => ilike(skillsTable.name, `%${n}%`)))!
+        );
+      profileIds = [...new Set(skillRows.map(r => r.profileId))];
+      if (profileIds.length === 0) {
+        res.json({ profiles: [], total: 0 });
+        return;
+      }
+      clauses.push(inArray(profilesTable.id, profileIds));
+    }
+  }
+
+  const whereClause = clauses.length === 1
+    ? clauses[0]
+    : clauses.length > 1
+      ? and(...clauses)
+      : undefined;
 
   const [profiles, countResult] = await Promise.all([
     db.select().from(profilesTable).where(whereClause).limit(limit).offset(offset).orderBy(profilesTable.createdAt),
