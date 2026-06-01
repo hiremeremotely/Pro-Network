@@ -637,6 +637,17 @@ export default function ProfileDetail() {
 
   const [modal, setModal] = useState<"info" | "exp" | "edu" | "skill" | "interest" | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
+
+  const BASE = import.meta.env.BASE_URL;
+  const isCompanyViewer = user?.accountType === "company";
+  const interestStatusKey = ["interest-status", user?.id, id];
+  const { data: interestStatusData, refetch: refetchInterestStatus } = useQuery<{ status: "pending" | "approved" | "declined" | null }>({
+    queryKey: interestStatusKey,
+    queryFn: () => fetch(`${BASE}api/interest-requests/status?companyProfileId=${user!.id}&candidateProfileId=${id}`).then(r => r.json()),
+    enabled: isCompanyViewer && !!user?.id && !!id,
+    staleTime: 30_000,
+  });
+  const interestStatus = interestStatusData?.status ?? null;
   const [coverUploading, setCoverUploading] = useState(false);
   const [msgLoading, setMsgLoading] = useState(false);
   const [disconnectConfirmOpen, setDisconnectConfirmOpen] = useState(false);
@@ -792,12 +803,13 @@ export default function ProfileDetail() {
       {modal === "exp"   && <AddExperienceModal profileId={id} onClose={() => setModal(null)} />}
       {modal === "edu"   && <AddEducationModal  profileId={id} onClose={() => setModal(null)} />}
       {modal === "skill" && <AddSkillModal      profileId={id} onClose={() => setModal(null)} />}
-      {modal === "interest" && user && (
+      {modal === "interest" && user && interestStatus !== "pending" && (
         <ExpressInterestModal
           candidateId={id}
           candidateName={profile.name}
           companyProfileId={user.id}
           onClose={() => setModal(null)}
+          onSent={() => refetchInterestStatus()}
         />
       )}
       {showConnectModal && (
@@ -879,14 +891,34 @@ export default function ProfileDetail() {
                         <PencilIcon className="w-3.5 h-3.5" /> Edit profile
                       </Button>
                     ) : user?.accountType === "company" ? (
-                      <Button
-                        size="sm"
-                        variant="default"
-                        onClick={() => setModal("interest")}
-                        className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5"
-                      >
-                        <UserPlusIcon className="w-3.5 h-3.5" /> Express Interest
-                      </Button>
+                      interestStatus === "pending" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled
+                          className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5 border-amber-300 text-amber-600 opacity-100 cursor-not-allowed"
+                        >
+                          <ClockIcon className="w-3.5 h-3.5" /> Interest Sent
+                        </Button>
+                      ) : interestStatus === "approved" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled
+                          className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5 border-emerald-300 text-emerald-600 opacity-100 cursor-not-allowed"
+                        >
+                          <CheckIcon className="w-3.5 h-3.5" /> Contacted
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => setModal("interest")}
+                          className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5"
+                        >
+                          <UserPlusIcon className="w-3.5 h-3.5" /> Express Interest
+                        </Button>
+                      )
                     ) : (
                       <>
                         {isConnected(id) ? (

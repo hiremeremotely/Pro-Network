@@ -80,6 +80,29 @@ router.post("/interest-requests", async (req, res): Promise<void> => {
   res.status(201).json(created);
 });
 
+// ── GET /api/interest-requests/status?companyProfileId=&candidateProfileId= ───
+// Returns the current status for a specific company → candidate pair, or null.
+router.get("/interest-requests/status", async (req, res): Promise<void> => {
+  const companyId   = Number(req.query.companyProfileId);
+  const candidateId = Number(req.query.candidateProfileId);
+  if (!companyId || !candidateId) {
+    res.status(400).json({ error: "companyProfileId and candidateProfileId required" });
+    return;
+  }
+
+  const [row] = await db
+    .select({ id: interestRequestsTable.id, status: interestRequestsTable.status })
+    .from(interestRequestsTable)
+    .where(and(
+      eq(interestRequestsTable.companyProfileId, companyId),
+      eq(interestRequestsTable.candidateProfileId, candidateId),
+    ))
+    .orderBy(desc(interestRequestsTable.createdAt))
+    .limit(1);
+
+  res.json({ status: row?.status ?? null });
+});
+
 // ── GET /api/interest-requests/by-company?companyProfileId= ───────────────────
 router.get("/interest-requests/by-company", async (req, res): Promise<void> => {
   const companyId = Number(req.query.companyProfileId);

@@ -10,11 +10,13 @@ export function ExpressInterestModal({
   candidateName,
   companyProfileId,
   onClose,
+  onSent,
 }: {
   candidateId: number;
   candidateName: string;
   companyProfileId: number;
   onClose: () => void;
+  onSent?: () => void;
 }) {
   const BASE = import.meta.env.BASE_URL;
   const qc = useQueryClient();
@@ -42,6 +44,7 @@ export function ExpressInterestModal({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["interest-requests-by-company", companyProfileId] });
       setSent(true);
+      onSent?.();
     },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
