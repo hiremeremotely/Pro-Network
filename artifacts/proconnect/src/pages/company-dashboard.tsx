@@ -61,7 +61,7 @@ import {
   MenuIcon,
   XCircleIcon,
 } from "lucide-react";
-import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -1808,6 +1808,64 @@ export default function CompanyDashboard() {
     return months.slice(0, 6).map((m, i) => ({ month: m, salary: Math.round((base * (0.9 + i * 0.02)) / 1000) }));
   })();
 
+  const candidatesInPipeline = companyApps.filter(a => !["accepted", "rejected", "declined"].includes(a.status)).length;
+  const totalPendingActions = pendingOffers + pendingOnboarding + pendingTimeOff.length;
+  const onLeaveCount = employees.filter(e => e.status === "on-leave").length;
+
+  const teamTypeBreakdown = [
+    { name: "Full-time", value: activeCount, color: "#6366f1" },
+    { name: "Contractors", value: contractorCount, color: "#3b82f6" },
+    { name: "On Leave", value: onLeaveCount, color: "#f59e0b" },
+  ].filter(d => d.value > 0);
+
+  const uniqueCountries = new Set(
+    employees.map(e => e.profile?.location?.split(",").pop()?.trim()).filter(Boolean)
+  ).size;
+  const uniqueDepartments = new Set(
+    employees.map(e => e.role?.split(" ").slice(0, 2).join(" ")).filter(Boolean)
+  ).size;
+
+  const upcomingEvents = (() => {
+    const evts: Array<{ label: string; sub: string; date: string; dotColor: string; bg: string; border: string; text: string }> = [];
+    const today = new Date();
+    companyApps.filter(a => a.status === "interview").slice(0, 2).forEach(app => {
+      evts.push({ label: `Interview · ${app.profile?.name ?? "Candidate"}`, sub: app.job?.title ?? "Position", date: "Scheduled", dotColor: "bg-purple-400", bg: "bg-purple-50", border: "border-purple-100", text: "text-purple-700" });
+    });
+    employees
+      .filter(e => e.startDate && new Date(e.startDate) >= today)
+      .sort((a, b) => new Date(a.startDate!).getTime() - new Date(b.startDate!).getTime())
+      .slice(0, 2)
+      .forEach(emp => {
+        evts.push({ label: `Start Date · ${emp.profile?.name ?? emp.role}`, sub: emp.role, date: new Date(emp.startDate!).toLocaleDateString("en-US", { month: "short", day: "numeric" }), dotColor: "bg-green-400", bg: "bg-green-50", border: "border-green-100", text: "text-green-700" });
+      });
+    renewals.slice(0, 2).forEach(r => {
+      evts.push({ label: `Contract Renewal`, sub: r.employee?.role ?? "Employee", date: new Date(r.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }), dotColor: "bg-amber-400", bg: "bg-amber-50", border: "border-amber-100", text: "text-amber-700" });
+    });
+    pendingTimeOff.slice(0, 1).forEach(tor => {
+      evts.push({ label: `Time-Off Request`, sub: tor.employee?.role ?? "Employee", date: new Date(tor.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }), dotColor: "bg-orange-400", bg: "bg-orange-50", border: "border-orange-100", text: "text-orange-700" });
+    });
+    return evts.slice(0, 5);
+  })();
+
+  const workforceInsights = (() => {
+    const ins: Array<{ text: string; good: boolean }> = [];
+    const incomplete = Object.values(onboardingProgress).filter(p => p.total > 0 && p.completed < p.total).length;
+    if (incomplete > 0) ins.push({ text: `${incomplete} employee${incomplete > 1 ? "s" : ""} ha${incomplete > 1 ? "ve" : "s"} incomplete onboarding.`, good: false });
+    if (companyApps.length > 0) {
+      const rate = Math.round((companyApps.filter(a => a.status === "accepted").length / companyApps.length) * 100);
+      ins.push({ text: `Hiring conversion rate: ${rate}% (${companyApps.filter(a => a.status === "accepted").length} of ${companyApps.length} applicants hired).`, good: rate >= 20 });
+    }
+    if (companyApps.length > 0) {
+      const advanced = companyApps.filter(a => ["interview", "offer", "accepted"].includes(a.status)).length;
+      ins.push({ text: `${advanced} candidate${advanced !== 1 ? "s" : ""} advanced to interview stage or beyond.`, good: advanced > 0 });
+    }
+    if (renewals.length > 0) ins.push({ text: `${renewals.length} contract${renewals.length > 1 ? "s" : ""} expiring within 30 days.`, good: false });
+    if (newThisMonth > 0) ins.push({ text: `${newThisMonth} new hire${newThisMonth > 1 ? "s" : ""} onboarded this month.`, good: true });
+    if (pendingTimeOff.length > 0) ins.push({ text: `${pendingTimeOff.length} time-off request${pendingTimeOff.length > 1 ? "s" : ""} awaiting approval.`, good: false });
+    if (ins.length === 0) ins.push({ text: "Post jobs and build your team to see workforce insights here.", good: true });
+    return ins.slice(0, 5);
+  })();
+
   const sideNav: Array<{ tab?: DashTab; href?: string; label: string; icon: React.ElementType; badge?: number }> = [
     { tab: "overview",    label: "Dashboard",   icon: LayoutDashboardIcon },
     { tab: "hiring",      label: "Hiring",      icon: BriefcaseIcon,   badge: companyApps.filter(a => a.status === "pending").length || undefined },
@@ -1970,11 +2028,11 @@ export default function CompanyDashboard() {
         {/* ── Stat Cards ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: "Total Employees",      value: employees.length,           icon: UsersIcon,         color: "text-green-600",  bg: "bg-green-50",    tab: "team"       },
-            { label: "Open Roles",           value: myJobs.length,              icon: BriefcaseIcon,     color: "text-primary",    bg: "bg-primary/10",  tab: "hiring"     },
-            { label: "Pending Offers",        value: companyApps.filter(a => a.status === "offer").length, icon: ClipboardListIcon, color: "text-yellow-600", bg: "bg-yellow-50", tab: "hiring"  },
-            { label: "Onboarding in Progress", value: Object.values(onboardingProgress).filter(p => p.total > 0 && p.completed < p.total).length, icon: GraduationCapIcon, color: "text-indigo-600", bg: "bg-indigo-50", tab: "onboarding" },
-          ].map(({ label, value, icon: Icon, color, bg, tab }) => (
+            { label: "Total Employees",      value: employees.length,      icon: UsersIcon,         color: "text-green-600",  bg: "bg-green-50",    tab: "team",       trend: newThisMonth > 0 ? `+${newThisMonth} this month` : "on your team",      trendGood: true  },
+            { label: "Open Roles",           value: myJobs.length,         icon: BriefcaseIcon,     color: "text-primary",    bg: "bg-primary/10",  tab: "hiring",     trend: myJobs.length === 0 ? "no active listings" : `${myJobs.length} active`,  trendGood: myJobs.length > 0 },
+            { label: "In Pipeline",          value: candidatesInPipeline,  icon: ClipboardListIcon, color: "text-purple-600", bg: "bg-purple-50",   tab: "hiring",     trend: companyApps.filter(a=>a.status==="interview").length > 0 ? `${companyApps.filter(a=>a.status==="interview").length} in interview` : "total candidates", trendGood: candidatesInPipeline > 0 },
+            { label: "Pending Actions",      value: totalPendingActions,   icon: AlertCircleIcon,   color: "text-amber-600",  bg: "bg-amber-50",    tab: "overview",   trend: totalPendingActions === 0 ? "all clear" : `${pendingOffers} offers · ${pendingOnboarding} onboarding`, trendGood: totalPendingActions === 0 },
+          ].map(({ label, value, icon: Icon, color, bg, tab, trend, trendGood }) => (
             <button
               key={label}
               onClick={() => setActiveTab(tab as DashTab)}
@@ -1983,9 +2041,12 @@ export default function CompanyDashboard() {
               <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center flex-shrink-0`}>
                 <Icon className={`w-5 h-5 ${color}`} />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-2xl font-bold text-gray-900 leading-none">{value}</p>
                 <p className="text-xs text-gray-400 mt-0.5 font-medium">{label}</p>
+                {trend && (
+                  <p className={`text-[10px] mt-1 font-medium truncate ${trendGood ? "text-green-500" : "text-amber-500"}`}>{trend}</p>
+                )}
               </div>
             </button>
           ))}
@@ -2137,127 +2198,276 @@ export default function CompanyDashboard() {
           </div>
         </div>
 
-        {/* ── Team Overview + Pending Actions + Insights ── */}
+        {/* ── Onboarding Status + Team Snapshot + Upcoming Events ── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
-          {/* Team Overview */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="font-semibold text-sm text-gray-900 mb-4 flex items-center gap-1.5">
-              <UsersIcon className="w-4 h-4 text-primary" /> Team Overview
-            </h3>
-            <div className="space-y-3">
-              {[
-                { label: "Total Employees", value: employees.length, color: "bg-indigo-50 border-indigo-200", text: "text-indigo-700", dot: "bg-indigo-400" },
-                { label: "Contractors", value: contractorCount, color: "bg-blue-50 border-blue-200", text: "text-blue-700", dot: "bg-blue-400" },
-                { label: "New This Month", value: newThisMonth, color: "bg-green-50 border-green-200", text: "text-green-700", dot: "bg-green-500" },
-              ].map(row => (
-                <div key={row.label} className={`flex items-center justify-between px-3 py-2.5 rounded-lg border ${row.color}`}>
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${row.dot}`} />
-                    <span className="text-sm text-gray-700 font-medium">{row.label}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-lg font-bold ${row.text}`}>{row.value}</span>
-                    <ArrowRightIcon className="w-3.5 h-3.5 text-gray-300" />
-                  </div>
-                </div>
-              ))}
+          {/* Onboarding Status */}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+              <h3 className="font-semibold text-sm text-gray-900 flex items-center gap-1.5">
+                <GraduationCapIcon className="w-4 h-4 text-indigo-500" /> Onboarding Status
+              </h3>
+              <button onClick={() => setActiveTab("onboarding")} className="text-xs text-primary hover:underline font-medium">View all</button>
             </div>
+            {employees.filter(e => onboardingProgress[e.id]?.total > 0).length === 0 ? (
+              <div className="flex flex-col items-center py-8 text-gray-300 gap-2 px-4">
+                <GraduationCapIcon className="w-7 h-7" />
+                <p className="text-xs text-center text-gray-400">No onboarding in progress. Add team members to get started.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {employees.filter(e => onboardingProgress[e.id]?.total > 0).slice(0, 5).map(emp => {
+                  const p = onboardingProgress[emp.id];
+                  const pct = p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0;
+                  const initials = emp.profile?.name?.split(" ").map(n => n[0]).join("").toUpperCase().slice(0,2) ?? "?";
+                  return (
+                    <button key={emp.id} onClick={() => { setSelectedEmployee(emp); setSelectedEmployeeTab("onboarding"); setActiveTab("team"); }} className="w-full px-4 py-3 hover:bg-gray-50 transition-colors text-left">
+                      <div className="flex items-center gap-2.5 mb-1.5">
+                        <Avatar className="w-6 h-6 flex-shrink-0">
+                          <AvatarImage src={emp.profile?.avatarUrl ?? undefined} />
+                          <AvatarFallback className="text-[9px] font-bold bg-primary/10 text-primary">{initials}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold text-gray-900 truncate">{emp.profile?.name ?? emp.role}</p>
+                          <span className={`text-[10px] font-bold flex-shrink-0 ${pct === 100 ? "text-green-600" : pct >= 50 ? "text-indigo-600" : "text-amber-600"}`}>{pct}%</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className={`h-1.5 rounded-full transition-all ${pct === 100 ? "bg-green-500" : pct >= 50 ? "bg-indigo-500" : "bg-amber-400"}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-1">{p.completed}/{p.total} tasks · {pct === 100 ? "Complete" : "In progress"}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Pending Actions */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="font-semibold text-sm text-gray-900 mb-4 flex items-center gap-1.5">
-              <AlertCircleIcon className="w-4 h-4 text-amber-500" /> Pending Actions
-            </h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 border border-amber-200">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-bold text-amber-700">{pendingOffers}</span>
-                  </span>
-                  <p className="text-sm text-gray-700">Offer Letters Awaiting</p>
-                </div>
-                <Link href="/applications">
-                  <Button size="sm" className="h-7 px-3 text-xs rounded-full bg-primary hover:bg-primary/90">View</Button>
-                </Link>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-indigo-50 border border-indigo-200">
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-bold text-indigo-700">{pendingOnboarding}</span>
-                  </span>
-                  <p className="text-sm text-gray-700">Onboarding Pending</p>
-                </div>
-                <Button size="sm" onClick={() => setSelectedEmployee(employees.find(e => {
-                  const p = onboardingProgress[e.id];
-                  return p && p.total > 0 && p.completed < p.total;
-                }) ?? null)} className="h-7 px-3 text-xs rounded-full bg-primary hover:bg-primary/90">View</Button>
-              </div>
-              {pendingTimeOff.length > 0 && (
-                <div className="flex items-center justify-between p-3 rounded-lg bg-orange-50 border border-orange-200">
-                  <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs font-bold text-orange-700">{pendingTimeOff.length}</span>
-                    </span>
-                    <p className="text-sm text-gray-700">Time-Off Requests</p>
-                  </div>
-                  <CalendarIcon className="w-4 h-4 text-orange-400" />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Insights & Analytics */}
+          {/* Team Snapshot — donut chart */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-sm text-gray-900 flex items-center gap-1.5">
-                <BarChart2Icon className="w-4 h-4 text-primary" /> Insights
+                <UsersIcon className="w-4 h-4 text-primary" /> Team Snapshot
               </h3>
-              <Link href="/analytics">
-                <span className="text-xs text-primary hover:underline font-medium cursor-pointer">Full report</span>
-              </Link>
+              <button onClick={() => setActiveTab("team")} className="text-xs text-primary hover:underline font-medium">View team</button>
             </div>
-            <p className="text-[10px] text-gray-400 mb-2 font-medium uppercase tracking-wide">Salary Trends (avg $k)</p>
-            <div className="h-24 mb-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={salaryChartData} margin={{ top: 2, right: 2, left: -30, bottom: 0 }}>
-                  <XAxis dataKey="month" tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e5e7eb", padding: "4px 8px" }} formatter={(v: number) => [`$${v}k`, "Avg Salary"]} />
-                  <Line type="monotone" dataKey="salary" stroke="#6366f1" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+            {employees.length === 0 ? (
+              <div className="flex flex-col items-center py-6 text-gray-300 gap-2">
+                <UsersIcon className="w-8 h-8" />
+                <p className="text-xs text-gray-400 text-center">No team members yet.</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-[88px] h-[88px] flex-shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={teamTypeBreakdown.length > 0 ? teamTypeBreakdown : [{ name: "None", value: 1, color: "#e5e7eb" }]} cx="50%" cy="50%" innerRadius={28} outerRadius={42} dataKey="value" strokeWidth={2} stroke="#fff">
+                          {(teamTypeBreakdown.length > 0 ? teamTypeBreakdown : [{ name: "None", value: 1, color: "#e5e7eb" }]).map((entry, i) => (
+                            <Cell key={i} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e5e7eb", padding: "4px 8px" }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-1.5 flex-1">
+                    {teamTypeBreakdown.map(d => (
+                      <div key={d.name} className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
+                        <span className="text-xs text-gray-600 flex-1">{d.name}</span>
+                        <span className="text-xs font-bold text-gray-900">{d.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: "Headcount", value: employees.length, icon: UsersIcon, color: "text-indigo-600" },
+                    { label: "Contractors", value: contractorCount, icon: BriefcaseIcon, color: "text-blue-600" },
+                    { label: "Countries", value: uniqueCountries || 1, icon: MapPinIcon, color: "text-green-600" },
+                    { label: "Departments", value: uniqueDepartments || 1, icon: BuildingIcon, color: "text-purple-600" },
+                  ].map(({ label, value, icon: Icon, color }) => (
+                    <div key={label} className="bg-gray-50 rounded-lg p-2.5 flex items-center gap-2">
+                      <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${color}`} />
+                      <div>
+                        <p className="text-sm font-bold text-gray-900 leading-none">{value}</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">{label}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Upcoming Events */}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+              <h3 className="font-semibold text-sm text-gray-900 flex items-center gap-1.5">
+                <CalendarIcon className="w-4 h-4 text-green-500" /> Upcoming Events
+              </h3>
+              <button onClick={() => setActiveTab("hiring")} className="text-xs text-primary hover:underline font-medium">View all</button>
             </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] text-gray-400 mb-0.5 font-medium uppercase tracking-wide">Retention</p>
-                <div className="flex items-center gap-2">
-                  {(() => {
-                    const rate = employees.length > 0 ? Math.round((activeCount / employees.length) * 100) : 82;
-                    const circumference = 2 * Math.PI * 20;
-                    const strokeDash = (rate / 100) * circumference;
-                    return (
-                      <>
-                        <svg width="44" height="44" className="-rotate-90">
-                          <circle cx="22" cy="22" r="20" fill="none" stroke="#e5e7eb" strokeWidth="4" />
-                          <circle cx="22" cy="22" r="20" fill="none" stroke="#22c55e" strokeWidth="4" strokeDasharray={`${strokeDash} ${circumference}`} strokeLinecap="round" />
-                        </svg>
-                        <div>
-                          <p className="text-xl font-bold text-gray-900">{rate}%</p>
-                          <p className="text-[10px] text-gray-400">active rate</p>
-                        </div>
-                      </>
-                    );
-                  })()}
+            {upcomingEvents.length === 0 ? (
+              <div className="flex flex-col items-center py-8 gap-2 px-4">
+                <CalendarIcon className="w-7 h-7 text-gray-200" />
+                <p className="text-xs text-gray-400 text-center">No upcoming events. Move candidates to interview stage or add team members with start dates.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {upcomingEvents.map((evt, i) => (
+                  <div key={i} className={`flex items-start gap-3 px-4 py-3 ${evt.bg}`}>
+                    <span className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${evt.dotColor}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-900 truncate">{evt.label}</p>
+                      <p className="text-[10px] text-gray-500 truncate">{evt.sub}</p>
+                    </div>
+                    <span className={`text-[10px] font-bold flex-shrink-0 px-1.5 py-0.5 rounded-md border ${evt.border} ${evt.text}`}>{evt.date}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Pending Approvals + Workforce Insights ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+          {/* Pending Approvals */}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+              <h3 className="font-semibold text-sm text-gray-900 flex items-center gap-1.5">
+                <AlertCircleIcon className="w-4 h-4 text-amber-500" /> Pending Approvals
+              </h3>
+              {totalPendingActions > 0 && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{totalPendingActions} pending</span>
+              )}
+            </div>
+            <div className="divide-y divide-gray-50">
+              {/* Offer letters */}
+              <div className="flex items-center gap-3 px-4 py-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center flex-shrink-0">
+                  <FileTextIcon className="w-4 h-4 text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-gray-900">Offer Letters</p>
+                  <p className="text-[10px] text-gray-500">{pendingOffers} awaiting signature</p>
+                </div>
+                <Link href="/applications">
+                  <Button size="sm" variant={pendingOffers > 0 ? "default" : "outline"} className={`h-7 px-3 text-xs rounded-full ${pendingOffers > 0 ? "bg-primary hover:bg-primary/90" : "text-gray-400"}`} disabled={pendingOffers === 0}>
+                    {pendingOffers > 0 ? "Review" : "None"}
+                  </Button>
+                </Link>
+              </div>
+              {/* Onboarding pending */}
+              <div className="flex items-center gap-3 px-4 py-3">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center flex-shrink-0">
+                  <GraduationCapIcon className="w-4 h-4 text-indigo-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-gray-900">Onboarding Tasks</p>
+                  <p className="text-[10px] text-gray-500">{pendingOnboarding} employee{pendingOnboarding !== 1 ? "s" : ""} in progress</p>
+                </div>
+                <Button size="sm" variant={pendingOnboarding > 0 ? "default" : "outline"} disabled={pendingOnboarding === 0}
+                  onClick={() => {
+                    const emp = employees.find(e => { const p = onboardingProgress[e.id]; return p && p.total > 0 && p.completed < p.total; });
+                    if (emp) { setSelectedEmployee(emp); setSelectedEmployeeTab("onboarding"); setActiveTab("team"); }
+                  }}
+                  className={`h-7 px-3 text-xs rounded-full ${pendingOnboarding > 0 ? "bg-primary hover:bg-primary/90" : "text-gray-400"}`}>
+                  {pendingOnboarding > 0 ? "Review" : "None"}
+                </Button>
+              </div>
+              {/* Time-off requests */}
+              <div className="flex items-center gap-3 px-4 py-3">
+                <div className="w-8 h-8 rounded-lg bg-orange-50 border border-orange-200 flex items-center justify-center flex-shrink-0">
+                  <CalendarIcon className="w-4 h-4 text-orange-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-gray-900">Time-Off Requests</p>
+                  <p className="text-[10px] text-gray-500">{pendingTimeOff.length} awaiting approval</p>
+                </div>
+                <Button size="sm" variant={pendingTimeOff.length > 0 ? "default" : "outline"} disabled={pendingTimeOff.length === 0}
+                  onClick={() => setActiveTab("team")}
+                  className={`h-7 px-3 text-xs rounded-full ${pendingTimeOff.length > 0 ? "bg-primary hover:bg-primary/90" : "text-gray-400"}`}>
+                  {pendingTimeOff.length > 0 ? "Review" : "None"}
+                </Button>
+              </div>
+              {/* Contract renewals */}
+              <div className="flex items-center gap-3 px-4 py-3">
+                <div className="w-8 h-8 rounded-lg bg-purple-50 border border-purple-200 flex items-center justify-center flex-shrink-0">
+                  <FileIcon className="w-4 h-4 text-purple-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-gray-900">Contract Renewals</p>
+                  <p className="text-[10px] text-gray-500">{renewals.length} expiring soon</p>
+                </div>
+                <Button size="sm" variant={renewals.length > 0 ? "default" : "outline"} disabled={renewals.length === 0}
+                  onClick={() => setActiveTab("team")}
+                  className={`h-7 px-3 text-xs rounded-full ${renewals.length > 0 ? "bg-primary hover:bg-primary/90" : "text-gray-400"}`}>
+                  {renewals.length > 0 ? "Review" : "None"}
+                </Button>
+              </div>
+              {/* New applicants */}
+              <div className="flex items-center gap-3 px-4 py-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center flex-shrink-0">
+                  <UserPlus2Icon className="w-4 h-4 text-blue-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-gray-900">New Applications</p>
+                  <p className="text-[10px] text-gray-500">{companyApps.filter(a => a.status === "pending").length} unreviewed</p>
+                </div>
+                <Link href="/applications">
+                  <Button size="sm" variant={companyApps.filter(a => a.status === "pending").length > 0 ? "default" : "outline"}
+                    disabled={companyApps.filter(a => a.status === "pending").length === 0}
+                    className={`h-7 px-3 text-xs rounded-full ${companyApps.filter(a => a.status === "pending").length > 0 ? "bg-primary hover:bg-primary/90" : "text-gray-400"}`}>
+                    {companyApps.filter(a => a.status === "pending").length > 0 ? "Review" : "None"}
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Workforce Insights */}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+              <h3 className="font-semibold text-sm text-gray-900 flex items-center gap-1.5">
+                <BarChart2Icon className="w-4 h-4 text-primary" /> Workforce Insights
+              </h3>
+              <button onClick={() => setActiveTab("insights")} className="text-xs text-primary hover:underline font-medium">Full report</button>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {workforceInsights.map((ins, i) => (
+                <div key={i} className="flex items-start gap-3 px-4 py-3">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${ins.good ? "bg-green-100" : "bg-amber-100"}`}>
+                    {ins.good
+                      ? <CheckIcon className="w-3 h-3 text-green-600" />
+                      : <AlertCircleIcon className="w-3 h-3 text-amber-600" />
+                    }
+                  </div>
+                  <p className="text-xs text-gray-700 leading-relaxed">{ins.text}</p>
+                </div>
+              ))}
+            </div>
+            {/* Mini salary chart */}
+            {avgSalary && (
+              <div className="px-5 pt-3 pb-4 border-t border-gray-50">
+                <p className="text-[10px] text-gray-400 mb-2 font-medium uppercase tracking-wide">Avg Salary Trend ($k)</p>
+                <div className="h-16">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={salaryChartData} margin={{ top: 2, right: 2, left: -30, bottom: 0 }}>
+                      <XAxis dataKey="month" tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e5e7eb", padding: "4px 8px" }} formatter={(v: number) => [`$${v}k`, "Avg"]} />
+                      <Line type="monotone" dataKey="salary" stroke="#6366f1" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-xs text-gray-500">{employees.length} total</p>
-                <p className="text-xs text-green-600 font-semibold">{activeCount} active</p>
-                {contractorCount > 0 && <p className="text-xs text-blue-600 font-semibold">{contractorCount} contract</p>}
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
