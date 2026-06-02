@@ -114,6 +114,7 @@ function Router() {
       <Route path="/verify-email" component={VerifyEmail} />
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
+      <Route path="/offer/:token" component={OfferPage} />
 
       {/* Backoffice login (public) */}
       <Route path="/bo" component={BoLogin} />
