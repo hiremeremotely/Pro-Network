@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, inArray } from "drizzle-orm";
-import { db, employeesTable, profilesTable, jobsTable, applicationsTable, conversationsTable, conversationMembersTable, onboardingTasksTable } from "@workspace/db";
+import { db, employeesTable, profilesTable, jobsTable, applicationsTable, conversationsTable, conversationMembersTable, onboardingTasksTable, notificationsTable, messagesTable } from "@workspace/db";
 import { and } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -83,6 +83,48 @@ router.post("/employees", async (req, res): Promise<void> => {
     await db.insert(conversationMembersTable).values({ conversationId: channel.id, profileId: iId }).onConflictDoNothing();
   } catch {
     // Non-fatal: employee is created, team channel enrollment failure should not block
+  }
+
+  // Send hire-success congratulations message + notification to the new employee
+  try {
+    const [companyProfile] = await db.select().from(profilesTable).where(eq(profilesTable.id, cId));
+    const jobRecord = emp.jobId
+      ? (await db.select().from(jobsTable).where(eq(jobsTable.id, emp.jobId)))[0] ?? null
+      : null;
+    const congratsText = `Congratulations! ${companyProfile?.name ?? "The company"} is delighted to welcome you to the team as ${emp.role}${jobRecord ? ` for the ${jobRecord.title} position` : ""}. Your onboarding details will follow shortly.`;
+
+    // Find or create direct conversation between company and new employee
+    const p1 = Math.min(cId, iId);
+    const p2 = Math.max(cId, iId);
+    let [conv] = await db
+      .select()
+      .from(conversationsTable)
+      .where(and(eq(conversationsTable.participant1Id, p1), eq(conversationsTable.participant2Id, p2), eq(conversationsTable.type, "direct")))
+      .limit(1);
+    if (!conv) {
+      const [created] = await db
+        .insert(conversationsTable)
+        .values({ participant1Id: p1, participant2Id: p2, type: "direct", lastMessageAt: new Date(), lastMessagePreview: congratsText.slice(0, 100) })
+        .returning();
+      conv = created;
+      await db.insert(conversationMembersTable).values([
+        { conversationId: conv.id, profileId: cId },
+        { conversationId: conv.id, profileId: iId },
+      ]).onConflictDoNothing();
+    }
+    await db.insert(messagesTable).values({ conversationId: conv.id, senderProfileId: cId, content: congratsText });
+    await db.update(conversationsTable).set({ lastMessageAt: new Date(), lastMessagePreview: congratsText.slice(0, 100) }).where(eq(conversationsTable.id, conv.id));
+
+    // In-app notification to new employee
+    await db.insert(notificationsTable).values({
+      recipientProfileId: iId,
+      actorProfileId: cId,
+      type: "hired",
+      conversationId: conv.id,
+      message: congratsText,
+    });
+  } catch {
+    // Non-fatal: welcome message failure does not block hire
   }
 
   const enriched = await enrichEmployee(emp);

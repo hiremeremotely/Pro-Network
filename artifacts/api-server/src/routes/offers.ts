@@ -56,6 +56,7 @@ router.post("/offer-letters", async (req, res): Promise<void> => {
         templateName: templateName ? String(templateName) : "full-time",
         status: "sent",
         sentAt: new Date(),
+        ...(clientToken ? { token: String(clientToken) } : {}),
       })
       .where(eq(offerLettersTable.id, existing[0].id))
       .returning();
@@ -204,7 +205,7 @@ router.patch("/offer-letters/:token/respond", async (req, res): Promise<void> =>
     await db.insert(notificationsTable).values({
       recipientProfileId: offerLetter.companyProfileId,
       actorProfileId: offerLetter.candidateProfileId,
-      type: response === "accepted" ? "offer_accept" : "offer_declin",
+      type: response === "accepted" ? "offer_accepted" : "offer_declined",
       message: response === "accepted"
         ? `${candidate?.name ?? "The candidate"} accepted your offer for ${job?.title ?? "the role"}`
         : `${candidate?.name ?? "The candidate"} declined your offer for ${job?.title ?? "the role"}`,
