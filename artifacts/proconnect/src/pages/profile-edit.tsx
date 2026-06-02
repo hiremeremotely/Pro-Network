@@ -19,7 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { PlusIcon, TrashIcon, SaveIcon, UserIcon, GraduationCapIcon, BriefcaseIcon, FolderIcon, ZapIcon } from "lucide-react";
+import { PlusIcon, TrashIcon, SaveIcon, UserIcon, GraduationCapIcon, BriefcaseIcon, FolderIcon, ZapIcon, BuildingIcon, ArrowRightIcon, XIcon } from "lucide-react";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useLocation } from "wouter";
 
@@ -186,8 +186,32 @@ export default function ProfileEdit() {
     });
   }
 
+  const isOnboarding = user?.accountType === "company" &&
+    new URLSearchParams(window.location.search).get("onboarding") === "true";
+
   return (
     <div className="container mx-auto px-4 py-10 pb-24 max-w-4xl">
+
+      {isOnboarding && (
+        <div className="mb-8 rounded-2xl bg-indigo-600 text-white px-6 py-5 flex items-start gap-4">
+          <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <BuildingIcon className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-lg leading-tight">Welcome, {user?.name}!</p>
+            <p className="text-indigo-100 text-sm mt-1 leading-relaxed">
+              Before you start hiring, candidates want to know who you are. Add a company logo, a short description, and your website — it takes 2 minutes and makes a big difference.
+            </p>
+            <button
+              onClick={() => navigate("/company-dashboard")}
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-white/80 hover:text-white transition-colors"
+            >
+              Skip for now, go to dashboard <ArrowRightIcon className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-1">Edit Profile</h1>
         <p className="text-muted-foreground">Manage your professional presence on Hire Me Remotely.</p>

@@ -23,7 +23,18 @@ export default function CompanyLogin() {
   const [resendCopied, setResendCopied] = useState(false);
 
   useEffect(() => {
-    if (user) navigate(user.accountType === "company" ? "/company-dashboard" : "/feed");
+    if (!user) return;
+    if (user.accountType === "company") {
+      const isOnboarding = sessionStorage.getItem("hmr_company_onboarding") === "1";
+      if (isOnboarding) {
+        sessionStorage.removeItem("hmr_company_onboarding");
+        navigate("/profile/edit?onboarding=true");
+      } else {
+        navigate("/company-dashboard");
+      }
+    } else {
+      navigate("/feed");
+    }
   }, [user, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -36,7 +47,13 @@ export default function CompanyLogin() {
     const result = await login(email, password, "company");
     setLoading(false);
     if (result.ok) {
-      navigate("/company-dashboard");
+      const isOnboarding = sessionStorage.getItem("hmr_company_onboarding") === "1";
+      if (isOnboarding) {
+        sessionStorage.removeItem("hmr_company_onboarding");
+        navigate("/profile/edit?onboarding=true");
+      } else {
+        navigate("/company-dashboard");
+      }
     } else {
       if (result.unverified) setUnverified(true);
       setError(result.error ?? "Login failed.");

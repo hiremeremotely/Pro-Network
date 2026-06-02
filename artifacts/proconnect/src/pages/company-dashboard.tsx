@@ -2058,6 +2058,7 @@ export default function CompanyDashboard() {
   const [showPostJob, setShowPostJob] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarTheme, setSidebarTheme] = useState<"dark" | "light">(() => (localStorage.getItem("hmr_sidebar_theme_v1") as "dark" | "light") ?? "dark");
+  const [profileNudgeDismissed, setProfileNudgeDismissed] = useState(false);
   const [activeTab, setActiveTab] = useState<DashTab>("overview");
   const [offerCandidate, setOfferCandidate] = useState<EnrichedApplication | null>(null);
   const [teamFilter, setTeamFilter] = useState<"all" | EmployeeStatus>("all");
@@ -2478,6 +2479,35 @@ export default function CompanyDashboard() {
         </header>
 
       <div className="px-4 sm:px-6 py-6 space-y-5">
+
+        {/* ── Incomplete profile nudge ── */}
+        {!profileNudgeDismissed && !user?.avatarUrl && (
+          <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5">
+            <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <AlertCircleIcon className="w-4 h-4 text-amber-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-900">Your company profile is incomplete</p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Add a <strong>company logo</strong> and <strong>about text</strong> so candidates know who you are before applying.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Link href="/profile/edit">
+                <button className="text-xs font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded-lg transition-colors">
+                  Complete profile →
+                </button>
+              </Link>
+              <button
+                onClick={() => setProfileNudgeDismissed(true)}
+                className="p-1 rounded hover:bg-amber-100 text-amber-500 transition-colors"
+                aria-label="Dismiss"
+              >
+                <XIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── Stat Cards ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

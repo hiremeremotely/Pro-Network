@@ -325,6 +325,9 @@ export default function Signup() {
       const token = result.verificationToken ?? "";
       sessionStorage.setItem("verify_email_address", email);
       sessionStorage.setItem("verify_token", token);
+      if (accountType === "company") {
+        sessionStorage.setItem("hmr_company_onboarding", "1");
+      }
       navigate("/verify-email");
     } else {
       setError(result.error ?? "Registration failed.");

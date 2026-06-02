@@ -27,7 +27,18 @@ export default function Login() {
   const [verifiedBanner] = useState(() => new URLSearchParams(window.location.search).get("verified") === "1");
 
   useEffect(() => {
-    if (user) navigate(user.accountType === "company" ? "/company-dashboard" : "/feed");
+    if (!user) return;
+    if (user.accountType === "company") {
+      const isOnboarding = sessionStorage.getItem("hmr_company_onboarding") === "1";
+      if (isOnboarding) {
+        sessionStorage.removeItem("hmr_company_onboarding");
+        navigate("/profile/edit?onboarding=true");
+      } else {
+        navigate("/company-dashboard");
+      }
+    } else {
+      navigate("/feed");
+    }
   }, [user, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
