@@ -511,8 +511,8 @@ export function Layout({ children }: LayoutProps) {
     queryKey: ["msg-unread", user?.id],
     queryFn: () => fetch(`${BASE}api/conversations/unread-count?profileId=${user?.id}`).then(r => r.json()),
     enabled: !!user?.id,
-    refetchInterval: 10_000,
-    staleTime: 5_000,
+    refetchInterval: 30_000,
+    staleTime: 20_000,
   });
   const msgUnread = msgUnreadData?.count ?? 0;
 

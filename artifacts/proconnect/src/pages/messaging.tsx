@@ -360,7 +360,8 @@ export default function Messaging() {
     queryKey: ["conversations", user?.id],
     queryFn: () => fetch(`${BASE}api/conversations?profileId=${user?.id}`).then(r => r.json()),
     enabled: !!user?.id,
-    refetchInterval: 5000,
+    refetchInterval: 20000,
+    staleTime: 15000,
   });
 
   const activeConv = conversations.find(c => c.id === activeConvId) ?? null;

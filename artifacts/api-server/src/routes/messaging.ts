@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { conversationsTable, conversationMembersTable, messagesTable, profilesTable, connectionsTable, employeesTable, notificationsTable } from "@workspace/db";
-import { desc, eq, sql, and, or, count, inArray, isNotNull } from "drizzle-orm";
+import { desc, eq, ne, sql, and, or, count, inArray, isNotNull } from "drizzle-orm";
 
 const router = Router();
 
@@ -254,9 +254,11 @@ router.get("/conversations/unread-count", async (req, res): Promise<void> => {
     .select({ id: messagesTable.id })
     .from(messagesTable)
     .where(
-      sql`${messagesTable.conversationId} = ANY(${sql.raw(`ARRAY[${allConvIds.join(",")}]::int[]`)})
-        AND ${messagesTable.senderProfileId} != ${profileId}
-        AND ${messagesTable.isRead} = false`
+      and(
+        inArray(messagesTable.conversationId, allConvIds),
+        ne(messagesTable.senderProfileId, profileId),
+        eq(messagesTable.isRead, false),
+      )
     );
 
   res.json({ count: unreadRows.length });
@@ -579,13 +581,18 @@ router.patch("/conversations/:id/read", async (req, res): Promise<void> => {
   const profileId = Number(req.body.profileId ?? req.query.profileId);
   if (isNaN(convId) || !profileId) { res.status(400).json({ error: "Invalid params" }); return; }
 
+  const allowed = await canAccessConversation(convId, profileId);
+  if (!allowed) { res.status(403).json({ error: "Access denied" }); return; }
+
   await db
     .update(messagesTable)
     .set({ isRead: true })
     .where(
-      sql`${messagesTable.conversationId} = ${convId}
-        AND ${messagesTable.senderProfileId} != ${profileId}
-        AND ${messagesTable.isRead} = false`
+      and(
+        eq(messagesTable.conversationId, convId),
+        ne(messagesTable.senderProfileId, profileId),
+        eq(messagesTable.isRead, false),
+      )
     );
 
   res.json({ success: true });

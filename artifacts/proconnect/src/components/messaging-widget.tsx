@@ -328,15 +328,16 @@ export function MessagingWidget() {
     queryKey: ["conversations", user?.id],
     queryFn: () => fetch(`${BASE}api/conversations?profileId=${user?.id}`).then(r => r.json()),
     enabled: !!user?.id,
-    refetchInterval: 10000,
+    refetchInterval: 20000,
+    staleTime: 15000,
   });
 
   const { data: unreadData } = useQuery<{ count: number }>({
     queryKey: ["msg-unread", user?.id],
     queryFn: () => fetch(`${BASE}api/conversations/unread-count?profileId=${user?.id}`).then(r => r.json()),
     enabled: !!user?.id,
-    refetchInterval: 15000,
-    staleTime: 10000,
+    refetchInterval: 30000,
+    staleTime: 20000,
   });
 
   const unread = unreadData?.count ?? 0;
