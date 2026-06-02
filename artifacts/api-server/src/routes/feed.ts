@@ -84,14 +84,42 @@ router.get("/feed/link-preview", async (req, res): Promise<void> => {
     const contentType = response.headers.get("content-type") ?? "";
     if (!contentType.includes("text/html")) { res.json({}); return; }
 
-    // Reject responses that advertise more than 2 MB
+    // Reject responses that advertise more than 2 MB via Content-Length (fast path)
     const MAX_BYTES = 2 * 1024 * 1024;
     const clHeader = response.headers.get("content-length");
-    if (clHeader && parseInt(clHeader, 10) > MAX_BYTES) { res.json({}); return; }
+    if (clHeader && parseInt(clHeader, 10) > MAX_BYTES) {
+      res.status(400).json({ error: "response too large" }); return;
+    }
 
-    const rawText = await response.text();
-    if (rawText.length > MAX_BYTES) { res.json({}); return; }
-    const html = rawText;
+    // Stream body with hard cap — abort as soon as we exceed 2 MB
+    if (!response.body) { res.json({}); return; }
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+    let tooLarge = false;
+    const reader = response.body.getReader();
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          totalBytes += value.length;
+          if (totalBytes > MAX_BYTES) { tooLarge = true; break; }
+          chunks.push(value);
+        }
+      }
+    } finally {
+      reader.cancel().catch(() => {});
+    }
+    if (tooLarge) { res.status(400).json({ error: "response too large" }); return; }
+
+    const html = new TextDecoder().decode(
+      chunks.reduce<Uint8Array>((acc, chunk) => {
+        const merged = new Uint8Array(acc.length + chunk.length);
+        merged.set(acc, 0);
+        merged.set(chunk, acc.length);
+        return merged;
+      }, new Uint8Array(0))
+    );
 
     const getMeta = (props: string[]): string | null => {
       for (const p of props) {
