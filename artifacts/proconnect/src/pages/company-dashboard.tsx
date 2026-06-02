@@ -60,6 +60,9 @@ import {
   LogOutIcon,
   MenuIcon,
   XCircleIcon,
+  BellIcon,
+  SunIcon,
+  MoonIcon,
 } from "lucide-react";
 import { LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
@@ -2054,6 +2057,7 @@ export default function CompanyDashboard() {
   const qc = useQueryClient();
   const [showPostJob, setShowPostJob] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarTheme, setSidebarTheme] = useState<"dark" | "light">(() => (localStorage.getItem("hmr_sidebar_theme_v1") as "dark" | "light") ?? "dark");
   const [activeTab, setActiveTab] = useState<DashTab>("overview");
   const [offerCandidate, setOfferCandidate] = useState<EnrichedApplication | null>(null);
   const [teamFilter, setTeamFilter] = useState<"all" | EmployeeStatus>("all");
@@ -2112,6 +2116,8 @@ export default function CompanyDashboard() {
   }, [user?.id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => { localStorage.setItem("hmr_sidebar_theme_v1", sidebarTheme); }, [sidebarTheme]);
 
   const handleProgressUpdate = useCallback((empId: number, completed: number, total: number) => {
     setOnboardingProgress(prev => ({ ...prev, [empId]: { total, completed } }));
@@ -2305,20 +2311,22 @@ export default function CompanyDashboard() {
     { href: "/profile/edit", label: "Settings",    icon: Settings2Icon   },
   ];
 
+  const dk = sidebarTheme === "dark";
+
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Company identity */}
-      <div className="px-4 py-5 border-b border-gray-100">
+      <div className={`px-4 py-5 border-b ${dk ? "border-white/[0.08]" : "border-gray-100"}`}>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden flex-shrink-0">
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 ${dk ? "bg-white/10 border border-white/15" : "bg-primary/10 border border-primary/20"}`}>
             {user?.avatarUrl
               ? <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
-              : <span className="text-sm font-bold text-primary">{companyInitials}</span>
+              : <span className={`text-sm font-bold ${dk ? "text-white" : "text-primary"}`}>{companyInitials}</span>
             }
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-gray-900 truncate leading-tight">{user?.name ?? "Your Company"}</p>
-            <p className="text-[10px] text-gray-400 truncate">Company Hub</p>
+            <p className={`text-sm font-bold truncate leading-tight ${dk ? "text-white" : "text-gray-900"}`}>{user?.name ?? "Your Company"}</p>
+            <p className={`text-[10px] truncate ${dk ? "text-white/40" : "text-gray-400"}`}>Company Hub</p>
           </div>
         </div>
       </div>
@@ -2337,14 +2345,16 @@ export default function CompanyDashboard() {
               onClick={handleClick}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 active
-                  ? "bg-primary text-white"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  ? dk ? "bg-white/10 text-white" : "bg-primary text-white"
+                  : dk ? "text-white/50 hover:bg-white/5 hover:text-white/80" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
               }`}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
               <span className="flex-1 text-left">{label}</span>
               {badge !== undefined && badge > 0 && (
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${active ? "bg-white/20 text-white" : "bg-primary/10 text-primary"}`}>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${
+                  active ? "bg-white/20 text-white" : dk ? "bg-white/10 text-white/70" : "bg-primary/10 text-primary"
+                }`}>
                   {badge}
                 </span>
               )}
@@ -2355,16 +2365,33 @@ export default function CompanyDashboard() {
       </nav>
 
       {/* Bottom section */}
-      <div className="px-2 py-3 border-t border-gray-100 space-y-0.5">
+      <div className={`px-2 py-3 border-t space-y-0.5 ${dk ? "border-white/[0.08]" : "border-gray-100"}`}>
+        {/* Theme toggle */}
+        <button
+          onClick={() => setSidebarTheme(t => t === "dark" ? "light" : "dark")}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            dk ? "text-white/50 hover:bg-white/5 hover:text-white/80" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+          }`}
+        >
+          {dk
+            ? <SunIcon className="w-4 h-4 flex-shrink-0" />
+            : <MoonIcon className="w-4 h-4 flex-shrink-0" />
+          }
+          {dk ? "Light mode" : "Dark mode"}
+        </button>
         <a href="mailto:support@hiremeremotely.com">
-          <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors">
+          <button className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            dk ? "text-white/50 hover:bg-white/5 hover:text-white/80" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+          }`}>
             <HelpCircleIcon className="w-4 h-4 flex-shrink-0" />
             Help
           </button>
         </a>
         <button
           onClick={() => { logout(); navigate("/login"); setSidebarOpen(false); }}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            dk ? "text-red-400 hover:bg-red-500/10 hover:text-red-300" : "text-red-500 hover:bg-red-50 hover:text-red-600"
+          }`}
         >
           <LogOutIcon className="w-4 h-4 flex-shrink-0" />
           Logout
@@ -2374,7 +2401,7 @@ export default function CompanyDashboard() {
   );
 
   return (
-    <div className="flex min-h-screen bg-[#f3f2ef]">
+    <div className="flex min-h-screen bg-[#f4f5f7]">
       <DisconnectConfirmDialog
         open={!!dashDisconnectTarget}
         profileName={dashDisconnectTarget?.name}
@@ -2383,7 +2410,7 @@ export default function CompanyDashboard() {
       />
 
       {/* ── Desktop sidebar ── */}
-      <aside className="hidden lg:flex flex-col w-56 bg-white border-r border-gray-200 flex-shrink-0 sticky top-0 h-screen overflow-hidden">
+      <aside className={`hidden lg:flex flex-col w-56 flex-shrink-0 sticky top-0 h-screen overflow-hidden ${dk ? "bg-[#18181b]" : "bg-white border-r border-gray-200"}`}>
         <SidebarContent />
       </aside>
 
@@ -2391,11 +2418,11 @@ export default function CompanyDashboard() {
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
-          <aside className="absolute left-0 top-0 bottom-0 w-56 bg-white shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <span className="text-sm font-bold text-gray-800">Menu</span>
-              <button onClick={() => setSidebarOpen(false)} className="p-1 rounded hover:bg-gray-100">
-                <XCircleIcon className="w-5 h-5 text-gray-400" />
+          <aside className={`absolute left-0 top-0 bottom-0 w-56 shadow-2xl flex flex-col ${dk ? "bg-[#18181b]" : "bg-white"}`}>
+            <div className={`flex items-center justify-between px-4 py-3 border-b ${dk ? "border-white/[0.08]" : "border-gray-100"}`}>
+              <span className={`text-sm font-bold ${dk ? "text-white" : "text-gray-800"}`}>Menu</span>
+              <button onClick={() => setSidebarOpen(false)} className={`p-1 rounded ${dk ? "hover:bg-white/10" : "hover:bg-gray-100"}`}>
+                <XCircleIcon className={`w-5 h-5 ${dk ? "text-white/40" : "text-gray-400"}`} />
               </button>
             </div>
             <div className="flex-1 overflow-hidden">
@@ -2408,50 +2435,47 @@ export default function CompanyDashboard() {
       {/* ── Main content ── */}
       <div className="flex-1 min-w-0">
 
-        {/* Company hero banner */}
-        <div className="bg-white border-b border-gray-200">
-          <div className="px-4 sm:px-6 py-5">
-            <div className="flex items-center gap-3 mb-4">
-              {/* Mobile menu toggle */}
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
-              >
-                <MenuIcon className="w-5 h-5" />
-              </button>
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {user?.avatarUrl
-                    ? <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
-                    : <span className="text-sm font-bold text-primary">{companyInitials}</span>
-                  }
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-lg font-bold text-gray-900">{user?.name ?? "Your Company"}</h1>
-                    <Badge className="bg-primary/10 text-primary border-0 text-xs font-semibold rounded-full">Company</Badge>
-                  </div>
-                  {user?.headline && <p className="text-gray-400 text-xs">{user.headline}</p>}
-                </div>
-              </div>
-              <div className="ml-auto flex items-center gap-2">
-                <Link href={`/profiles/${user?.id}`}>
-                  <Button variant="outline" size="sm" className="rounded-full border-primary/30 text-primary hover:bg-primary/5 text-xs gap-1.5 hidden sm:flex">
-                    <EyeIcon className="w-3.5 h-3.5" /> View Page
-                  </Button>
-                </Link>
-                <Link href="/profile/edit">
-                  <Button variant="outline" size="sm" className="rounded-full text-xs gap-1.5 hidden sm:flex">
-                    <PencilIcon className="w-3.5 h-3.5" /> Edit
-                  </Button>
-                </Link>
-                <Button className="rounded-full gap-2 shadow-sm text-xs h-8 px-3" onClick={() => setShowPostJob(true)}>
-                  <PlusCircleIcon className="w-3.5 h-3.5" /> Post a Job
-                </Button>
-              </div>
+        {/* Slim topbar */}
+        <header className="h-14 bg-white border-b border-gray-200 px-4 sm:px-6 flex items-center gap-4 flex-shrink-0 sticky top-0 z-10">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+          >
+            <MenuIcon className="w-5 h-5" />
+          </button>
+          <div className="flex-1 max-w-xs hidden sm:block">
+            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 cursor-default select-none">
+              <SearchIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+              <span className="text-xs text-gray-400">Search jobs, candidates…</span>
+              <span className="ml-auto text-[10px] border border-gray-200 rounded px-1 bg-white text-gray-400 font-mono">⌘K</span>
             </div>
           </div>
-        </div>
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              onClick={() => setShowPostJob(true)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-white bg-primary hover:bg-primary/90 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <PlusIcon className="w-3.5 h-3.5" /> Post Job
+            </button>
+            <button
+              onClick={fetchData}
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 transition-colors"
+            >
+              <RefreshCwIcon className="w-3.5 h-3.5" />
+            </button>
+            <button className="relative w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
+              <BellIcon className="w-4 h-4" />
+            </button>
+            <Link href={`/profiles/${user?.id}`}>
+              <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden cursor-pointer flex-shrink-0">
+                {user?.avatarUrl
+                  ? <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                  : <span className="text-xs font-bold text-primary">{companyInitials}</span>
+                }
+              </div>
+            </Link>
+          </div>
+        </header>
 
       <div className="px-4 sm:px-6 py-6 space-y-5">
 
