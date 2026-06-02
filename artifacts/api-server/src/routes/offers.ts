@@ -218,12 +218,27 @@ router.patch("/offer-letters/:token/respond", async (req, res): Promise<void> =>
 });
 
 // ── GET /api/applications/:id/offer-letter ────────────────────────────────────
+// Requires ?companyProfileId=<N> — verifies requester owns the job the application belongs to.
 router.get("/applications/:id/offer-letter", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
-  if (!id || isNaN(id)) {
-    res.status(400).json({ error: "Invalid id" });
+  const companyProfileId = Number(req.query.companyProfileId);
+  if (!id || isNaN(id) || !companyProfileId || isNaN(companyProfileId)) {
+    res.status(400).json({ error: "Valid id and companyProfileId are required" });
     return;
   }
+
+  // Ownership: the application must belong to a job posted by this company
+  const [app] = await db.select().from(applicationsTable).where(eq(applicationsTable.id, id));
+  if (!app) {
+    res.status(404).json({ error: "Application not found" });
+    return;
+  }
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, app.jobId));
+  if (!job || job.companyProfileId !== companyProfileId) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
   const [offerLetter] = await db
     .select()
     .from(offerLettersTable)

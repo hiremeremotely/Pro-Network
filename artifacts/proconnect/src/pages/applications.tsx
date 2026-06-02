@@ -259,7 +259,7 @@ function CompanyApplicationsView() {
     setExistingOfferHtml(null);
     setConfirming(false);
     try {
-      const res = await fetch(`${BASE}api/applications/${app.id}/offer-letter`);
+      const res = await fetch(`${BASE}api/applications/${app.id}/offer-letter?companyProfileId=${user?.id}`);
       if (res.ok) {
         const data = await res.json();
         setExistingOfferHtml(data.renderedHtml ?? null);
@@ -293,7 +293,11 @@ function CompanyApplicationsView() {
       if (!empRes.ok) throw new Error("Failed to create employee");
       const emp = await empRes.json();
       // Auto-assign default onboarding checklist
-      await fetch(`${BASE}api/employees/${emp.id}/onboarding/init`, { method: "POST" });
+      await fetch(`${BASE}api/employees/${emp.id}/onboarding/init`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyProfileId: user.id }),
+      });
       // Move application status to accepted
       if (hireWizardApp.status !== "accepted") await updateStatus(hireWizardApp.id, "accepted");
       setConvertedAppIds(prev => new Set(prev).add(hireWizardApp.id));

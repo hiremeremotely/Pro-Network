@@ -301,13 +301,23 @@ const DEFAULT_ONBOARDING_TASKS = [
 
 router.post("/employees/:id/onboarding/init", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
+  const companyProfileId = Number(req.body?.companyProfileId);
   if (!id || isNaN(id)) {
     res.status(400).json({ error: "Invalid employee id" });
+    return;
+  }
+  if (!companyProfileId || isNaN(companyProfileId)) {
+    res.status(400).json({ error: "companyProfileId is required" });
     return;
   }
   const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, id));
   if (!emp) {
     res.status(404).json({ error: "Employee not found" });
+    return;
+  }
+  // Ownership check: only the employing company may init onboarding
+  if (emp.companyProfileId !== companyProfileId) {
+    res.status(403).json({ error: "Forbidden" });
     return;
   }
   // Only insert if no tasks exist yet
