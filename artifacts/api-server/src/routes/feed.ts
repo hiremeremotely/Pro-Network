@@ -84,7 +84,14 @@ router.get("/feed/link-preview", async (req, res): Promise<void> => {
     const contentType = response.headers.get("content-type") ?? "";
     if (!contentType.includes("text/html")) { res.json({}); return; }
 
-    const html = await response.text();
+    // Reject responses that advertise more than 2 MB
+    const MAX_BYTES = 2 * 1024 * 1024;
+    const clHeader = response.headers.get("content-length");
+    if (clHeader && parseInt(clHeader, 10) > MAX_BYTES) { res.json({}); return; }
+
+    const rawText = await response.text();
+    if (rawText.length > MAX_BYTES) { res.json({}); return; }
+    const html = rawText;
 
     const getMeta = (props: string[]): string | null => {
       for (const p of props) {

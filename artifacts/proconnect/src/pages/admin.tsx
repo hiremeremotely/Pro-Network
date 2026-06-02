@@ -55,28 +55,36 @@ const PLAN_FEATURES: Record<string, string[]> = {
 
 // ── Shared fetch ────────────────────────────────────────────────────────────
 
+function adminHeaders(token: string) {
+  return { Authorization: `Bearer ${token}` } as const;
+}
+
 function useAdminStats() {
+  const { session } = useBoAuth();
   return useQuery({
     queryKey: ["admin-stats"],
     queryFn: async () => {
-      const res = await fetch(`${BASE}api/admin/stats`);
+      const res = await fetch(`${BASE}api/admin/stats`, { headers: adminHeaders(session?.token ?? "") });
       if (!res.ok) throw new Error("Failed to load admin stats");
       return res.json();
     },
     staleTime: 30_000,
+    enabled: !!session,
   });
 }
 
 function useAdminUsers(accountType: string) {
+  const { session } = useBoAuth();
   return useQuery({
     queryKey: ["admin-users", accountType],
     queryFn: async () => {
       const params = new URLSearchParams({ limit: "100" });
       if (accountType !== "all") params.set("accountType", accountType);
-      const res = await fetch(`${BASE}api/admin/users?${params}`);
+      const res = await fetch(`${BASE}api/admin/users?${params}`, { headers: adminHeaders(session?.token ?? "") });
       if (!res.ok) throw new Error("Failed to load users");
       return res.json();
     },
+    enabled: !!session,
   });
 }
 

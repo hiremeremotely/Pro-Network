@@ -1,5 +1,5 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -45,7 +45,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
   const { user } = useAppAuth();
   const [, navigate] = useLocation();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!user) navigate("/login");
   }, [user, navigate]);
 
@@ -57,7 +57,7 @@ function RequireIndividual({ children }: { children: ReactNode }) {
   const { user } = useAppAuth();
   const [, navigate] = useLocation();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (user && user.accountType === "company") navigate("/company-dashboard");
   }, [user, navigate]);
 
@@ -69,7 +69,7 @@ function RequireBoAuth({ children }: { children: ReactNode }) {
   const { session } = useBoAuth();
   const [, navigate] = useLocation();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!session) navigate("/bo");
   }, [session, navigate]);
 
@@ -81,7 +81,7 @@ function RedirectIfAuth({ children }: { children: ReactNode }) {
   const { user } = useAppAuth();
   const [, navigate] = useLocation();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (user) {
       navigate(user.accountType === "company" ? "/company-dashboard" : "/feed");
     }

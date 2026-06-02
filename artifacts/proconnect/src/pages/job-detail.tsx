@@ -23,8 +23,6 @@ import type { Job } from "@workspace/api-client-react";
 
 const BASE = import.meta.env.BASE_URL;
 
-const CURRENT_PROFILE_ID = 1;
-
 // ── Send-to-connection modal for job detail ────────────────────────────────────
 function JobDetailSendModal({ job, onClose }: { job: Job; onClose: () => void }) {
   const [search, setSearch] = useState("");
@@ -174,15 +172,18 @@ export default function JobDetail() {
     }
   }
 
+  const currentProfileId = user?.id ?? 0;
+
   function handleApply() {
+    if (!currentProfileId) return;
     applyMutation.mutate(
-      { jobId: id, data: { profileId: CURRENT_PROFILE_ID, coverLetter: coverLetter || null } },
+      { jobId: id, data: { profileId: currentProfileId, coverLetter: coverLetter || null } },
       {
         onSuccess: () => {
           toast({ title: "Application submitted!", description: "Your application has been sent successfully." });
           setApplyOpen(false);
           setCoverLetter("");
-          queryClient.invalidateQueries({ queryKey: getListProfileApplicationsQueryKey(CURRENT_PROFILE_ID) });
+          queryClient.invalidateQueries({ queryKey: getListProfileApplicationsQueryKey(currentProfileId) });
         },
         onError: () => {
           toast({ title: "Error", description: "Failed to submit application. Please try again.", variant: "destructive" });
@@ -294,13 +295,21 @@ export default function JobDetail() {
               <p className="text-sm text-muted-foreground">
                 This is a fully remote position. Applications are reviewed by the team at {job.company}.
               </p>
-              <Button
-                className="w-full gap-2"
-                onClick={() => setApplyOpen(true)}
-                data-testid="button-apply-job"
-              >
-                <SendIcon className="w-4 h-4" /> Apply Now
-              </Button>
+              {!user ? (
+                <Link href="/login">
+                  <Button className="w-full gap-2" data-testid="button-apply-job">
+                    <SendIcon className="w-4 h-4" /> Sign in to Apply
+                  </Button>
+                </Link>
+              ) : user.accountType === "individual" ? (
+                <Button
+                  className="w-full gap-2"
+                  onClick={() => setApplyOpen(true)}
+                  data-testid="button-apply-job"
+                >
+                  <SendIcon className="w-4 h-4" /> Apply Now
+                </Button>
+              ) : null}
               {user && (
                 <Button
                   variant="outline"
@@ -333,7 +342,7 @@ export default function JobDetail() {
             <DialogTitle>Apply to {job.title}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Applying as <span className="font-medium text-foreground">Alex Chen</span> (Profile #1)</p>
+            <p className="text-sm text-muted-foreground">Applying as <span className="font-medium text-foreground">{user?.name ?? "you"}</span></p>
             <div>
               <label className="text-sm font-medium mb-2 block">Cover Letter (optional)</label>
               <Textarea

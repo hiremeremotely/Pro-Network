@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { sql, desc, eq } from "drizzle-orm";
 import { db, profilesTable, jobsTable, applicationsTable, postsTable } from "@workspace/db";
 
@@ -9,6 +9,14 @@ const ADMIN_EMAIL    = "admin@hiremeremotely.com";
 const ADMIN_PASSWORD = "Admin@2026";
 const ADMIN_TOKEN    = "bo_super_admin_token_2026";
 
+// ── Middleware: require valid admin token ─────────────────────────────────────
+function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  const auth = req.headers["authorization"] ?? "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (token === ADMIN_TOKEN) { next(); return; }
+  res.status(401).json({ error: "Unauthorised" });
+}
+
 router.post("/admin/login", (req, res): void => {
   const { email, password } = req.body as { email?: string; password?: string };
   if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
@@ -18,7 +26,7 @@ router.post("/admin/login", (req, res): void => {
   }
 });
 
-router.get("/admin/stats", async (_req, res): Promise<void> => {
+router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
   const [
     totalUsersResult,
     totalCompaniesResult,
@@ -73,7 +81,7 @@ router.get("/admin/stats", async (_req, res): Promise<void> => {
   });
 });
 
-router.get("/admin/users", async (req, res): Promise<void> => {
+router.get("/admin/users", requireAdmin, async (req, res): Promise<void> => {
   const { accountType, search, limit = "50", offset = "0" } = req.query as Record<string, string>;
 
   let query = db.select().from(profilesTable).$dynamic();
