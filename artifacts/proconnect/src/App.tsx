@@ -126,13 +126,19 @@ function Router() {
         </RequireBoAuth>
       </Route>
 
+      {/* Company dashboard — requires auth but uses its own layout (no global nav) */}
+      <Route path="/company-dashboard">
+        <RequireAuth>
+          <CompanyDashboard />
+        </RequireAuth>
+      </Route>
+
       {/* All main-app pages — require user session */}
       <Route>
         <RequireAuth>
           <Layout>
             <Switch>
               <Route path="/feed" component={Feed} />
-              <Route path="/company-dashboard" component={CompanyDashboard} />
               <Route path="/profiles" component={Profiles} />
               <Route path="/profiles/:id" component={ProfileDetail} />
               <Route path="/profile/edit" component={ProfileEdit} />
