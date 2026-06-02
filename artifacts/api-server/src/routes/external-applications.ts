@@ -40,6 +40,12 @@ const NATIVE_STATUS_MAP: Record<string, string> = {
 const VALID_STATUSES = new Set(["saved", "applied", "screening", "interview", "offer", "accepted", "rejected", "withdrawn"]);
 const VALID_SOURCES = new Set(["manual", "email", "extension", "native"]);
 
+function safeInt(val: unknown): number | null {
+  if (val == null || val === "") return null;
+  const n = parseInt(String(val), 10);
+  return isNaN(n) ? null : n;
+}
+
 function signOAuthState(payload: { profileId: number; provider: string; nonce: string }): string {
   const raw = JSON.stringify(payload);
   const sig = createHmac("sha256", getSessionSecret()).update(raw).digest("hex");
@@ -265,8 +271,8 @@ router.post("/external-applications", requireTrackerAuth, async (req, res): Prom
     platform: platform ?? "other", jobUrl: jobUrl ?? null,
     status: validStatus, appliedDate: appliedDate ?? null,
     location: location ?? null,
-    salaryMin: salaryMin != null ? parseInt(String(salaryMin), 10) : null,
-    salaryMax: salaryMax != null ? parseInt(String(salaryMax), 10) : null,
+    salaryMin: safeInt(salaryMin),
+    salaryMax: safeInt(salaryMax),
     notes: notes ?? null, emailMessageId: emailMessageId ?? null,
     source: validSource,
     statusHistory: [{ status: validStatus, date: new Date().toISOString() }],
@@ -293,7 +299,7 @@ router.patch("/external-applications/:id", requireTrackerAuth, async (req, res):
   for (const key of allowed) {
     if (key in req.body) {
       if (key === "salaryMin" || key === "salaryMax") {
-        update[key] = req.body[key] != null ? parseInt(String(req.body[key]), 10) : null;
+        update[key] = safeInt(req.body[key]);
       } else if (key === "status") {
         update[key] = VALID_STATUSES.has(req.body[key]) ? req.body[key] : existing.status;
       } else {

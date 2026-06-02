@@ -138,13 +138,13 @@ function Router() {
         <RequireAuth>
           <Layout>
             <Switch>
-              <Route path="/feed" component={Feed} />
+              <Route path="/feed"><RequireIndividual><Feed /></RequireIndividual></Route>
               <Route path="/profiles" component={Profiles} />
               <Route path="/profiles/:id" component={ProfileDetail} />
               <Route path="/profile/edit" component={ProfileEdit} />
               <Route path="/jobs" component={Jobs} />
               <Route path="/jobs/:id" component={JobDetail} />
-              <Route path="/applications" component={Applications} />
+              <Route path="/applications"><RequireIndividual><Applications /></RequireIndividual></Route>
               <Route path="/notifications" component={Notifications} />
               <Route path="/messaging" component={Messaging} />
               <Route path="/my-items" component={MyItems} />

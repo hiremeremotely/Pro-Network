@@ -997,7 +997,7 @@ function PostCard({ post, currentUserId, currentUserAvatar, currentUserName }: {
 }
 
 export default function Home() {
-  const { user } = useAppAuth();
+  const { user, updateUser } = useAppAuth();
   const [postContent, setPostContent] = useState("");
   const [postFocused, setPostFocused] = useState(false);
   const [ytId, setYtId] = useState<string | null>(null);
@@ -1062,12 +1062,9 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ avatarUrl }),
       });
-      const raw = localStorage.getItem("app_user_session");
-      if (raw) {
-        try { localStorage.setItem("app_user_session", JSON.stringify({ ...JSON.parse(raw), avatarUrl })); } catch {}
-      }
+      updateUser({ avatarUrl });
+      queryClient.invalidateQueries({ queryKey: ["my-full-profile", user!.id] });
       setAvatarUploading(false);
-      window.location.reload();
     },
     onError() { setAvatarUploading(false); toast({ title: "Upload failed", variant: "destructive" }); },
   });
@@ -1087,11 +1084,8 @@ export default function Home() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ avatarUrl: null }),
     });
-    const raw = localStorage.getItem("app_user_session");
-    if (raw) {
-      try { localStorage.setItem("app_user_session", JSON.stringify({ ...JSON.parse(raw), avatarUrl: null })); } catch {}
-    }
-    window.location.reload();
+    updateUser({ avatarUrl: null });
+    queryClient.invalidateQueries({ queryKey: ["my-full-profile", user.id] });
   }
 
   const { data: stats } = useGetFeedStats({ query: { queryKey: getGetFeedStatsQueryKey() } });
@@ -1115,7 +1109,7 @@ export default function Home() {
   }, {});
   const mostRecentApp = myApplications.at(0);
 
-  const { data: suggestedProfiles } = useQuery({
+  const { data: suggestedProfiles, isLoading: suggestedProfilesLoading } = useQuery({
     queryKey: ["featured-profiles", user?.id],
     queryFn: () =>
       fetch(`${import.meta.env.BASE_URL}api/feed/featured-profiles${user?.id ? `?excludeId=${user.id}` : ""}`)
@@ -1159,14 +1153,11 @@ export default function Home() {
   ] : [];
   const completionPct = completionSteps.length === 0 ? 100 : Math.round((completionSteps.filter(s => s.done).length / completionSteps.length) * 100);
   const showCompletionBanner = user?.accountType === "individual" && !profileBannerDismissed && completionPct < 100;
-  const { data: featuredJobs } = useListFeaturedJobs({ query: { queryKey: getListFeaturedJobsQueryKey() } });
+  const { data: featuredJobs, isLoading: featuredJobsLoading } = useListFeaturedJobs({ query: { queryKey: getListFeaturedJobsQueryKey() } });
   const { isConnected: isFeedConnected, isPending: isFeedPending, sendRequest: feedSendRequest, cancelRequest: feedCancelRequest, disconnect: feedDisconnect } = useConnections();
   const startChat = useStartChat();
   const [, navigate] = useLocation();
 
-  useEffect(() => {
-    if (user?.accountType === "company") navigate("/company-dashboard");
-  }, [user, navigate]);
 
   const handleFeedMessage = useCallback(async (profileId: number) => {
     const convId = await startChat(profileId);
@@ -1866,7 +1857,22 @@ export default function Home() {
         {/* RIGHT: Suggested connections + jobs */}
         <aside className="hidden lg:flex flex-col gap-4">
           {/* People you may know */}
-          {suggestedProfiles && suggestedProfiles.length > 0 && (
+          {suggestedProfilesLoading ? (
+            <Card className="rounded-xl border border-gray-200 shadow-none bg-white">
+              <CardContent className="p-4">
+                <div className="h-3.5 bg-gray-200 rounded animate-pulse w-2/5 mb-3" />
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="flex items-center gap-2.5 mb-3">
+                    <div className="w-9 h-9 rounded-full bg-gray-200 animate-pulse flex-shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4" />
+                      <div className="h-2.5 bg-gray-200 rounded animate-pulse w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ) : suggestedProfiles && suggestedProfiles.length > 0 ? (
             <Card className="rounded-xl border border-gray-200 shadow-none bg-white">
               <CardContent className="p-4">
                 <p className="text-sm font-semibold text-gray-800 mb-3">People you may know</p>
@@ -1931,6 +1937,13 @@ export default function Home() {
                 </Link>
               </CardContent>
             </Card>
+          ) : (
+            <Card className="rounded-xl border border-gray-200 shadow-none bg-white">
+              <CardContent className="p-4 text-center">
+                <p className="text-sm font-semibold text-gray-800 mb-1">People you may know</p>
+                <p className="text-xs text-gray-400">No suggestions yet — check back soon.</p>
+              </CardContent>
+            </Card>
           )}
 
           {/* Companies to follow */}
@@ -1990,7 +2003,20 @@ export default function Home() {
           )}
 
           {/* Featured jobs */}
-          {featuredJobs && featuredJobs.length > 0 && (
+          {featuredJobsLoading ? (
+            <Card className="rounded-xl border border-gray-200 shadow-none bg-white">
+              <CardContent className="p-4">
+                <div className="h-3.5 bg-gray-200 rounded animate-pulse w-1/3 mb-3" />
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="mb-3 space-y-1.5">
+                    <div className="h-3 bg-gray-200 rounded animate-pulse w-4/5" />
+                    <div className="h-2.5 bg-gray-200 rounded animate-pulse w-1/2" />
+                    <div className="h-2.5 bg-gray-200 rounded animate-pulse w-2/5" />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ) : featuredJobs && featuredJobs.length > 0 ? (
             <Card className="rounded-xl border border-gray-200 shadow-none bg-white">
               <CardContent className="p-4">
                 <p className="text-sm font-semibold text-gray-800 mb-3">Jobs for you</p>
@@ -2015,6 +2041,13 @@ export default function Home() {
                     Show all jobs <ChevronRightIcon className="w-3 h-3" />
                   </button>
                 </Link>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="rounded-xl border border-gray-200 shadow-none bg-white">
+              <CardContent className="p-4 text-center">
+                <p className="text-sm font-semibold text-gray-800 mb-1">Jobs for you</p>
+                <p className="text-xs text-gray-400">No featured jobs right now.</p>
               </CardContent>
             </Card>
           )}

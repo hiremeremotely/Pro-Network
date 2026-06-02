@@ -17,6 +17,7 @@ interface AppAuthCtx {
   login: (email: string, password: string, allowedAccountType?: string) => Promise<{ ok: boolean; error?: string; unverified?: boolean }>;
   signup: (data: SignupData) => Promise<{ ok: boolean; error?: string; verificationToken?: string }>;
   logout: () => void;
+  updateUser: (partial: Partial<AppUser>) => void;
 }
 
 interface SignupData {
@@ -124,7 +125,16 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  return <Ctx.Provider value={{ user, login, signup, logout }}>{children}</Ctx.Provider>;
+  const updateUser = useCallback((partial: Partial<AppUser>) => {
+    setUser(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, ...partial };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  return <Ctx.Provider value={{ user, login, signup, logout, updateUser }}>{children}</Ctx.Provider>;
 }
 
 export function useAppAuth() {
