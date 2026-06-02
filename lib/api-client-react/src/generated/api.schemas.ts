@@ -26,6 +26,9 @@ export interface Profile {
   githubUrl?: string | null;
   twitterUrl?: string | null;
   openToWork: boolean;
+  accountType?: string | null;
+  industry?: string | null;
+  email?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -105,6 +108,11 @@ export interface UpdateProfileBody {
   githubUrl?: string | null;
   twitterUrl?: string | null;
   openToWork?: boolean;
+  industry?: string | null;
+  glassdoorUrl?: string | null;
+  wellfoundUrl?: string | null;
+  angellistUrl?: string | null;
+  indeedUrl?: string | null;
 }
 
 export interface CreateEducationBody {

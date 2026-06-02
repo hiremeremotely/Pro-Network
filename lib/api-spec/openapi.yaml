@@ -1246,6 +1246,15 @@ components:
           nullable: true
         openToWork:
           type: boolean
+        accountType:
+          type: string
+          nullable: true
+        industry:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
         createdAt:
           type: string
         updatedAt:
@@ -1343,6 +1352,21 @@ components:
           nullable: true
         openToWork:
           type: boolean
+        industry:
+          type: string
+          nullable: true
+        glassdoorUrl:
+          type: string
+          nullable: true
+        wellfoundUrl:
+          type: string
+          nullable: true
+        angellistUrl:
+          type: string
+          nullable: true
+        indeedUrl:
+          type: string
+          nullable: true
 
     Education:
       type: object

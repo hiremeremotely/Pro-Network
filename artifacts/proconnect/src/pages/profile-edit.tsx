@@ -27,6 +27,7 @@ export default function ProfileEdit() {
   const { user } = useAppAuth();
   const [, navigate] = useLocation();
   const profileId = user?.id ?? 0;
+  const isCompany = user?.accountType === "company";
   const qc = useQueryClient();
   const { toast } = useToast();
 
@@ -61,6 +62,11 @@ export default function ProfileEdit() {
     githubUrl: profile?.githubUrl ?? "",
     twitterUrl: profile?.twitterUrl ?? "",
     openToWork: profile?.openToWork ?? false,
+    industry: profile?.industry ?? "",
+    glassdoorUrl: profile?.glassdoorUrl ?? "",
+    wellfoundUrl: profile?.wellfoundUrl ?? "",
+    angellistUrl: profile?.angellistUrl ?? "",
+    indeedUrl: profile?.indeedUrl ?? "",
   });
 
   // Education form
@@ -91,16 +97,37 @@ export default function ProfileEdit() {
       githubUrl: profile.githubUrl ?? "",
       twitterUrl: profile.twitterUrl ?? "",
       openToWork: profile.openToWork,
+      industry: profile.industry ?? "",
+      glassdoorUrl: profile.glassdoorUrl ?? "",
+      wellfoundUrl: profile.wellfoundUrl ?? "",
+      angellistUrl: profile.angellistUrl ?? "",
+      indeedUrl: profile.indeedUrl ?? "",
     });
   }
 
   function saveProfile() {
     updateProfile.mutate(
-      { id: CURRENT_PROFILE_ID, data: { ...profileForm, bio: profileForm.bio || null, location: profileForm.location || null, website: profileForm.website || null, linkedinUrl: profileForm.linkedinUrl || null, githubUrl: profileForm.githubUrl || null, twitterUrl: profileForm.twitterUrl || null } },
+      {
+        id: CURRENT_PROFILE_ID,
+        data: {
+          ...profileForm,
+          bio: profileForm.bio || null,
+          location: profileForm.location || null,
+          website: profileForm.website || null,
+          linkedinUrl: profileForm.linkedinUrl || null,
+          githubUrl: profileForm.githubUrl || null,
+          twitterUrl: profileForm.twitterUrl || null,
+          industry: profileForm.industry || null,
+          glassdoorUrl: profileForm.glassdoorUrl || null,
+          wellfoundUrl: profileForm.wellfoundUrl || null,
+          angellistUrl: profileForm.angellistUrl || null,
+          indeedUrl: profileForm.indeedUrl || null,
+        },
+      },
       {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetProfileQueryKey(CURRENT_PROFILE_ID) });
-          toast({ title: "Profile saved!" });
+          toast({ title: isCompany ? "Company settings saved!" : "Profile saved!" });
         },
         onError: () => toast({ title: "Error saving profile", variant: "destructive" }),
       }
@@ -213,11 +240,93 @@ export default function ProfileEdit() {
       )}
 
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-1">Edit Profile</h1>
-        <p className="text-muted-foreground">Manage your professional presence on Hire Me Remotely.</p>
+        <h1 className="text-3xl font-bold mb-1">{isCompany ? "Company Settings" : "Edit Profile"}</h1>
+        <p className="text-muted-foreground">{isCompany ? "Keep your company profile up to date so candidates know who you are." : "Manage your professional presence on Hire Me Remotely."}</p>
       </div>
 
-      <Tabs defaultValue="profile">
+      {/* ── Company settings (no tabs — two focused cards) ── */}
+      {isCompany && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader><CardTitle>Company Details</CardTitle></CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <Label>Company Name</Label>
+                  <Input value={profileForm.name} onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))} placeholder="Your company name" data-testid="input-profile-name" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tagline</Label>
+                  <Input value={profileForm.headline} onChange={e => setProfileForm(p => ({ ...p, headline: e.target.value }))} placeholder="e.g. Building the future of remote work" data-testid="input-profile-headline" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>About Us</Label>
+                <Textarea value={profileForm.bio} onChange={e => setProfileForm(p => ({ ...p, bio: e.target.value }))} placeholder="Tell candidates what your company does, your culture, and what makes you unique..." rows={5} data-testid="textarea-profile-bio" />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <Label>HQ / Location</Label>
+                  <Input value={profileForm.location} onChange={e => setProfileForm(p => ({ ...p, location: e.target.value }))} placeholder="e.g. San Francisco, CA (Remote-friendly)" data-testid="input-profile-location" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Industry</Label>
+                  <Input value={profileForm.industry} onChange={e => setProfileForm(p => ({ ...p, industry: e.target.value }))} placeholder="e.g. Software, Fintech, HealthTech" />
+                </div>
+              </div>
+
+              <Button onClick={saveProfile} disabled={updateProfile.isPending} className="gap-2" data-testid="button-save-profile">
+                <SaveIcon className="w-4 h-4" /> {updateProfile.isPending ? "Saving..." : "Save Details"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Links & Job Board Profiles</CardTitle></CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <Label>Company Website</Label>
+                  <Input value={profileForm.website} onChange={e => setProfileForm(p => ({ ...p, website: e.target.value }))} placeholder="https://yourcompany.com" />
+                </div>
+                <div className="space-y-2">
+                  <Label>LinkedIn Company Page</Label>
+                  <Input value={profileForm.linkedinUrl} onChange={e => setProfileForm(p => ({ ...p, linkedinUrl: e.target.value }))} placeholder="https://linkedin.com/company/..." />
+                </div>
+                <div className="space-y-2">
+                  <Label>X (Twitter)</Label>
+                  <Input value={profileForm.twitterUrl} onChange={e => setProfileForm(p => ({ ...p, twitterUrl: e.target.value }))} placeholder="https://x.com/..." />
+                </div>
+                <div className="space-y-2">
+                  <Label>Glassdoor</Label>
+                  <Input value={profileForm.glassdoorUrl} onChange={e => setProfileForm(p => ({ ...p, glassdoorUrl: e.target.value }))} placeholder="https://glassdoor.com/Overview/..." />
+                </div>
+                <div className="space-y-2">
+                  <Label>Wellfound</Label>
+                  <Input value={profileForm.wellfoundUrl} onChange={e => setProfileForm(p => ({ ...p, wellfoundUrl: e.target.value }))} placeholder="https://wellfound.com/company/..." />
+                </div>
+                <div className="space-y-2">
+                  <Label>AngelList</Label>
+                  <Input value={profileForm.angellistUrl} onChange={e => setProfileForm(p => ({ ...p, angellistUrl: e.target.value }))} placeholder="https://angel.co/company/..." />
+                </div>
+                <div className="space-y-2">
+                  <Label>Indeed</Label>
+                  <Input value={profileForm.indeedUrl} onChange={e => setProfileForm(p => ({ ...p, indeedUrl: e.target.value }))} placeholder="https://indeed.com/cmp/..." />
+                </div>
+              </div>
+
+              <Button onClick={saveProfile} disabled={updateProfile.isPending} className="gap-2">
+                <SaveIcon className="w-4 h-4" /> {updateProfile.isPending ? "Saving..." : "Save Links"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ── Individual profile (tabbed) ── */}
+      {!isCompany && <Tabs defaultValue="profile">
         <TabsList className="mb-8 flex-wrap h-auto gap-1">
           <TabsTrigger value="profile" className="gap-2"><UserIcon className="w-4 h-4" /> Profile</TabsTrigger>
           <TabsTrigger value="experience" className="gap-2"><BriefcaseIcon className="w-4 h-4" /> Experience</TabsTrigger>
@@ -499,7 +608,7 @@ export default function ProfileEdit() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+      </Tabs>}
     </div>
   );
 }

@@ -19,6 +19,9 @@ export interface Profile {
   githubUrl?: string | null;
   twitterUrl?: string | null;
   openToWork: boolean;
+  accountType?: string | null;
+  industry?: string | null;
+  email?: string | null;
   createdAt: string;
   updatedAt: string;
 }

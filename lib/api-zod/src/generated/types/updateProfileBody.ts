@@ -18,4 +18,9 @@ export interface UpdateProfileBody {
   githubUrl?: string | null;
   twitterUrl?: string | null;
   openToWork?: boolean;
+  industry?: string | null;
+  glassdoorUrl?: string | null;
+  wellfoundUrl?: string | null;
+  angellistUrl?: string | null;
+  indeedUrl?: string | null;
 }
