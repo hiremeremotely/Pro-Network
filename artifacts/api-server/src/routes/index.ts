@@ -26,6 +26,7 @@ import attendanceRouter from "./attendance";
 import externalApplicationsRouter from "./external-applications";
 import interestRequestsRouter from "./interest-requests";
 import talentRouter from "./talent";
+import offersRouter from "./offers";
 
 const router: IRouter = Router();
 
@@ -39,6 +40,7 @@ router.use(bookmarksRouter);
 router.use(analyticsRouter);
 router.use(employeesRouter);
 router.use(onboardingRouter);
+router.use(offersRouter);
 router.use(salaryRouter);
 router.use(contractsRouter);
 router.use(attendanceRouter);

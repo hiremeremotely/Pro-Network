@@ -34,6 +34,7 @@ import ResetPassword from "@/pages/reset-password";
 import VerifyEmail from "@/pages/verify-email";
 import Terms from "@/pages/terms";
 import Privacy from "@/pages/privacy";
+import OfferPage from "@/pages/offer-page";
 import { CookieConsent } from "@/components/cookie-consent";
 
 const queryClient = new QueryClient();

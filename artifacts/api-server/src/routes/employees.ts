@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, inArray } from "drizzle-orm";
-import { db, employeesTable, profilesTable, jobsTable, applicationsTable, conversationsTable, conversationMembersTable } from "@workspace/db";
+import { db, employeesTable, profilesTable, jobsTable, applicationsTable, conversationsTable, conversationMembersTable, onboardingTasksTable } from "@workspace/db";
 import { and } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -244,6 +244,44 @@ router.patch("/applications/:id/status", async (req, res): Promise<void> => {
     profile: profile ?? null,
     job: job ? { ...job, applicationCount: 0 } : null,
   });
+});
+
+// ── POST /api/employees/:id/onboarding/init ───────────────────────────────────
+const DEFAULT_ONBOARDING_TASKS = [
+  "Complete employment paperwork & contracts",
+  "IT accounts & software access setup",
+  "Equipment shipped / confirmed ready",
+  "Intro call with your manager",
+  "Meet the team (group intro session)",
+  "Review company handbook & policies",
+  "30-day check-in scheduled with HR",
+];
+
+router.post("/employees/:id/onboarding/init", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  if (!id || isNaN(id)) {
+    res.status(400).json({ error: "Invalid employee id" });
+    return;
+  }
+  const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, id));
+  if (!emp) {
+    res.status(404).json({ error: "Employee not found" });
+    return;
+  }
+  // Only insert if no tasks exist yet
+  const existing = await db.select({ id: onboardingTasksTable.id }).from(onboardingTasksTable).where(eq(onboardingTasksTable.employeeId, id));
+  if (existing.length > 0) {
+    res.json({ inserted: 0, message: "Onboarding tasks already exist" });
+    return;
+  }
+  const tasks = DEFAULT_ONBOARDING_TASKS.map((title, i) => ({
+    employeeId: id,
+    title,
+    completed: false,
+    order: i + 1,
+  }));
+  await db.insert(onboardingTasksTable).values(tasks);
+  res.status(201).json({ inserted: tasks.length });
 });
 
 export default router;
