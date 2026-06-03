@@ -19,13 +19,18 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { PlusIcon, TrashIcon, SaveIcon, UserIcon, GraduationCapIcon, BriefcaseIcon, FolderIcon, ZapIcon, BuildingIcon, ArrowRightIcon, XIcon } from "lucide-react";
+import {
+  PlusIcon, TrashIcon, SaveIcon, UserIcon, GraduationCapIcon, BriefcaseIcon,
+  FolderIcon, ZapIcon, BuildingIcon, ArrowRightIcon, XIcon,
+  LayoutDashboardIcon, LinkIcon, Settings2Icon, LogOutIcon, HelpCircleIcon,
+  SunIcon, MoonIcon, MenuIcon, XCircleIcon, ChevronRightIcon,
+} from "lucide-react";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/layout";
 
 export default function ProfileEdit() {
-  const { user } = useAppAuth();
+  const { user, logout } = useAppAuth();
   const [, navigate] = useLocation();
   const profileId = user?.id ?? 0;
   const isCompany = user?.accountType === "company";
@@ -51,6 +56,11 @@ export default function ProfileEdit() {
   const deletePortfolio = useDeletePortfolioProject();
   const addSkill = useAddProfileSkill();
   const deleteSkill = useDeleteProfileSkill();
+
+  // Company settings sidebar state
+  const [settingsSection, setSettingsSection] = useState<"details" | "links">("details");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarTheme, setSidebarTheme] = useState<"dark" | "light">(() => (localStorage.getItem("hmr_sidebar_theme_v1") as "dark" | "light") ?? "dark");
 
   // Profile form state
   const [profileForm, setProfileForm] = useState({
@@ -219,144 +229,325 @@ export default function ProfileEdit() {
     setProfileForm(p => ({ ...p, customLinks: p.customLinks.filter((_, i) => i !== idx) }));
   }
 
-  // ── Company layout (no outer nav) ───────────────────────────────────────────
+  // ── Company layout (sidebar + main, no outer nav) ───────────────────────────
   if (isCompany) {
-    return (
-      <div className="container mx-auto px-4 py-10 pb-24 max-w-4xl">
-        {isOnboarding && (
-          <div className="mb-8 rounded-2xl bg-indigo-600 text-white px-6 py-5 flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <BuildingIcon className="w-5 h-5" />
+    const dk = sidebarTheme === "dark";
+    const companyInitials = (user?.name ?? "C").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+
+    const settingsSections: Array<{ id: "details" | "links"; label: string; icon: React.ElementType }> = [
+      { id: "details", label: "Company Details", icon: BuildingIcon },
+      { id: "links",   label: "Links",            icon: LinkIcon    },
+    ];
+
+    const SidebarContent = () => (
+      <div className="flex flex-col h-full">
+        {/* Company identity */}
+        <div className={`px-4 py-5 border-b ${dk ? "border-white/[0.08]" : "border-gray-100"}`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 ${dk ? "bg-white/10 border border-white/15" : "bg-primary/10 border border-primary/20"}`}>
+              {user?.avatarUrl
+                ? <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                : <span className={`text-sm font-bold ${dk ? "text-white" : "text-primary"}`}>{companyInitials}</span>
+              }
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-lg leading-tight">Welcome, {user?.name}!</p>
-              <p className="text-indigo-100 text-sm mt-1 leading-relaxed">
-                Before you start hiring, candidates want to know who you are. Add a company logo, a short description, and your website — it takes 2 minutes and makes a big difference.
-              </p>
+            <div className="min-w-0">
+              <p className={`text-sm font-bold truncate leading-tight ${dk ? "text-white" : "text-gray-900"}`}>{user?.name ?? "Your Company"}</p>
+              <p className={`text-[10px] truncate ${dk ? "text-white/40" : "text-gray-400"}`}>Company Settings</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Settings sections */}
+        <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
+          <p className={`px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider ${dk ? "text-white/25" : "text-gray-400"}`}>Settings</p>
+          {settingsSections.map(({ id, label, icon: Icon }) => {
+            const active = settingsSection === id;
+            return (
               <button
-                onClick={() => navigate("/company-dashboard")}
-                className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-white/80 hover:text-white transition-colors"
+                key={id}
+                onClick={() => { setSettingsSection(id); setSidebarOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  active
+                    ? dk ? "bg-white/10 text-white" : "bg-primary text-white"
+                    : dk ? "text-white/50 hover:bg-white/5 hover:text-white/80" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                }`}
               >
-                Skip for now, go to dashboard <ArrowRightIcon className="w-3.5 h-3.5" />
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                <span className="flex-1 text-left">{label}</span>
+                {active && <ChevronRightIcon className="w-3.5 h-3.5 opacity-60" />}
               </button>
-            </div>
+            );
+          })}
+
+          <div className={`my-2 border-t ${dk ? "border-white/[0.08]" : "border-gray-100"}`} />
+          <p className={`px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider ${dk ? "text-white/25" : "text-gray-400"}`}>Navigation</p>
+          <button
+            onClick={() => navigate("/company-dashboard")}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${dk ? "text-white/50 hover:bg-white/5 hover:text-white/80" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
+          >
+            <LayoutDashboardIcon className="w-4 h-4 flex-shrink-0" />
+            <span className="flex-1 text-left">Dashboard</span>
+          </button>
+          <button
+            onClick={() => navigate(`/profiles/${profileId}`)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${dk ? "text-white/50 hover:bg-white/5 hover:text-white/80" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
+          >
+            <UserIcon className="w-4 h-4 flex-shrink-0" />
+            <span className="flex-1 text-left">View Profile</span>
+          </button>
+        </nav>
+
+        {/* Bottom */}
+        <div className={`px-2 py-3 border-t space-y-0.5 ${dk ? "border-white/[0.08]" : "border-gray-100"}`}>
+          <button
+            onClick={() => setSidebarTheme(t => t === "dark" ? "light" : "dark")}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${dk ? "text-white/50 hover:bg-white/5 hover:text-white/80" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`}
+          >
+            {dk ? <SunIcon className="w-4 h-4 flex-shrink-0" /> : <MoonIcon className="w-4 h-4 flex-shrink-0" />}
+            {dk ? "Light mode" : "Dark mode"}
+          </button>
+          <a href="mailto:support@hiremeremotely.com">
+            <button className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${dk ? "text-white/50 hover:bg-white/5 hover:text-white/80" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`}>
+              <HelpCircleIcon className="w-4 h-4 flex-shrink-0" />
+              Help
+            </button>
+          </a>
+          <button
+            onClick={() => { logout(); navigate("/login"); }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${dk ? "text-red-400 hover:bg-red-500/10 hover:text-red-300" : "text-red-500 hover:bg-red-50 hover:text-red-600"}`}
+          >
+            <LogOutIcon className="w-4 h-4 flex-shrink-0" />
+            Logout
+          </button>
+        </div>
+      </div>
+    );
+
+    return (
+      <div className={`flex min-h-screen ${dk ? "bg-[#f0f0f0]" : "bg-gray-50"}`}>
+
+        {/* Desktop sidebar */}
+        <aside className={`hidden lg:flex flex-col w-56 flex-shrink-0 sticky top-0 h-screen overflow-hidden ${dk ? "bg-[#18181b]" : "bg-white border-r border-gray-200"}`}>
+          <SidebarContent />
+        </aside>
+
+        {/* Mobile sidebar overlay */}
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
+            <aside className={`absolute left-0 top-0 bottom-0 w-56 shadow-2xl flex flex-col ${dk ? "bg-[#18181b]" : "bg-white"}`}>
+              <div className={`flex items-center justify-between px-4 py-3 border-b ${dk ? "border-white/[0.08]" : "border-gray-100"}`}>
+                <span className={`text-sm font-bold ${dk ? "text-white" : "text-gray-800"}`}>Settings</span>
+                <button onClick={() => setSidebarOpen(false)} className={`p-1 rounded ${dk ? "hover:bg-white/10" : "hover:bg-gray-100"}`}>
+                  <XCircleIcon className={`w-5 h-5 ${dk ? "text-white/40" : "text-gray-400"}`} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <SidebarContent />
+              </div>
+            </aside>
           </div>
         )}
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-1">Company Settings</h1>
-          <p className="text-muted-foreground">Keep your company profile up to date so candidates know who you are.</p>
-        </div>
+        {/* Main content */}
+        <div className="flex-1 min-w-0 flex flex-col">
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader><CardTitle>Company Details</CardTitle></CardHeader>
-            <CardContent className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-2">
-                  <Label>Company Name</Label>
-                  <Input value={profileForm.name} onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))} placeholder="Your company name" data-testid="input-profile-name" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tagline</Label>
-                  <Input value={profileForm.headline} onChange={e => setProfileForm(p => ({ ...p, headline: e.target.value }))} placeholder="e.g. Building the future of remote work" data-testid="input-profile-headline" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>About Us</Label>
-                <Textarea value={profileForm.bio} onChange={e => setProfileForm(p => ({ ...p, bio: e.target.value }))} placeholder="Tell candidates what your company does, your culture, and what makes you unique..." rows={5} data-testid="textarea-profile-bio" />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-2">
-                  <Label>HQ / Location</Label>
-                  <Input value={profileForm.location} onChange={e => setProfileForm(p => ({ ...p, location: e.target.value }))} placeholder="e.g. San Francisco, CA (Remote-friendly)" data-testid="input-profile-location" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Industry</Label>
-                  <Input value={profileForm.industry} onChange={e => setProfileForm(p => ({ ...p, industry: e.target.value }))} placeholder="e.g. Software, Fintech, HealthTech" />
-                </div>
-              </div>
-              <Button onClick={saveProfile} disabled={updateProfile.isPending} className="gap-2" data-testid="button-save-profile">
-                <SaveIcon className="w-4 h-4" /> {updateProfile.isPending ? "Saving..." : "Save Details"}
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Sticky topbar */}
+          <header className="h-14 bg-white border-b border-gray-200 px-4 sm:px-6 flex items-center gap-3 flex-shrink-0 sticky top-0 z-10">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+            >
+              <MenuIcon className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2">
+              <Settings2Icon className="w-4 h-4 text-gray-400" />
+              <span className="text-sm font-semibold text-gray-700">Company Settings</span>
+              <span className="text-gray-300 text-sm">/</span>
+              <span className="text-sm text-gray-500">{settingsSection === "details" ? "Company Details" : "Links"}</span>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              {isOnboarding && (
+                <button
+                  onClick={() => navigate("/company-dashboard")}
+                  className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                >
+                  Go to Dashboard <ArrowRightIcon className="w-3 h-3" />
+                </button>
+              )}
+              <button
+                onClick={() => navigate("/company-dashboard")}
+                className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                <LayoutDashboardIcon className="w-3.5 h-3.5" /> Dashboard
+              </button>
+            </div>
+          </header>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Links</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Fixed essential links */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-2">
-                  <Label>Company Website</Label>
-                  <Input value={profileForm.website} onChange={e => setProfileForm(p => ({ ...p, website: e.target.value }))} placeholder="https://yourcompany.com" />
-                </div>
-                <div className="space-y-2">
-                  <Label>LinkedIn Company Page</Label>
-                  <Input value={profileForm.linkedinUrl} onChange={e => setProfileForm(p => ({ ...p, linkedinUrl: e.target.value }))} placeholder="https://linkedin.com/company/..." />
-                </div>
-                <div className="space-y-2">
-                  <Label>X (Twitter)</Label>
-                  <Input value={profileForm.twitterUrl} onChange={e => setProfileForm(p => ({ ...p, twitterUrl: e.target.value }))} placeholder="https://x.com/..." />
-                </div>
-              </div>
+          {/* Onboarding banner */}
+          {isOnboarding && (
+            <div className="bg-indigo-600 text-white px-6 py-3.5 flex items-center gap-3">
+              <BuildingIcon className="w-4 h-4 shrink-0 opacity-80" />
+              <p className="text-sm flex-1">
+                <span className="font-semibold">Welcome, {user?.name}!</span>
+                {" "}Fill in your company profile so candidates know who you are.
+              </p>
+              <button
+                onClick={() => navigate("/company-dashboard")}
+                className="flex items-center gap-1 text-xs font-semibold text-white/70 hover:text-white transition-colors shrink-0"
+              >
+                Skip <ArrowRightIcon className="w-3 h-3" />
+              </button>
+            </div>
+          )}
 
-              <Separator />
+          {/* Page content */}
+          <main className="flex-1 p-6 lg:p-8 max-w-3xl">
 
-              {/* Custom links */}
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Custom Links</Label>
-                <p className="text-xs text-muted-foreground">Add links to any job board, review site, or social platform.</p>
+            {/* Section header */}
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-gray-900">
+                {settingsSection === "details" ? "Company Details" : "Links & Presence"}
+              </h1>
+              <p className="text-sm text-gray-500 mt-1">
+                {settingsSection === "details"
+                  ? "Your company name, tagline, description, location and industry."
+                  : "Website and social links shown on your company profile."}
+              </p>
+            </div>
 
-                {profileForm.customLinks.map((link, idx) => (
-                  <div key={idx} className="flex items-center gap-2 p-3 rounded-lg border bg-muted/20">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{link.label}</p>
-                      <p className="text-xs text-muted-foreground truncate">{link.url}</p>
+            {/* Company Details section */}
+            {settingsSection === "details" && (
+              <Card className="shadow-sm">
+                <CardContent className="space-y-5 pt-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Company Name</Label>
+                      <Input value={profileForm.name} onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))} placeholder="Your company name" data-testid="input-profile-name" />
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive shrink-0 h-8 w-8"
-                      onClick={() => removeCustomLink(idx)}
-                    >
-                      <XIcon className="w-4 h-4" />
-                    </Button>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Tagline</Label>
+                      <Input value={profileForm.headline} onChange={e => setProfileForm(p => ({ ...p, headline: e.target.value }))} placeholder="e.g. Building the future of remote work" data-testid="input-profile-headline" />
+                    </div>
                   </div>
-                ))}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">About Us</Label>
+                    <Textarea value={profileForm.bio} onChange={e => setProfileForm(p => ({ ...p, bio: e.target.value }))} placeholder="Tell candidates what your company does, your culture, and what makes you unique..." rows={5} data-testid="textarea-profile-bio" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">HQ / Location</Label>
+                      <Input value={profileForm.location} onChange={e => setProfileForm(p => ({ ...p, location: e.target.value }))} placeholder="e.g. San Francisco, CA (Remote-friendly)" data-testid="input-profile-location" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Industry</Label>
+                      <Input value={profileForm.industry} onChange={e => setProfileForm(p => ({ ...p, industry: e.target.value }))} placeholder="e.g. Software, Fintech, HealthTech" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 pt-2 border-t">
+                    <Button onClick={saveProfile} disabled={updateProfile.isPending} className="gap-2" data-testid="button-save-profile">
+                      <SaveIcon className="w-4 h-4" /> {updateProfile.isPending ? "Saving…" : "Save Details"}
+                    </Button>
+                    <p className="text-xs text-gray-400">Changes are visible on your public profile immediately.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-                {profileForm.customLinks.length === 0 && (
-                  <p className="text-sm text-muted-foreground italic">No custom links yet. Add one below.</p>
-                )}
+            {/* Links section */}
+            {settingsSection === "links" && (
+              <div className="space-y-6">
+                <Card className="shadow-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Essential Links</CardTitle>
+                    <p className="text-xs text-gray-500">Shown prominently on your company profile page.</p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Company Website</Label>
+                      <Input value={profileForm.website} onChange={e => setProfileForm(p => ({ ...p, website: e.target.value }))} placeholder="https://yourcompany.com" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">LinkedIn Company Page</Label>
+                      <Input value={profileForm.linkedinUrl} onChange={e => setProfileForm(p => ({ ...p, linkedinUrl: e.target.value }))} placeholder="https://linkedin.com/company/..." />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">X (Twitter)</Label>
+                      <Input value={profileForm.twitterUrl} onChange={e => setProfileForm(p => ({ ...p, twitterUrl: e.target.value }))} placeholder="https://x.com/..." />
+                    </div>
+                    <div className="flex items-center gap-3 pt-2 border-t">
+                      <Button onClick={saveProfile} disabled={updateProfile.isPending} className="gap-2">
+                        <SaveIcon className="w-4 h-4" /> {updateProfile.isPending ? "Saving…" : "Save Links"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                <div className="flex gap-2 pt-1">
-                  <Input
-                    value={newLink.label}
-                    onChange={e => setNewLink(p => ({ ...p, label: e.target.value }))}
-                    placeholder="Label (e.g. Glassdoor, Crunchbase)"
-                    className="w-40 shrink-0"
-                    onKeyDown={e => { if (e.key === "Enter") addCustomLink(); }}
-                  />
-                  <Input
-                    value={newLink.url}
-                    onChange={e => setNewLink(p => ({ ...p, url: e.target.value }))}
-                    placeholder="https://..."
-                    className="flex-1"
-                    onKeyDown={e => { if (e.key === "Enter") addCustomLink(); }}
-                  />
-                  <Button variant="outline" onClick={addCustomLink} className="gap-1.5 shrink-0">
-                    <PlusIcon className="w-4 h-4" /> Add
-                  </Button>
-                </div>
+                <Card className="shadow-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Custom Links</CardTitle>
+                    <p className="text-xs text-gray-500">Add Glassdoor, Crunchbase, job boards, or any other relevant links.</p>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {profileForm.customLinks.length > 0 ? (
+                      <div className="space-y-2">
+                        {profileForm.customLinks.map((link, idx) => (
+                          <div key={idx} className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50/60">
+                            <LinkIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{link.label}</p>
+                              <p className="text-xs text-gray-400 truncate">{link.url}</p>
+                            </div>
+                            <button
+                              onClick={() => removeCustomLink(idx)}
+                              className="shrink-0 p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                            >
+                              <XIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-gray-200 p-4 text-center">
+                        <LinkIcon className="w-5 h-5 text-gray-300 mx-auto mb-1" />
+                        <p className="text-sm text-gray-400">No custom links yet</p>
+                      </div>
+                    )}
+
+                    <Separator />
+
+                    <div className="flex gap-2">
+                      <Input
+                        value={newLink.label}
+                        onChange={e => setNewLink(p => ({ ...p, label: e.target.value }))}
+                        placeholder="Label (e.g. Glassdoor)"
+                        className="w-36 shrink-0"
+                        onKeyDown={e => { if (e.key === "Enter") addCustomLink(); }}
+                      />
+                      <Input
+                        value={newLink.url}
+                        onChange={e => setNewLink(p => ({ ...p, url: e.target.value }))}
+                        placeholder="https://..."
+                        className="flex-1"
+                        onKeyDown={e => { if (e.key === "Enter") addCustomLink(); }}
+                      />
+                      <Button variant="outline" onClick={addCustomLink} className="gap-1.5 shrink-0">
+                        <PlusIcon className="w-4 h-4" /> Add
+                      </Button>
+                    </div>
+                    {profileForm.customLinks.length > 0 && (
+                      <div className="flex items-center gap-3 pt-1 border-t">
+                        <Button onClick={saveProfile} disabled={updateProfile.isPending} className="gap-2">
+                          <SaveIcon className="w-4 h-4" /> {updateProfile.isPending ? "Saving…" : "Save Links"}
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
+            )}
 
-              <Button onClick={saveProfile} disabled={updateProfile.isPending} className="gap-2">
-                <SaveIcon className="w-4 h-4" /> {updateProfile.isPending ? "Saving..." : "Save Links"}
-              </Button>
-            </CardContent>
-          </Card>
+          </main>
         </div>
       </div>
     );
