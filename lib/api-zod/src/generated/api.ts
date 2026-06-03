@@ -689,7 +689,6 @@ export const ApplyToJobParams = zod.object({
 });
 
 export const ApplyToJobBody = zod.object({
-  profileId: zod.number(),
   coverLetter: zod.string().nullish(),
 });
 

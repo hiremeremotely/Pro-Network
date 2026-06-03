@@ -60,7 +60,7 @@ export default function Notifications() {
 
   const { data: notifications = [], isLoading } = useQuery<AppNotification[]>({
     queryKey: ["notifications", user?.id],
-    queryFn: () => fetch(`${BASE}api/notifications?profileId=${user?.id}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/notifications`, { credentials: "include" }).then(r => r.json()),
     enabled: !!user?.id,
     staleTime: 0,
   });
@@ -69,7 +69,7 @@ export default function Notifications() {
     mutationFn: () => fetch(`${BASE}api/notifications/mark-read`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profileId: user?.id }),
+      credentials: "include",
     }),
     onSuccess: () => {
       qc.setQueryData<{ count: number }>(["notif-count", user?.id], { count: 0 });

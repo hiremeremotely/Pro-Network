@@ -26,9 +26,8 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 router.get("/analytics", async (req, res): Promise<void> => {
-  const profileId  = Number(req.query.profileId);
+  const profileId  = req.session.profileId!;
   const accountType = String(req.query.accountType ?? "individual");
-  if (!profileId) { res.status(400).json({ error: "profileId required" }); return; }
 
   const seed = profileId;
 

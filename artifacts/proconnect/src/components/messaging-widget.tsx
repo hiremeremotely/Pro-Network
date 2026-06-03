@@ -73,7 +73,7 @@ function ChatWindow({
 
   const { data: messages = [] } = useQuery<Message[]>({
     queryKey: ["messages", conv.id, myId],
-    queryFn: () => fetch(`${BASE}api/conversations/${conv.id}/messages?profileId=${myId}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/conversations/${conv.id}/messages`, { credentials: "include" }).then(r => r.json()),
     refetchInterval: minimized ? false : 3000,
     staleTime: 0,
   });
@@ -83,7 +83,8 @@ function ChatWindow({
       const res = await fetch(`${BASE}api/conversations/${conv.id}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ senderProfileId: myId, content }),
+        credentials: "include",
+        body: JSON.stringify({ content }),
       });
       return res.json() as Promise<Message>;
     },
@@ -98,7 +99,7 @@ function ChatWindow({
     mutationFn: () => fetch(`${BASE}api/conversations/${conv.id}/read`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profileId: myId }),
+      credentials: "include",
     }),
     onSuccess: () => {
       qc.setQueryData<Conversation[]>(["conversations", myId], old =>
@@ -326,7 +327,7 @@ export function MessagingWidget() {
 
   const { data: conversations = [] } = useQuery<Conversation[]>({
     queryKey: ["conversations", user?.id],
-    queryFn: () => fetch(`${BASE}api/conversations?profileId=${user?.id}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/conversations`, { credentials: "include" }).then(r => r.json()),
     enabled: !!user?.id,
     refetchInterval: 20000,
     staleTime: 15000,
@@ -334,7 +335,7 @@ export function MessagingWidget() {
 
   const { data: unreadData } = useQuery<{ count: number }>({
     queryKey: ["msg-unread", user?.id],
-    queryFn: () => fetch(`${BASE}api/conversations/unread-count?profileId=${user?.id}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/conversations/unread-count`, { credentials: "include" }).then(r => r.json()),
     enabled: !!user?.id,
     refetchInterval: 30000,
     staleTime: 20000,

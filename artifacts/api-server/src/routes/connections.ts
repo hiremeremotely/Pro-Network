@@ -20,10 +20,9 @@ const acceptedWith = (profileId: number) =>
 const partnerIdExpr = (profileId: number) =>
   sql<number>`CASE WHEN ${connectionsTable.followerId} = ${profileId} THEN ${connectionsTable.followingId} ELSE ${connectionsTable.followerId} END`;
 
-// ── GET /connections?profileId=:id — accepted partner IDs (both directions) ──
+// ── GET /connections — accepted partner IDs (both directions) for current user ─
 router.get("/connections", async (req, res): Promise<void> => {
-  const profileId = parseInt(req.query.profileId as string, 10);
-  if (!profileId) { res.status(400).json({ error: "profileId required" }); return; }
+  const profileId = req.session.profileId!;
 
   const rows = await db
     .select({ partnerId: partnerIdExpr(profileId) })
@@ -33,10 +32,9 @@ router.get("/connections", async (req, res): Promise<void> => {
   res.json(rows.map(r => r.partnerId));
 });
 
-// ── GET /connections/pending?profileId=:id — outgoing pending request IDs ────
+// ── GET /connections/pending — outgoing pending request IDs for current user ──
 router.get("/connections/pending", async (req, res): Promise<void> => {
-  const profileId = parseInt(req.query.profileId as string, 10);
-  if (!profileId) { res.status(400).json({ error: "profileId required" }); return; }
+  const profileId = req.session.profileId!;
 
   const rows = await db
     .select({ followingId: connectionsTable.followingId })
@@ -46,10 +44,9 @@ router.get("/connections/pending", async (req, res): Promise<void> => {
   res.json(rows.map(r => r.followingId));
 });
 
-// ── GET /connections/requests?profileId=:id — incoming pending requests ───────
+// ── GET /connections/requests — incoming pending requests for current user ─────
 router.get("/connections/requests", async (req, res): Promise<void> => {
-  const profileId = parseInt(req.query.profileId as string, 10);
-  if (!profileId) { res.status(400).json({ error: "profileId required" }); return; }
+  const profileId = req.session.profileId!;
 
   const rows = await db
     .select({
@@ -70,10 +67,9 @@ router.get("/connections/requests", async (req, res): Promise<void> => {
   res.json(rows);
 });
 
-// ── GET /connections/network?profileId=:id — full profiles connected (both dirs)
+// ── GET /connections/network — full profiles connected for current user ─────────
 router.get("/connections/network", async (req, res): Promise<void> => {
-  const profileId = parseInt(req.query.profileId as string, 10);
-  if (!profileId) { res.status(400).json({ error: "profileId required" }); return; }
+  const profileId = req.session.profileId!;
 
   const rows = await db
     .select({ partnerId: partnerIdExpr(profileId), createdAt: connectionsTable.createdAt })
@@ -105,10 +101,9 @@ router.get("/connections/network", async (req, res): Promise<void> => {
   });
 });
 
-// ── GET /connections/recommended?profileId=:id — smart suggestions ────────────
+// ── GET /connections/recommended — smart suggestions for current user ──────────
 router.get("/connections/recommended", async (req, res): Promise<void> => {
-  const profileId = parseInt(req.query.profileId as string, 10);
-  if (!profileId) { res.status(400).json({ error: "profileId required" }); return; }
+  const profileId = req.session.profileId!;
 
   const [myProfile] = await db.select().from(profilesTable).where(eq(profilesTable.id, profileId));
   if (!myProfile) { res.json({ profiles: [] }); return; }
@@ -169,10 +164,9 @@ router.get("/connections/recommended", async (req, res): Promise<void> => {
   res.json({ profiles: recommended.slice(0, 20), matchedByProfile });
 });
 
-// ── GET /connections/count?profileId=:id ──────────────────────────────────────
+// ── GET /connections/count — connection count for current user ────────────────
 router.get("/connections/count", async (req, res): Promise<void> => {
-  const profileId = parseInt(req.query.profileId as string, 10);
-  if (!profileId) { res.status(400).json({ error: "profileId required" }); return; }
+  const profileId = req.session.profileId!;
 
   const rows = await db
     .select({ id: connectionsTable.id })
@@ -184,9 +178,10 @@ router.get("/connections/count", async (req, res): Promise<void> => {
 
 // ── POST /connections — send connection request ───────────────────────────────
 router.post("/connections", async (req, res): Promise<void> => {
-  const { followerId, followingId, message } = req.body as { followerId: number; followingId: number; message?: string };
-  if (!followerId || !followingId) { res.status(400).json({ error: "followerId and followingId required" }); return; }
-  if (followerId === followingId) { res.status(400).json({ error: "Cannot connect with yourself" }); return; }
+  const followerId = req.session.profileId!;
+  const { followingId, message } = req.body as { followingId: number; message?: string };
+  if (!followingId) { res.status(400).json({ error: "followingId required" }); return; }
+  if (followerId === Number(followingId)) { res.status(400).json({ error: "Cannot connect with yourself" }); return; }
 
   // Companies are followed immediately (no approval needed)
   const [targetProfile] = await db
@@ -228,8 +223,9 @@ router.post("/connections", async (req, res): Promise<void> => {
 
 // ── PATCH /connections/accept — accept a pending request ──────────────────────
 router.patch("/connections/accept", async (req, res): Promise<void> => {
-  const { followerId, followingId } = req.body as { followerId: number; followingId: number };
-  if (!followerId || !followingId) { res.status(400).json({ error: "followerId and followingId required" }); return; }
+  const { followerId } = req.body as { followerId: number };
+  const followingId = req.session.profileId!;
+  if (!followerId) { res.status(400).json({ error: "followerId required" }); return; }
 
   const [updated] = await db
     .update(connectionsTable)
@@ -261,24 +257,27 @@ router.patch("/connections/accept", async (req, res): Promise<void> => {
   res.json(updated);
 });
 
-// ── DELETE /connections — disconnect or decline (finds record in either direction)
+// ── DELETE /connections — disconnect or decline (uses session as current user) ─
 router.delete("/connections", async (req, res): Promise<void> => {
-  const { followerId, followingId } = req.body as { followerId: number; followingId: number };
-  if (!followerId || !followingId) { res.status(400).json({ error: "followerId and followingId required" }); return; }
+  const myId = req.session.profileId!;
+  const { targetId } = req.body as { targetId: number };
+  if (!targetId) { res.status(400).json({ error: "targetId required" }); return; }
+
+  const target = Number(targetId);
 
   // Delete regardless of which side created the record (bidirectional search)
   await db
     .delete(connectionsTable)
     .where(
       or(
-        and(eq(connectionsTable.followerId, followerId), eq(connectionsTable.followingId, followingId)),
-        and(eq(connectionsTable.followerId, followingId), eq(connectionsTable.followingId, followerId)),
+        and(eq(connectionsTable.followerId, myId), eq(connectionsTable.followingId, target)),
+        and(eq(connectionsTable.followerId, target), eq(connectionsTable.followingId, myId)),
       ),
     );
 
   // Notify both parties in real-time (covers decline + disconnect cases)
-  emitToUser(followerId,  { type: "connection_removed", withProfileId: followingId });
-  emitToUser(followingId, { type: "connection_removed", withProfileId: followerId });
+  emitToUser(myId,    { type: "connection_removed", withProfileId: target });
+  emitToUser(target,  { type: "connection_removed", withProfileId: myId });
 
   res.status(204).send();
 });

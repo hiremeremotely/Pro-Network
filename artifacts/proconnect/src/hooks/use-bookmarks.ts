@@ -13,7 +13,7 @@ export function useBookmarks() {
   const { data, isLoading } = useQuery<{ jobIds: number[]; postIds: number[] }>({
     queryKey: ["bookmark-ids", user?.id],
     queryFn: () =>
-      fetch(`${BASE}api/bookmarks/ids?profileId=${user!.id}`).then(r => r.json()),
+      fetch(`${BASE}api/bookmarks/ids`, { credentials: "include" }).then(r => r.json()),
     enabled: !!user?.id,
     staleTime: 30_000,
     initialData: { jobIds: [], postIds: [] },
@@ -53,7 +53,8 @@ export function useBookmarks() {
         await fetch(`${BASE}api/bookmarks`, {
           method: already ? "DELETE" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ profileId: user.id, itemType: type, itemId: id }),
+          credentials: "include",
+          body: JSON.stringify({ itemType: type, itemId: id }),
         });
         qc.invalidateQueries({ queryKey: ["bookmarks", user.id] });
       } catch {

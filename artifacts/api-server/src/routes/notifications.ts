@@ -5,13 +5,9 @@ import { desc, eq, and } from "drizzle-orm";
 
 const router = Router();
 
-// ── GET /notifications?profileId=:id ─────────────────────────────────────────
+// ── GET /notifications ────────────────────────────────────────────────────────
 router.get("/notifications", async (req, res): Promise<void> => {
-  const profileId = Number(req.query.profileId);
-  if (!profileId || isNaN(profileId)) {
-    res.status(400).json({ error: "profileId required" });
-    return;
-  }
+  const profileId = req.session.profileId!;
 
   const rows = await db
     .select({
@@ -36,13 +32,11 @@ router.get("/notifications", async (req, res): Promise<void> => {
   res.json(rows);
 });
 
-// ── GET /notifications/unread-count?profileId=:id ────────────────────────────
+// ── GET /notifications/unread-count ──────────────────────────────────────────
 router.get("/notifications/unread-count", async (req, res): Promise<void> => {
-  const profileId = Number(req.query.profileId);
-  if (!profileId || isNaN(profileId)) {
-    res.json({ count: 0 });
-    return;
-  }
+  const profileId = req.session.profileId;
+  if (!profileId) { res.json({ count: 0 }); return; }
+
   const rows = await db
     .select({ id: notificationsTable.id })
     .from(notificationsTable)
@@ -51,7 +45,7 @@ router.get("/notifications/unread-count", async (req, res): Promise<void> => {
   res.json({ count: rows.length });
 });
 
-// ── PATCH /notifications/:id/mark-read — mark single notification read ────────
+// ── PATCH /notifications/:id/mark-read ───────────────────────────────────────
 router.patch("/notifications/:id/mark-read", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (!id || isNaN(id)) { res.status(400).json({ error: "id required" }); return; }
@@ -61,14 +55,13 @@ router.patch("/notifications/:id/mark-read", async (req, res): Promise<void> => 
 
 // ── PATCH /notifications/mark-read ───────────────────────────────────────────
 router.patch("/notifications/mark-read", async (req, res): Promise<void> => {
-  const { profileId } = req.body;
-  if (!profileId) { res.status(400).json({ error: "profileId required" }); return; }
+  const profileId = req.session.profileId!;
 
   await db
     .update(notificationsTable)
     .set({ isRead: true })
     .where(and(
-      eq(notificationsTable.recipientProfileId, Number(profileId)),
+      eq(notificationsTable.recipientProfileId, profileId),
       eq(notificationsTable.isRead, false),
     ));
 

@@ -34,7 +34,7 @@ function JobDetailSendModal({ job, onClose }: { job: Job; onClose: () => void })
   const { data } = useQuery({
     queryKey: ["send-connections", user?.id],
     queryFn: () =>
-      fetch(`${BASE}api/connections/network?profileId=${user?.id}`).then(r => r.json()),
+      fetch(`${BASE}api/connections/network`, { credentials: "include" }).then(r => r.json()),
     enabled: !!user?.id,
   });
   const allConnections: any[] = data?.profiles ?? [];
@@ -65,7 +65,8 @@ function JobDetailSendModal({ job, onClose }: { job: Job; onClose: () => void })
       await fetch(`${BASE}api/conversations/${convId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ senderProfileId: user.id, content: payload }),
+        credentials: "include",
+        body: JSON.stringify({ content: payload }),
       });
     }
     onClose();
@@ -177,7 +178,7 @@ export default function JobDetail() {
   function handleApply() {
     if (!currentProfileId) return;
     applyMutation.mutate(
-      { jobId: id, data: { profileId: currentProfileId, coverLetter: coverLetter || null } },
+      { jobId: id, data: { coverLetter: coverLetter || null } },
       {
         onSuccess: () => {
           toast({ title: "Application submitted!", description: "Your application has been sent successfully." });

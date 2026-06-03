@@ -28,10 +28,10 @@ export function emitToUser(profileId: number, data: Record<string, unknown>) {
   }
 }
 
-// ── GET /api/events?profileId=:id ─────────────────────────────────────────────
+// ── GET /api/events — SSE stream for the authenticated user ──────────────────
 router.get("/events", (req: Request, res: Response) => {
-  const profileId = parseInt(req.query.profileId as string, 10);
-  if (!profileId) { res.status(400).end(); return; }
+  const profileId = req.session.profileId;
+  if (!profileId) { res.status(401).end(); return; }
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");

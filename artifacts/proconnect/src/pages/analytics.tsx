@@ -310,7 +310,7 @@ export default function Analytics() {
   const { data, isLoading } = useQuery<AnalyticsData>({
     queryKey: ["analytics", user?.id, user?.accountType],
     queryFn: () =>
-      fetch(`${BASE}api/analytics?profileId=${user!.id}&accountType=${user!.accountType}`)
+      fetch(`${BASE}api/analytics?accountType=${user!.accountType}`, { credentials: "include" })
         .then(r => r.json()),
     enabled: !!user?.id,
     staleTime: 60_000,

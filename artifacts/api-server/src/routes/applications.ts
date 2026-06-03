@@ -40,6 +40,7 @@ router.post("/jobs/:jobId/applications", async (req, res): Promise<void> => {
   }
   const [app] = await db.insert(applicationsTable).values({
     ...parsed.data,
+    profileId: req.session.profileId!,
     jobId: params.data.jobId,
     status: "pending",
   }).returning();

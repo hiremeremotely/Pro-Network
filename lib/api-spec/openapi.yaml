@@ -1646,12 +1646,9 @@ components:
     CreateApplicationBody:
       type: object
       properties:
-        profileId:
-          type: integer
         coverLetter:
           type: string
           nullable: true
-      required: [profileId]
 
     FeedStats:
       type: object

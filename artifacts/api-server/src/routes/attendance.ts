@@ -288,14 +288,7 @@ router.get("/companies/:companyId/attendance/monthly-summary", async (req, res):
 // This endpoint returns only records where individualProfileId matches — no cross-user data.
 router.get("/my-employment", async (req, res): Promise<void> => {
   const individualProfileId = parseInt(req.query.individualProfileId as string);
-  // Also accept legacy ?profileId= param for backwards compatibility
-  const legacyId = parseInt(req.query.profileId as string);
-  const id = !isNaN(individualProfileId) ? individualProfileId : !isNaN(legacyId) ? legacyId : NaN;
-
-  if (isNaN(id)) {
-    res.status(400).json({ error: "individualProfileId required" });
-    return;
-  }
+  const id = !isNaN(individualProfileId) ? individualProfileId : (req.session.profileId ?? NaN);
 
   // Only returns rows where individualProfileId == the supplied value — inherently scoped.
   const records = await db.select().from(employeesTable)

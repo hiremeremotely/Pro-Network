@@ -1,9 +1,12 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { requireAuth } from "./middlewares/require-auth";
 
 // ── Allowed CORS origins ──────────────────────────────────────────────────────
 // Production domains come from REPLIT_DOMAINS (comma-separated, no protocol).
@@ -142,7 +145,35 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Strict limiter only on brute-force-sensitive credential endpoints
+// ── Session middleware ────────────────────────────────────────────────────────
+// HTTP-only cookie session backed by PostgreSQL (connect-pg-simple).
+// Sessions table is created automatically on first run if missing.
+const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) throw new Error("SESSION_SECRET environment variable is required but not set");
+
+const PgSession = connectPgSimple(session);
+app.use(
+  session({
+    store: new PgSession({
+      conString: process.env.DATABASE_URL,
+      tableName: "sessions",
+      pruneSessionInterval: 60,
+    }),
+    secret: sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    name: "hmr.sid",
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    },
+  }),
+);
+logger.info("Session middleware configured");
+
+// ── Strict limiter only on brute-force-sensitive credential endpoints ─────────
 const AUTH_STRICT_PATHS = [
   "/api/auth/login",
   "/api/auth/register",
@@ -151,12 +182,23 @@ const AUTH_STRICT_PATHS = [
 ];
 for (const path of AUTH_STRICT_PATHS) app.use(path, authLimiter);
 
-// General limiter covers all /api routes (including the auth ones above)
-app.use("/api", generalLimiter, router);
+// General rate limiter + auth guard on all /api routes.
+// /api/auth/* and /api/healthz are public (no session required).
+app.use(
+  "/api",
+  generalLimiter,
+  (req: Request, res: Response, next: NextFunction) => {
+    if (req.path.startsWith("/auth") || req.path === "/healthz") return next();
+    requireAuth(req, res, next);
+  },
+  router,
+);
 
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction): void => {
   logger.error({ err }, "Unhandled error");
-  res.status(500).json({ error: "Internal server error" });
+  if (!res.headersSent) {
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 export default app;

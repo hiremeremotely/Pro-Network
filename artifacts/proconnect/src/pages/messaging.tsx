@@ -358,7 +358,7 @@ export default function Messaging() {
 
   const { data: conversations = [], isLoading: convsLoading } = useQuery<Conversation[]>({
     queryKey: ["conversations", user?.id],
-    queryFn: () => fetch(`${BASE}api/conversations?profileId=${user?.id}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/conversations`, { credentials: "include" }).then(r => r.json()),
     enabled: !!user?.id,
     refetchInterval: 20000,
     staleTime: 15000,
@@ -370,7 +370,7 @@ export default function Messaging() {
 
   const { data: messages = [], isLoading: msgsLoading } = useQuery<Message[]>({
     queryKey: ["messages", activeConvId, user?.id],
-    queryFn: () => fetch(`${BASE}api/conversations/${activeConvId}/messages?profileId=${user?.id}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/conversations/${activeConvId}/messages`, { credentials: "include" }).then(r => r.json()),
     enabled: !!activeConvId && !!user?.id,
     refetchInterval: 3000,
     staleTime: 0,
@@ -381,7 +381,8 @@ export default function Messaging() {
       const res = await fetch(`${BASE}api/conversations/${activeConvId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ senderProfileId: user?.id, content }),
+        credentials: "include",
+        body: JSON.stringify({ content }),
       });
       return res.json() as Promise<Message>;
     },
@@ -397,7 +398,8 @@ export default function Messaging() {
       const res = await fetch(`${BASE}api/conversations/${activeConvId}/messages/${msgId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileId: user?.id, content }),
+        credentials: "include",
+        body: JSON.stringify({ content }),
       });
       return res.json();
     },
@@ -412,8 +414,9 @@ export default function Messaging() {
 
   const deleteMsg = useMutation({
     mutationFn: async (msgId: number) => {
-      await fetch(`${BASE}api/conversations/${activeConvId}/messages/${msgId}?profileId=${user?.id}`, {
+      await fetch(`${BASE}api/conversations/${activeConvId}/messages/${msgId}`, {
         method: "DELETE",
+        credentials: "include",
       });
     },
     onSuccess: (_, msgId) => {
@@ -426,8 +429,9 @@ export default function Messaging() {
 
   const deleteConv = useMutation({
     mutationFn: async (convId: number) => {
-      await fetch(`${BASE}api/conversations/${convId}?profileId=${user?.id}`, {
+      await fetch(`${BASE}api/conversations/${convId}`, {
         method: "DELETE",
+        credentials: "include",
       });
     },
     onSuccess: (_, convId) => {
@@ -445,7 +449,7 @@ export default function Messaging() {
     mutationFn: (convId: number) => fetch(`${BASE}api/conversations/${convId}/read`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profileId: user?.id }),
+      credentials: "include",
     }),
     onSuccess: (_, convId) => {
       qc.setQueryData<Conversation[]>(["conversations", user?.id], old =>

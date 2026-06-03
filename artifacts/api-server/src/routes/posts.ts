@@ -17,7 +17,7 @@ const router = Router();
 
 // ── GET /posts ─────────────────────────────────────────────────────────────
 router.get("/posts", async (req, res): Promise<void> => {
-  const myProfileId = req.query.profileId ? Number(req.query.profileId) : null;
+  const myProfileId = req.session.profileId ?? null;
   const authorProfileId = req.query.authorProfileId ? Number(req.query.authorProfileId) : null;
 
   const posts = await db
@@ -232,18 +232,19 @@ router.get("/posts/feed", async (req, res): Promise<void> => {
 
 // ── POST /posts ─────────────────────────────────────────────────────────────
 router.post("/posts", async (req, res): Promise<void> => {
-  const { profileId, content, imageUrl, visibility } = req.body;
-  if (!profileId || !content || typeof content !== "string" || content.trim().length === 0) {
-    res.status(400).json({ error: "profileId and content are required" });
+  const profileId = req.session.profileId!;
+  const { content, imageUrl, visibility } = req.body;
+  if (!content || typeof content !== "string" || content.trim().length === 0) {
+    res.status(400).json({ error: "content is required" });
     return;
   }
   // Validate visibility; companies always get "public"
-  const [profile] = await db.select({ accountType: profilesTable.accountType }).from(profilesTable).where(eq(profilesTable.id, Number(profileId))).limit(1);
+  const [profile] = await db.select({ accountType: profilesTable.accountType }).from(profilesTable).where(eq(profilesTable.id, profileId)).limit(1);
   const resolvedVisibility = profile?.accountType === "company" ? "public" : (visibility === "connections" ? "connections" : "public");
 
   const [post] = await db
     .insert(postsTable)
-    .values({ profileId: Number(profileId), content: content.trim(), imageUrl: imageUrl ?? null, visibility: resolvedVisibility })
+    .values({ profileId, content: content.trim(), imageUrl: imageUrl ?? null, visibility: resolvedVisibility })
     .returning();
   res.status(201).json(post);
 });
@@ -279,13 +280,13 @@ router.post("/posts/:id/react", async (req, res): Promise<void> => {
   const postId = Number(req.params.id);
   if (isNaN(postId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { profileId, reactionType } = req.body;
-  if (!profileId || !reactionType) {
-    res.status(400).json({ error: "profileId and reactionType are required" });
+  const { reactionType } = req.body;
+  if (!reactionType) {
+    res.status(400).json({ error: "reactionType is required" });
     return;
   }
 
-  const pid = Number(profileId);
+  const pid = req.session.profileId!;
   const [existing] = await db
     .select()
     .from(postReactionsTable)
@@ -364,15 +365,16 @@ router.post("/posts/:id/comments", async (req, res): Promise<void> => {
   const postId = Number(req.params.id);
   if (isNaN(postId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { profileId, content } = req.body;
-  if (!profileId || !content || typeof content !== "string" || content.trim().length === 0) {
-    res.status(400).json({ error: "profileId and content are required" });
+  const profileId = req.session.profileId!;
+  const { content } = req.body;
+  if (!content || typeof content !== "string" || content.trim().length === 0) {
+    res.status(400).json({ error: "content is required" });
     return;
   }
 
   const [comment] = await db
     .insert(postCommentsTable)
-    .values({ postId, profileId: Number(profileId), content: content.trim() })
+    .values({ postId, profileId, content: content.trim() })
     .returning();
 
   // Increment commentsCount

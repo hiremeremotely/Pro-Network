@@ -7,6 +7,5 @@
  */
 
 export interface CreateApplicationBody {
-  profileId: number;
   coverLetter?: string | null;
 }

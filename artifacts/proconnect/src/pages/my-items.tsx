@@ -60,7 +60,7 @@ export default function MyItems() {
 
   const { data, isLoading, error, refetch } = useQuery<{ jobs: SavedJob[]; posts: SavedPost[] }>({
     queryKey: ["bookmarks", user?.id],
-    queryFn: () => fetch(`${BASE}api/bookmarks?profileId=${user!.id}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/bookmarks`, { credentials: "include" }).then(r => r.json()),
     enabled: !!user?.id,
     staleTime: 10_000,
   });

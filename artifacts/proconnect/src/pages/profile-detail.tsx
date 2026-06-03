@@ -739,7 +739,7 @@ export default function ProfileDetail() {
 
   const { data: networkData } = useQuery<{ total: number; connectionCount: number; followingCount: number; connections: any[]; following: any[] }>({
     queryKey: ["profile-network", id],
-    queryFn: () => fetch(`${BASE}api/connections/network?profileId=${id}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/connections/network`, { credentials: "include" }).then(r => r.json()),
     enabled: !!id,
     staleTime: 60_000,
   });

@@ -42,13 +42,14 @@ const queryClient = new QueryClient();
 // ── Auth guards ───────────────────────────────────────────────────────────────
 
 function RequireAuth({ children }: { children: ReactNode }) {
-  const { user } = useAppAuth();
+  const { user, isLoading } = useAppAuth();
   const [, navigate] = useLocation();
 
   useLayoutEffect(() => {
-    if (!user) navigate("/login");
-  }, [user, navigate]);
+    if (!isLoading && !user) navigate("/login");
+  }, [user, isLoading, navigate]);
 
+  if (isLoading) return null;
   if (!user) return null;
   return <>{children}</>;
 }

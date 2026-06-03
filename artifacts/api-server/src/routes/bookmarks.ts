@@ -5,8 +5,7 @@ import { eq, and, inArray, desc, sql } from "drizzle-orm";
 const router = Router();
 
 router.get("/bookmarks", async (req, res): Promise<void> => {
-  const profileId = Number(req.query.profileId);
-  if (!profileId) { res.status(400).json({ error: "profileId required" }); return; }
+  const profileId = req.session.profileId!;
 
   const bookmarks = await db.select().from(bookmarksTable).where(eq(bookmarksTable.profileId, profileId));
 
@@ -42,8 +41,7 @@ router.get("/bookmarks", async (req, res): Promise<void> => {
 });
 
 router.get("/bookmarks/ids", async (req, res): Promise<void> => {
-  const profileId = Number(req.query.profileId);
-  if (!profileId) { res.json({ jobIds: [], postIds: [] }); return; }
+  const profileId = req.session.profileId!;
 
   const bookmarks = await db.select().from(bookmarksTable).where(eq(bookmarksTable.profileId, profileId));
   res.json({
@@ -53,24 +51,26 @@ router.get("/bookmarks/ids", async (req, res): Promise<void> => {
 });
 
 router.post("/bookmarks", async (req, res): Promise<void> => {
-  const { profileId, itemType, itemId } = req.body;
-  if (!profileId || !itemType || !itemId) { res.status(400).json({ error: "profileId, itemType, itemId required" }); return; }
+  const profileId = req.session.profileId!;
+  const { itemType, itemId } = req.body;
+  if (!itemType || !itemId) { res.status(400).json({ error: "itemType and itemId required" }); return; }
 
   try {
-    await db.insert(bookmarksTable).values({ profileId: Number(profileId), itemType, itemId: Number(itemId) }).onConflictDoNothing();
+    await db.insert(bookmarksTable).values({ profileId, itemType, itemId: Number(itemId) }).onConflictDoNothing();
     res.json({ ok: true });
-  } catch (e) {
+  } catch {
     res.status(500).json({ error: "Failed to bookmark" });
   }
 });
 
 router.delete("/bookmarks", async (req, res): Promise<void> => {
-  const { profileId, itemType, itemId } = req.body;
-  if (!profileId || !itemType || !itemId) { res.status(400).json({ error: "profileId, itemType, itemId required" }); return; }
+  const profileId = req.session.profileId!;
+  const { itemType, itemId } = req.body;
+  if (!itemType || !itemId) { res.status(400).json({ error: "itemType and itemId required" }); return; }
 
   await db.delete(bookmarksTable).where(
     and(
-      eq(bookmarksTable.profileId, Number(profileId)),
+      eq(bookmarksTable.profileId, profileId),
       eq(bookmarksTable.itemType, itemType),
       eq(bookmarksTable.itemId, Number(itemId))
     )

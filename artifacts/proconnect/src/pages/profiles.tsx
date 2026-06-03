@@ -323,14 +323,14 @@ function MyNetworkTab({ userId, view, isConnected, isPending, onConnect, onCance
 }) {
   const { data: networkData, isLoading: netLoading } = useQuery<{ profiles: Profile[]; total: number }>({
     queryKey: ["connections-network", userId],
-    queryFn: () => fetch(`${BASE}api/connections/network?profileId=${userId}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/connections/network`, { credentials: "include" }).then(r => r.json()),
     enabled: !!userId,
     staleTime: 30_000,
   });
 
   const { data: requests = [], isLoading: reqLoading } = useQuery<ConnectionRequest[]>({
     queryKey: ["connections-requests", userId],
-    queryFn: () => fetch(`${BASE}api/connections/requests?profileId=${userId}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/connections/requests`, { credentials: "include" }).then(r => r.json()),
     enabled: !!userId,
     staleTime: 0,
   });
@@ -498,7 +498,7 @@ function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel
   // ── Individual: recommendations ─────────────────────────────────────────────
   const { data: recData, isLoading: recLoading } = useQuery<{ profiles: Profile[]; matchedByProfile: boolean }>({
     queryKey: ["connections-recommended", userId],
-    queryFn: () => fetch(`${BASE}api/connections/recommended?profileId=${userId}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/connections/recommended`, { credentials: "include" }).then(r => r.json()),
     enabled: !isCompany && !!userId && !query,
     staleTime: 60_000,
   });
@@ -722,14 +722,14 @@ export default function Profiles() {
 
   const { data: netData } = useQuery<{ profiles: Profile[]; total: number }>({
     queryKey: ["connections-network", user?.id],
-    queryFn: () => fetch(`${BASE}api/connections/network?profileId=${user!.id}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/connections/network`, { credentials: "include" }).then(r => r.json()),
     enabled: !!user?.id,
     staleTime: 30_000,
   });
 
   const { data: requestsData = [] } = useQuery<ConnectionRequest[]>({
     queryKey: ["connections-requests", user?.id],
-    queryFn: () => fetch(`${BASE}api/connections/requests?profileId=${user!.id}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/connections/requests`, { credentials: "include" }).then(r => r.json()),
     enabled: !!user?.id,
     staleTime: 0,
   });

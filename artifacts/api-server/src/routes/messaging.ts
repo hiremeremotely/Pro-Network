@@ -222,8 +222,8 @@ router.post("/conversations", async (req, res): Promise<void> => {
 
 // ── GET /conversations/unread-count ──────────────────────────────────────────
 router.get("/conversations/unread-count", async (req, res): Promise<void> => {
-  const profileId = Number(req.query.profileId);
-  if (!profileId || isNaN(profileId)) { res.json({ count: 0 }); return; }
+  const profileId = req.session.profileId;
+  if (!profileId) { res.json({ count: 0 }); return; }
 
   // Direct conversations
   const directConvos = await db
@@ -267,8 +267,7 @@ router.get("/conversations/unread-count", async (req, res): Promise<void> => {
 // ── GET /conversations ────────────────────────────────────────────────────────
 // Returns all conversations (direct + team channels) for a user, team channels first
 router.get("/conversations", async (req, res): Promise<void> => {
-  const profileId = Number(req.query.profileId);
-  if (!profileId || isNaN(profileId)) { res.status(400).json({ error: "profileId required" }); return; }
+  const profileId = req.session.profileId!;
 
   // 1. Direct conversations — only show ones with at least one message
   const directConvos = await db
@@ -370,12 +369,11 @@ async function canAccessConversation(convId: number, profileId: number): Promise
 }
 
 // ── GET /conversations/:id/messages ─────────────────────────────────────────
-// Query: ?profileId= required to enforce access control
+// Access control is enforced via session profileId
 router.get("/conversations/:id/messages", async (req, res): Promise<void> => {
   const convId = Number(req.params.id);
-  const profileId = Number(req.query.profileId);
   if (isNaN(convId)) { res.status(400).json({ error: "Invalid id" }); return; }
-  if (!profileId || isNaN(profileId)) { res.status(400).json({ error: "profileId required" }); return; }
+  const profileId = req.session.profileId!;
 
   // Authorization check
   const allowed = await canAccessConversation(convId, profileId);
@@ -407,11 +405,12 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
   const convId = Number(req.params.id);
   if (isNaN(convId)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { senderProfileId, content } = req.body;
-  if (!senderProfileId || !content || typeof content !== "string" || content.trim().length === 0) {
-    res.status(400).json({ error: "senderProfileId and content required" });
+  const { content } = req.body;
+  if (!content || typeof content !== "string" || content.trim().length === 0) {
+    res.status(400).json({ error: "content required" });
     return;
   }
+  const senderProfileId = req.session.profileId!;
 
   const [conv] = await db
     .select()
@@ -427,7 +426,7 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
     const [member] = await db
       .select({ id: conversationMembersTable.id })
       .from(conversationMembersTable)
-      .where(and(eq(conversationMembersTable.conversationId, convId), eq(conversationMembersTable.profileId, Number(senderProfileId))))
+      .where(and(eq(conversationMembersTable.conversationId, convId), eq(conversationMembersTable.profileId, senderProfileId)))
       .limit(1);
     if (!member) {
       res.status(403).json({ error: "Access denied: not a member of this team channel" });
@@ -435,7 +434,7 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
     }
   } else {
     // Direct conversation: sender must be a participant
-    const senderId = Number(senderProfileId);
+    const senderId = senderProfileId;
     if (conv.participant1Id !== senderId && conv.participant2Id !== senderId) {
       res.status(403).json({ error: "Access denied: you are not a participant in this conversation" });
       return;
@@ -523,15 +522,16 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
 router.patch("/conversations/:convId/messages/:msgId", async (req, res): Promise<void> => {
   const convId = Number(req.params.convId);
   const msgId = Number(req.params.msgId);
-  const { profileId, content } = req.body;
-  if (!profileId || !content || typeof content !== "string" || content.trim().length === 0) {
-    res.status(400).json({ error: "profileId and content required" }); return;
+  const { content } = req.body;
+  if (!content || typeof content !== "string" || content.trim().length === 0) {
+    res.status(400).json({ error: "content required" }); return;
   }
+  const profileId = req.session.profileId!;
 
   const [msg] = await db.select().from(messagesTable).where(eq(messagesTable.id, msgId)).limit(1);
   if (!msg) { res.status(404).json({ error: "Message not found" }); return; }
   if (msg.conversationId !== convId) { res.status(404).json({ error: "Message not in this conversation" }); return; }
-  if (msg.senderProfileId !== Number(profileId)) { res.status(403).json({ error: "Can only edit your own messages" }); return; }
+  if (msg.senderProfileId !== profileId) { res.status(403).json({ error: "Can only edit your own messages" }); return; }
   if (msg.isDeleted) { res.status(400).json({ error: "Cannot edit a deleted message" }); return; }
 
   const [updated] = await db
@@ -547,8 +547,7 @@ router.patch("/conversations/:convId/messages/:msgId", async (req, res): Promise
 router.delete("/conversations/:convId/messages/:msgId", async (req, res): Promise<void> => {
   const convId = Number(req.params.convId);
   const msgId = Number(req.params.msgId);
-  const profileId = Number(req.query.profileId);
-  if (!profileId) { res.status(400).json({ error: "profileId required" }); return; }
+  const profileId = req.session.profileId!;
 
   const [msg] = await db.select().from(messagesTable).where(eq(messagesTable.id, msgId)).limit(1);
   if (!msg) { res.status(404).json({ error: "Message not found" }); return; }
@@ -562,8 +561,7 @@ router.delete("/conversations/:convId/messages/:msgId", async (req, res): Promis
 // ── DELETE /conversations/:convId — delete an entire conversation ─────────────
 router.delete("/conversations/:convId", async (req, res): Promise<void> => {
   const convId = Number(req.params.convId);
-  const profileId = Number(req.query.profileId);
-  if (!profileId) { res.status(400).json({ error: "profileId required" }); return; }
+  const profileId = req.session.profileId!;
 
   const allowed = await canAccessConversation(convId, profileId);
   if (!allowed) { res.status(403).json({ error: "Access denied" }); return; }
@@ -578,8 +576,8 @@ router.delete("/conversations/:convId", async (req, res): Promise<void> => {
 // ── PATCH /conversations/:id/read ─────────────────────────────────────────────
 router.patch("/conversations/:id/read", async (req, res): Promise<void> => {
   const convId = Number(req.params.id);
-  const profileId = Number(req.body.profileId ?? req.query.profileId);
-  if (isNaN(convId) || !profileId) { res.status(400).json({ error: "Invalid params" }); return; }
+  const profileId = req.session.profileId!;
+  if (isNaN(convId)) { res.status(400).json({ error: "Invalid convId" }); return; }
 
   const allowed = await canAccessConversation(convId, profileId);
   if (!allowed) { res.status(403).json({ error: "Access denied" }); return; }

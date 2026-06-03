@@ -196,7 +196,6 @@ export interface Application {
 }
 
 export interface CreateApplicationBody {
-  profileId: number;
   coverLetter?: string | null;
 }
 

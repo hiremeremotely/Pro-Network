@@ -1,7 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 
-const SESSION_KEY = "app_user_session";
-
 export interface AppUser {
   id: number;
   name: string;
@@ -14,6 +12,7 @@ export interface AppUser {
 
 interface AppAuthCtx {
   user: AppUser | null;
+  isLoading: boolean;
   login: (email: string, password: string, allowedAccountType?: string) => Promise<{ ok: boolean; error?: string; unverified?: boolean }>;
   signup: (data: SignupData) => Promise<{ ok: boolean; error?: string; verificationToken?: string }>;
   logout: () => void;
@@ -33,38 +32,30 @@ interface SignupData {
 
 const Ctx = createContext<AppAuthCtx | null>(null);
 
-function loadUser(): AppUser | null {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
 export function AppAuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AppUser | null>(loadUser);
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const BASE = import.meta.env.BASE_URL;
 
   useEffect(() => {
-    if (user && !user.authToken) {
-      fetch(`${BASE}api/auth/token`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileId: user.id }),
+    fetch(`${BASE}api/auth/me`, { credentials: "include" })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (d?.profile) {
+          setUser({
+            id: d.profile.id,
+            name: d.profile.name,
+            email: d.profile.email,
+            accountType: d.profile.accountType,
+            headline: d.profile.headline,
+            avatarUrl: d.profile.avatarUrl,
+            authToken: d.authToken,
+          });
+        }
       })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => {
-          if (d?.authToken) {
-            const updated = { ...user, authToken: d.authToken };
-            localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
-            setUser(updated);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [user?.id]);
-
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+  }, [BASE]);
 
   const login = useCallback(async (email: string, password: string, allowedAccountType?: string) => {
     try {
@@ -72,6 +63,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
+        credentials: "include",
       });
       const data = await res.json();
       if (res.status === 403 && data.error === "unverified") {
@@ -93,7 +85,6 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
           }
           return { ok: false, error: "This is a company account. Please use 'For Companies' to sign in." };
         }
-        localStorage.setItem(SESSION_KEY, JSON.stringify(u));
         setUser(u);
         return { ok: true };
       }
@@ -109,6 +100,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
+        credentials: "include",
       });
       const json = await res.json();
       if (res.ok && json.profile) {
@@ -121,20 +113,18 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
   }, [BASE]);
 
   const logout = useCallback(() => {
-    localStorage.removeItem(SESSION_KEY);
+    void fetch(`${BASE}api/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    }).catch(() => {});
     setUser(null);
-  }, []);
+  }, [BASE]);
 
   const updateUser = useCallback((partial: Partial<AppUser>) => {
-    setUser(prev => {
-      if (!prev) return null;
-      const updated = { ...prev, ...partial };
-      localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
-      return updated;
-    });
+    setUser(prev => (prev ? { ...prev, ...partial } : null));
   }, []);
 
-  return <Ctx.Provider value={{ user, login, signup, logout, updateUser }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, isLoading, login, signup, logout, updateUser }}>{children}</Ctx.Provider>;
 }
 
 export function useAppAuth() {

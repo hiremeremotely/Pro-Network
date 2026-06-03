@@ -209,7 +209,8 @@ function CommentsSection({ postId, currentUserId, currentUserAvatar, currentUser
       const res = await fetch(`${import.meta.env.BASE_URL}api/posts/${postId}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileId: currentUserId, content }),
+        credentials: "include",
+        body: JSON.stringify({ content }),
       });
       return res.json() as Promise<PostComment>;
     },
@@ -355,7 +356,7 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
   const { data } = useQuery({
     queryKey: ["send-connections", user?.id],
     queryFn: () =>
-      fetch(`${BASE}api/connections/network?profileId=${user?.id}`).then(r => r.json()),
+      fetch(`${BASE}api/connections/network`, { credentials: "include" }).then(r => r.json()),
     enabled: !!user?.id,
   });
   const allConnections: any[] = data?.profiles ?? [];
@@ -405,7 +406,8 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
           await fetch(`${BASE}api/conversations/${convId}/messages`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ senderProfileId: user.id, content: payload }),
+            credentials: "include",
+            body: JSON.stringify({ content: payload }),
           });
         }
         return { convId, name: p.name };
@@ -583,7 +585,8 @@ function PostCard({ post, currentUserId, currentUserAvatar, currentUserName }: {
       const res = await fetch(`${import.meta.env.BASE_URL}api/posts/${post.id}/react`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileId: currentUserId, reactionType }),
+        credentials: "include",
+        body: JSON.stringify({ reactionType }),
       });
       return res.json() as Promise<{ action: "added" | "removed" | "changed"; reactionType: string | null }>;
     },
@@ -1207,7 +1210,8 @@ export default function Home() {
       const res = await fetch(`${import.meta.env.BASE_URL}api/posts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileId: currentId, content, imageUrl, visibility }),
+        credentials: "include",
+        body: JSON.stringify({ content, imageUrl, visibility }),
       });
       return res.json();
     },

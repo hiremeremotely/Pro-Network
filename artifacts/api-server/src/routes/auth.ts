@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db, profilesTable } from "@workspace/db";
 import { IS_DEMO, DEMO_TOKEN_BUNDLE } from "../lib/email-provider";
 import { encryptToken } from "../lib/crypto";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -232,8 +233,33 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   }
 
   await autoConnectEmailByDomain(profile.id, profile.email);
+  req.session.profileId = profile.id;
   const { passwordHash: _pw, emailVerificationToken: _evt, ...safe } = profile;
   res.json({ profile: safe, authToken: generateAuthToken(profile.id) });
+});
+
+router.get("/auth/me", async (req, res): Promise<void> => {
+  const profileId = req.session.profileId;
+  if (!profileId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.id, profileId));
+  if (!profile) {
+    req.session.destroy(() => {});
+    res.status(401).json({ error: "Session expired" });
+    return;
+  }
+  const { passwordHash: _pw, emailVerificationToken: _evt, ...safe } = profile;
+  res.json({ profile: safe, authToken: generateAuthToken(profile.id) });
+});
+
+router.post("/auth/logout", (req, res): void => {
+  req.session.destroy((err) => {
+    if (err) logger.warn({ err }, "Failed to destroy session on logout");
+    res.clearCookie("hmr.sid");
+    res.json({ ok: true });
+  });
 });
 
 router.post("/auth/forgot-password", async (req, res): Promise<void> => {

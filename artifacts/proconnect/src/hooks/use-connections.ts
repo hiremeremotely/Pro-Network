@@ -10,14 +10,14 @@ export function useConnections() {
 
   const { data: following = [], isLoading } = useQuery<number[]>({
     queryKey: ["connections", user?.id],
-    queryFn: () => fetch(`${BASE}api/connections?profileId=${user!.id}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/connections`, { credentials: "include" }).then(r => r.json()),
     enabled: !!user?.id,
     staleTime: 30_000,
   });
 
   const { data: pendingOutgoing = [] } = useQuery<number[]>({
     queryKey: ["connections-pending", user?.id],
-    queryFn: () => fetch(`${BASE}api/connections/pending?profileId=${user!.id}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/connections/pending`, { credentials: "include" }).then(r => r.json()),
     enabled: !!user?.id,
     staleTime: 30_000,
   });
@@ -39,13 +39,12 @@ export function useConnections() {
   // ── Real-time SSE subscription ─────────────────────────────────────────────
   useEffect(() => {
     if (!user?.id) return;
-    const es = new EventSource(`${BASE}api/events?profileId=${user.id}`);
+    const es = new EventSource(`${BASE}api/events`, { withCredentials: true });
 
     es.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data) as { type: string };
         if (data.type === "connection_accepted" || data.type === "connection_removed") {
-          // Immediately refresh all connection state for this user
           qc.invalidateQueries({ queryKey: ["connections", user.id] });
           qc.invalidateQueries({ queryKey: ["connections-pending", user.id] });
           qc.invalidateQueries({ queryKey: ["connections-network", user.id] });
@@ -69,7 +68,8 @@ export function useConnections() {
       await fetch(`${BASE}api/connections`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ followerId: user.id, followingId: targetId, message }),
+        credentials: "include",
+        body: JSON.stringify({ followingId: targetId, message }),
       });
     } catch {
       invalidate();
@@ -83,7 +83,8 @@ export function useConnections() {
       await fetch(`${BASE}api/connections`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ followerId: user.id, followingId: targetId }),
+        credentials: "include",
+        body: JSON.stringify({ targetId }),
       });
     } catch {
       invalidate();
@@ -96,7 +97,8 @@ export function useConnections() {
       await fetch(`${BASE}api/connections/accept`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ followerId: requesterId, followingId: user.id }),
+        credentials: "include",
+        body: JSON.stringify({ followerId: requesterId }),
       });
       invalidate();
       qc.invalidateQueries({ queryKey: ["notif-count", user.id] });
@@ -111,7 +113,8 @@ export function useConnections() {
       await fetch(`${BASE}api/connections`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ followerId: requesterId, followingId: user.id }),
+        credentials: "include",
+        body: JSON.stringify({ targetId: requesterId }),
       });
       invalidate();
     } catch {
@@ -126,7 +129,8 @@ export function useConnections() {
       await fetch(`${BASE}api/connections`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ followerId: user.id, followingId: targetId }),
+        credentials: "include",
+        body: JSON.stringify({ targetId }),
       });
     } catch {
       invalidate();

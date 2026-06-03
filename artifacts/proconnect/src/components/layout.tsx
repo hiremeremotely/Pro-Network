@@ -239,14 +239,14 @@ function NotificationBell({ profileId }: { profileId: number }) {
 
   const { data: countData } = useQuery<{ count: number }>({
     queryKey: ["notif-count", profileId],
-    queryFn: () => fetch(`${BASE}api/notifications/unread-count?profileId=${profileId}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/notifications/unread-count`, { credentials: "include" }).then(r => r.json()),
     refetchInterval: 30_000,
     staleTime: 15_000,
   });
 
   const { data: notifications = [], isLoading, refetch: refetchList } = useQuery<AppNotification[]>({
     queryKey: ["notifications", profileId],
-    queryFn: () => fetch(`${BASE}api/notifications?profileId=${profileId}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/notifications`, { credentials: "include" }).then(r => r.json()),
     enabled: open,
     staleTime: 0,
   });
@@ -255,7 +255,7 @@ function NotificationBell({ profileId }: { profileId: number }) {
     mutationFn: () => fetch(`${BASE}api/notifications/mark-read`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profileId }),
+      credentials: "include",
     }),
     onSuccess: () => {
       qc.setQueryData<{ count: number }>(["notif-count", profileId], { count: 0 });
@@ -499,7 +499,7 @@ export function Layout({ children }: LayoutProps) {
   // Shared unread count for mobile badge
   const { data: mobileCountData } = useQuery<{ count: number }>({
     queryKey: ["notif-count", user?.id],
-    queryFn: () => fetch(`${BASE}api/notifications/unread-count?profileId=${user?.id}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/notifications/unread-count`, { credentials: "include" }).then(r => r.json()),
     enabled: !!user?.id,
     refetchInterval: 30_000,
     staleTime: 15_000,
@@ -509,7 +509,7 @@ export function Layout({ children }: LayoutProps) {
   // Unread messaging count for nav badge
   const { data: msgUnreadData } = useQuery<{ count: number }>({
     queryKey: ["msg-unread", user?.id],
-    queryFn: () => fetch(`${BASE}api/conversations/unread-count?profileId=${user?.id}`).then(r => r.json()),
+    queryFn: () => fetch(`${BASE}api/conversations/unread-count`, { credentials: "include" }).then(r => r.json()),
     enabled: !!user?.id,
     refetchInterval: 30_000,
     staleTime: 20_000,
