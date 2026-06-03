@@ -10,23 +10,27 @@ import { logger } from "./lib/logger";
 // We always allow localhost variants for local development.
 function buildAllowedOrigins(): string[] {
   const origins: string[] = [];
+  const isProd = process.env.NODE_ENV === "production";
 
+  // Production domains from REPLIT_DOMAINS (comma-separated, no protocol)
   const replitDomains = process.env.REPLIT_DOMAINS ?? "";
   for (const domain of replitDomains.split(",").map(d => d.trim()).filter(Boolean)) {
     origins.push(`https://${domain}`);
   }
 
-  const devDomain = process.env.REPLIT_DEV_DOMAIN ?? "";
-  if (devDomain) {
-    origins.push(`https://${devDomain}`);
-  }
+  // Development-only: Replit dev-preview domain and localhost variants
+  if (!isProd) {
+    const devDomain = process.env.REPLIT_DEV_DOMAIN ?? "";
+    if (devDomain) {
+      origins.push(`https://${devDomain}`);
+    }
 
-  // Always allow localhost (any port) for dev
-  origins.push("http://localhost");
-  origins.push("http://127.0.0.1");
-  for (const port of [3000, 4000, 5000, 5173, 8080]) {
-    origins.push(`http://localhost:${port}`);
-    origins.push(`http://127.0.0.1:${port}`);
+    origins.push("http://localhost");
+    origins.push("http://127.0.0.1");
+    for (const port of [3000, 4000, 5000, 5173, 8080]) {
+      origins.push(`http://localhost:${port}`);
+      origins.push(`http://127.0.0.1:${port}`);
+    }
   }
 
   return [...new Set(origins)];
