@@ -5,6 +5,7 @@
  * ProConnect professional networking and remote jobs platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateProfileBodyCustomLinksItem } from "./updateProfileBodyCustomLinksItem";
 
 export interface UpdateProfileBody {
   name?: string;
@@ -23,4 +24,5 @@ export interface UpdateProfileBody {
   wellfoundUrl?: string | null;
   angellistUrl?: string | null;
   indeedUrl?: string | null;
+  customLinks?: UpdateProfileBodyCustomLinksItem[];
 }

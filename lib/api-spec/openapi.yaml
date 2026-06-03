@@ -1255,6 +1255,16 @@ components:
         email:
           type: string
           nullable: true
+        customLinks:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              url:
+                type: string
+            required: [label, url]
         createdAt:
           type: string
         updatedAt:
@@ -1367,6 +1377,16 @@ components:
         indeedUrl:
           type: string
           nullable: true
+        customLinks:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              url:
+                type: string
+            required: [label, url]
 
     Education:
       type: object

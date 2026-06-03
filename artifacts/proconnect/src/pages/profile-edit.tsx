@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PlusIcon, TrashIcon, SaveIcon, UserIcon, GraduationCapIcon, BriefcaseIcon, FolderIcon, ZapIcon, BuildingIcon, ArrowRightIcon, XIcon } from "lucide-react";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useLocation } from "wouter";
+import { Layout } from "@/components/layout";
 
 export default function ProfileEdit() {
   const { user } = useAppAuth();
@@ -63,11 +64,9 @@ export default function ProfileEdit() {
     twitterUrl: profile?.twitterUrl ?? "",
     openToWork: profile?.openToWork ?? false,
     industry: profile?.industry ?? "",
-    glassdoorUrl: profile?.glassdoorUrl ?? "",
-    wellfoundUrl: profile?.wellfoundUrl ?? "",
-    angellistUrl: profile?.angellistUrl ?? "",
-    indeedUrl: profile?.indeedUrl ?? "",
+    customLinks: (profile?.customLinks ?? []) as Array<{ label: string; url: string }>,
   });
+  const [newLink, setNewLink] = useState({ label: "", url: "" });
 
   // Education form
   const [eduForm, setEduForm] = useState({ school: "", degree: "", fieldOfStudy: "", startYear: "", endYear: "" });
@@ -98,10 +97,7 @@ export default function ProfileEdit() {
       twitterUrl: profile.twitterUrl ?? "",
       openToWork: profile.openToWork,
       industry: profile.industry ?? "",
-      glassdoorUrl: profile.glassdoorUrl ?? "",
-      wellfoundUrl: profile.wellfoundUrl ?? "",
-      angellistUrl: profile.angellistUrl ?? "",
-      indeedUrl: profile.indeedUrl ?? "",
+      customLinks: (profile.customLinks ?? []) as Array<{ label: string; url: string }>,
     });
   }
 
@@ -118,10 +114,7 @@ export default function ProfileEdit() {
           githubUrl: profileForm.githubUrl || null,
           twitterUrl: profileForm.twitterUrl || null,
           industry: profileForm.industry || null,
-          glassdoorUrl: profileForm.glassdoorUrl || null,
-          wellfoundUrl: profileForm.wellfoundUrl || null,
-          angellistUrl: profileForm.angellistUrl || null,
-          indeedUrl: profileForm.indeedUrl || null,
+          customLinks: profileForm.customLinks,
         },
       },
       {
@@ -216,36 +209,45 @@ export default function ProfileEdit() {
   const isOnboarding = user?.accountType === "company" &&
     new URLSearchParams(window.location.search).get("onboarding") === "true";
 
-  return (
-    <div className="container mx-auto px-4 py-10 pb-24 max-w-4xl">
+  function addCustomLink() {
+    if (!newLink.label.trim() || !newLink.url.trim()) return;
+    setProfileForm(p => ({ ...p, customLinks: [...p.customLinks, { label: newLink.label.trim(), url: newLink.url.trim() }] }));
+    setNewLink({ label: "", url: "" });
+  }
 
-      {isOnboarding && (
-        <div className="mb-8 rounded-2xl bg-indigo-600 text-white px-6 py-5 flex items-start gap-4">
-          <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0 mt-0.5">
-            <BuildingIcon className="w-5 h-5" />
+  function removeCustomLink(idx: number) {
+    setProfileForm(p => ({ ...p, customLinks: p.customLinks.filter((_, i) => i !== idx) }));
+  }
+
+  // ── Company layout (no outer nav) ───────────────────────────────────────────
+  if (isCompany) {
+    return (
+      <div className="container mx-auto px-4 py-10 pb-24 max-w-4xl">
+        {isOnboarding && (
+          <div className="mb-8 rounded-2xl bg-indigo-600 text-white px-6 py-5 flex items-start gap-4">
+            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <BuildingIcon className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-lg leading-tight">Welcome, {user?.name}!</p>
+              <p className="text-indigo-100 text-sm mt-1 leading-relaxed">
+                Before you start hiring, candidates want to know who you are. Add a company logo, a short description, and your website — it takes 2 minutes and makes a big difference.
+              </p>
+              <button
+                onClick={() => navigate("/company-dashboard")}
+                className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-white/80 hover:text-white transition-colors"
+              >
+                Skip for now, go to dashboard <ArrowRightIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-bold text-lg leading-tight">Welcome, {user?.name}!</p>
-            <p className="text-indigo-100 text-sm mt-1 leading-relaxed">
-              Before you start hiring, candidates want to know who you are. Add a company logo, a short description, and your website — it takes 2 minutes and makes a big difference.
-            </p>
-            <button
-              onClick={() => navigate("/company-dashboard")}
-              className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-white/80 hover:text-white transition-colors"
-            >
-              Skip for now, go to dashboard <ArrowRightIcon className="w-3.5 h-3.5" />
-            </button>
-          </div>
+        )}
+
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-1">Company Settings</h1>
+          <p className="text-muted-foreground">Keep your company profile up to date so candidates know who you are.</p>
         </div>
-      )}
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-1">{isCompany ? "Company Settings" : "Edit Profile"}</h1>
-        <p className="text-muted-foreground">{isCompany ? "Keep your company profile up to date so candidates know who you are." : "Manage your professional presence on Hire Me Remotely."}</p>
-      </div>
-
-      {/* ── Company settings (no tabs — two focused cards) ── */}
-      {isCompany && (
         <div className="space-y-6">
           <Card>
             <CardHeader><CardTitle>Company Details</CardTitle></CardHeader>
@@ -260,12 +262,10 @@ export default function ProfileEdit() {
                   <Input value={profileForm.headline} onChange={e => setProfileForm(p => ({ ...p, headline: e.target.value }))} placeholder="e.g. Building the future of remote work" data-testid="input-profile-headline" />
                 </div>
               </div>
-
               <div className="space-y-2">
                 <Label>About Us</Label>
                 <Textarea value={profileForm.bio} onChange={e => setProfileForm(p => ({ ...p, bio: e.target.value }))} placeholder="Tell candidates what your company does, your culture, and what makes you unique..." rows={5} data-testid="textarea-profile-bio" />
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-2">
                   <Label>HQ / Location</Label>
@@ -276,7 +276,6 @@ export default function ProfileEdit() {
                   <Input value={profileForm.industry} onChange={e => setProfileForm(p => ({ ...p, industry: e.target.value }))} placeholder="e.g. Software, Fintech, HealthTech" />
                 </div>
               </div>
-
               <Button onClick={saveProfile} disabled={updateProfile.isPending} className="gap-2" data-testid="button-save-profile">
                 <SaveIcon className="w-4 h-4" /> {updateProfile.isPending ? "Saving..." : "Save Details"}
               </Button>
@@ -284,8 +283,11 @@ export default function ProfileEdit() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Links & Job Board Profiles</CardTitle></CardHeader>
-            <CardContent className="space-y-5">
+            <CardHeader>
+              <CardTitle>Links</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Fixed essential links */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-2">
                   <Label>Company Website</Label>
@@ -299,21 +301,54 @@ export default function ProfileEdit() {
                   <Label>X (Twitter)</Label>
                   <Input value={profileForm.twitterUrl} onChange={e => setProfileForm(p => ({ ...p, twitterUrl: e.target.value }))} placeholder="https://x.com/..." />
                 </div>
-                <div className="space-y-2">
-                  <Label>Glassdoor</Label>
-                  <Input value={profileForm.glassdoorUrl} onChange={e => setProfileForm(p => ({ ...p, glassdoorUrl: e.target.value }))} placeholder="https://glassdoor.com/Overview/..." />
-                </div>
-                <div className="space-y-2">
-                  <Label>Wellfound</Label>
-                  <Input value={profileForm.wellfoundUrl} onChange={e => setProfileForm(p => ({ ...p, wellfoundUrl: e.target.value }))} placeholder="https://wellfound.com/company/..." />
-                </div>
-                <div className="space-y-2">
-                  <Label>AngelList</Label>
-                  <Input value={profileForm.angellistUrl} onChange={e => setProfileForm(p => ({ ...p, angellistUrl: e.target.value }))} placeholder="https://angel.co/company/..." />
-                </div>
-                <div className="space-y-2">
-                  <Label>Indeed</Label>
-                  <Input value={profileForm.indeedUrl} onChange={e => setProfileForm(p => ({ ...p, indeedUrl: e.target.value }))} placeholder="https://indeed.com/cmp/..." />
+              </div>
+
+              <Separator />
+
+              {/* Custom links */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Custom Links</Label>
+                <p className="text-xs text-muted-foreground">Add links to any job board, review site, or social platform.</p>
+
+                {profileForm.customLinks.map((link, idx) => (
+                  <div key={idx} className="flex items-center gap-2 p-3 rounded-lg border bg-muted/20">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{link.label}</p>
+                      <p className="text-xs text-muted-foreground truncate">{link.url}</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive shrink-0 h-8 w-8"
+                      onClick={() => removeCustomLink(idx)}
+                    >
+                      <XIcon className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+
+                {profileForm.customLinks.length === 0 && (
+                  <p className="text-sm text-muted-foreground italic">No custom links yet. Add one below.</p>
+                )}
+
+                <div className="flex gap-2 pt-1">
+                  <Input
+                    value={newLink.label}
+                    onChange={e => setNewLink(p => ({ ...p, label: e.target.value }))}
+                    placeholder="Label (e.g. Glassdoor, Crunchbase)"
+                    className="w-40 shrink-0"
+                    onKeyDown={e => { if (e.key === "Enter") addCustomLink(); }}
+                  />
+                  <Input
+                    value={newLink.url}
+                    onChange={e => setNewLink(p => ({ ...p, url: e.target.value }))}
+                    placeholder="https://..."
+                    className="flex-1"
+                    onKeyDown={e => { if (e.key === "Enter") addCustomLink(); }}
+                  />
+                  <Button variant="outline" onClick={addCustomLink} className="gap-1.5 shrink-0">
+                    <PlusIcon className="w-4 h-4" /> Add
+                  </Button>
                 </div>
               </div>
 
@@ -323,10 +358,20 @@ export default function ProfileEdit() {
             </CardContent>
           </Card>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* ── Individual profile (tabbed) ── */}
-      {!isCompany && <Tabs defaultValue="profile">
+  // ── Individual profile layout (with top nav via Layout) ─────────────────────
+  return (
+    <Layout>
+    <div className="container mx-auto px-4 py-10 pb-24 max-w-4xl">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-1">Edit Profile</h1>
+        <p className="text-muted-foreground">Manage your professional presence on Hire Me Remotely.</p>
+      </div>
+
+      <Tabs defaultValue="profile">
         <TabsList className="mb-8 flex-wrap h-auto gap-1">
           <TabsTrigger value="profile" className="gap-2"><UserIcon className="w-4 h-4" /> Profile</TabsTrigger>
           <TabsTrigger value="experience" className="gap-2"><BriefcaseIcon className="w-4 h-4" /> Experience</TabsTrigger>
@@ -608,7 +653,8 @@ export default function ProfileEdit() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>}
+      </Tabs>
     </div>
+    </Layout>
   );
 }

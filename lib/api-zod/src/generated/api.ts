@@ -81,6 +81,14 @@ export const ListProfilesResponse = zod.object({
       accountType: zod.string().nullish(),
       industry: zod.string().nullish(),
       email: zod.string().nullish(),
+      customLinks: zod
+        .array(
+          zod.object({
+            label: zod.string(),
+            url: zod.string(),
+          }),
+        )
+        .optional(),
       createdAt: zod.string(),
       updatedAt: zod.string(),
     }),
@@ -129,6 +137,14 @@ export const GetProfileResponse = zod
     accountType: zod.string().nullish(),
     industry: zod.string().nullish(),
     email: zod.string().nullish(),
+    customLinks: zod
+      .array(
+        zod.object({
+          label: zod.string(),
+          url: zod.string(),
+        }),
+      )
+      .optional(),
     createdAt: zod.string(),
     updatedAt: zod.string(),
   })
@@ -207,6 +223,14 @@ export const UpdateProfileBody = zod.object({
   wellfoundUrl: zod.string().nullish(),
   angellistUrl: zod.string().nullish(),
   indeedUrl: zod.string().nullish(),
+  customLinks: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        url: zod.string(),
+      }),
+    )
+    .optional(),
 });
 
 export const UpdateProfileResponse = zod.object({
@@ -225,6 +249,14 @@ export const UpdateProfileResponse = zod.object({
   accountType: zod.string().nullish(),
   industry: zod.string().nullish(),
   email: zod.string().nullish(),
+  customLinks: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        url: zod.string(),
+      }),
+    )
+    .optional(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -657,6 +689,14 @@ export const ListApplicationsResponseItem = zod.object({
     accountType: zod.string().nullish(),
     industry: zod.string().nullish(),
     email: zod.string().nullish(),
+    customLinks: zod
+      .array(
+        zod.object({
+          label: zod.string(),
+          url: zod.string(),
+        }),
+      )
+      .optional(),
     createdAt: zod.string(),
     updatedAt: zod.string(),
   }),
@@ -722,6 +762,14 @@ export const ListProfileApplicationsResponseItem = zod.object({
     accountType: zod.string().nullish(),
     industry: zod.string().nullish(),
     email: zod.string().nullish(),
+    customLinks: zod
+      .array(
+        zod.object({
+          label: zod.string(),
+          url: zod.string(),
+        }),
+      )
+      .optional(),
     createdAt: zod.string(),
     updatedAt: zod.string(),
   }),
@@ -784,6 +832,14 @@ export const ListFeaturedProfilesResponseItem = zod.object({
   accountType: zod.string().nullish(),
   industry: zod.string().nullish(),
   email: zod.string().nullish(),
+  customLinks: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        url: zod.string(),
+      }),
+    )
+    .optional(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });

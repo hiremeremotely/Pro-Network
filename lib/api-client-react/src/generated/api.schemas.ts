@@ -13,6 +13,11 @@ export interface Error {
   error: string;
 }
 
+export type ProfileCustomLinksItem = {
+  label: string;
+  url: string;
+};
+
 export interface Profile {
   id: number;
   name: string;
@@ -29,6 +34,7 @@ export interface Profile {
   accountType?: string | null;
   industry?: string | null;
   email?: string | null;
+  customLinks?: ProfileCustomLinksItem[];
   createdAt: string;
   updatedAt: string;
 }
@@ -96,6 +102,11 @@ export interface CreateProfileBody {
   openToWork?: boolean;
 }
 
+export type UpdateProfileBodyCustomLinksItem = {
+  label: string;
+  url: string;
+};
+
 export interface UpdateProfileBody {
   name?: string;
   headline?: string;
@@ -113,6 +124,7 @@ export interface UpdateProfileBody {
   wellfoundUrl?: string | null;
   angellistUrl?: string | null;
   indeedUrl?: string | null;
+  customLinks?: UpdateProfileBodyCustomLinksItem[];
 }
 
 export interface CreateEducationBody {

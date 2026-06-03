@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -24,6 +24,7 @@ export const profilesTable = pgTable("profiles", {
   glassdoorUrl: text("glassdoor_url"),
   wellfoundUrl: text("wellfound_url"),
   angellistUrl: text("angellist_url"),
+  customLinks: jsonb("custom_links").$type<Array<{ label: string; url: string }>>().notNull().default([]),
   gmailConnected: boolean("gmail_connected").notNull().default(false),
   outlookConnected: boolean("outlook_connected").notNull().default(false),
   gmailToken: text("gmail_token"),

@@ -134,6 +134,13 @@ function Router() {
         </RequireAuth>
       </Route>
 
+      {/* Profile edit — standalone route; component handles its own layout per account type */}
+      <Route path="/profile/edit">
+        <RequireAuth>
+          <ProfileEdit />
+        </RequireAuth>
+      </Route>
+
       {/* All main-app pages — require user session */}
       <Route>
         <RequireAuth>
@@ -142,7 +149,6 @@ function Router() {
               <Route path="/feed"><RequireIndividual><Feed /></RequireIndividual></Route>
               <Route path="/profiles" component={Profiles} />
               <Route path="/profiles/:id" component={ProfileDetail} />
-              <Route path="/profile/edit" component={ProfileEdit} />
               <Route path="/jobs" component={Jobs} />
               <Route path="/jobs/:id" component={JobDetail} />
               <Route path="/applications"><RequireIndividual><Applications /></RequireIndividual></Route>

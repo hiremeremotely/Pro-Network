@@ -5,6 +5,7 @@
  * ProConnect professional networking and remote jobs platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { ProfileCustomLinksItem } from "./profileCustomLinksItem";
 
 export interface Profile {
   id: number;
@@ -22,6 +23,7 @@ export interface Profile {
   accountType?: string | null;
   industry?: string | null;
   email?: string | null;
+  customLinks?: ProfileCustomLinksItem[];
   createdAt: string;
   updatedAt: string;
 }
