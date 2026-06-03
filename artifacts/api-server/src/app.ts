@@ -1,5 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -38,6 +39,37 @@ function buildAllowedOrigins(): string[] {
 
 const allowedOrigins = buildAllowedOrigins();
 logger.info({ allowedOrigins }, "CORS allowed origins");
+
+// ── Rate limiters ─────────────────────────────────────────────────────────────
+// All values are configurable via environment variables so production limits
+// can be tuned without code changes.
+const RATE_WINDOW_MS   = Number(process.env.RATE_LIMIT_WINDOW_MS  ?? 60_000); // 1 min
+const RATE_MAX         = Number(process.env.RATE_LIMIT_MAX         ?? 200);    // 200 req/min
+const AUTH_WINDOW_MS   = Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS ?? 60_000);
+const AUTH_MAX         = Number(process.env.AUTH_RATE_LIMIT_MAX       ?? 10);  // 10 req/min
+
+const TOO_MANY = { error: "Too many requests. Please try again later." };
+
+const generalLimiter = rateLimit({
+  windowMs: RATE_WINDOW_MS,
+  max: RATE_MAX,
+  standardHeaders: true,   // Retry-After + RateLimit-* headers
+  legacyHeaders: false,
+  handler: (_req, res) => res.status(429).json(TOO_MANY),
+});
+
+const authLimiter = rateLimit({
+  windowMs: AUTH_WINDOW_MS,
+  max: AUTH_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => res.status(429).json(TOO_MANY),
+});
+
+logger.info(
+  { generalLimiter: `${RATE_MAX} req/${RATE_WINDOW_MS}ms`, authLimiter: `${AUTH_MAX} req/${AUTH_WINDOW_MS}ms` },
+  "Rate limiters configured",
+);
 
 const app: Express = express();
 
@@ -89,7 +121,10 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/api", router);
+// Auth endpoints get the strict limiter first, then also hit the general one
+app.use("/api/auth", authLimiter);
+// All API routes share the general limiter
+app.use("/api", generalLimiter, router);
 
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction): void => {
   logger.error({ err }, "Unhandled error");
