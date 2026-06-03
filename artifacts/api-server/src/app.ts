@@ -83,9 +83,16 @@ const app: Express = express();
 
 // Trust the first proxy hop so req.ip reflects the real client IP behind
 // Replit's reverse proxy, keeping per-IP rate limiting meaningful.
-// Set TRUST_PROXY=0 to disable (e.g. when running directly without a proxy).
-const trustProxy = parsePositiveInt(process.env.TRUST_PROXY, 1);
+// Set TRUST_PROXY=0 to disable in environments without a reverse proxy.
+// Accepts any non-negative integer; falls back to 1 for invalid/missing values.
+function parseTrustProxy(raw: string | undefined): number {
+  if (raw === undefined) return 1; // default: trust one hop (Replit always proxies)
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 1;
+}
+const trustProxy = parseTrustProxy(process.env.TRUST_PROXY);
 app.set("trust proxy", trustProxy);
+logger.info({ trustProxy }, "Express trust proxy");
 
 app.use(
   pinoHttp({
