@@ -43,21 +43,29 @@ logger.info({ allowedOrigins }, "CORS allowed origins");
 // ── Rate limiters ─────────────────────────────────────────────────────────────
 // All values are configurable via environment variables so production limits
 // can be tuned without code changes.
-const RATE_WINDOW_MS   = Number(process.env.RATE_LIMIT_WINDOW_MS  ?? 60_000); // 1 min
-const RATE_MAX         = Number(process.env.RATE_LIMIT_MAX         ?? 200);    // 200 req/min
-const AUTH_WINDOW_MS   = Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS ?? 60_000);
-const AUTH_MAX         = Number(process.env.AUTH_RATE_LIMIT_MAX       ?? 10);  // 10 req/min
+function parsePositiveInt(raw: string | undefined, fallback: number): number {
+  const n = Number(raw ?? fallback);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
+const RATE_WINDOW_MS = parsePositiveInt(process.env.RATE_LIMIT_WINDOW_MS,       60_000);
+const RATE_MAX       = parsePositiveInt(process.env.RATE_LIMIT_MAX,               200);
+const AUTH_WINDOW_MS = parsePositiveInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS,  60_000);
+const AUTH_MAX       = parsePositiveInt(process.env.AUTH_RATE_LIMIT_MAX,           10);
 
 const TOO_MANY = { error: "Too many requests. Please try again later." };
 
 const generalLimiter = rateLimit({
   windowMs: RATE_WINDOW_MS,
   max: RATE_MAX,
-  standardHeaders: true,   // Retry-After + RateLimit-* headers
+  standardHeaders: true,   // Retry-After + RateLimit-* headers per RFC 9110
   legacyHeaders: false,
   handler: (_req, res) => res.status(429).json(TOO_MANY),
 });
 
+// Strict limiter for credential-sensitive endpoints only (login, register,
+// password recovery). Other /api/auth/* routes (verify-email, token) are
+// covered by the general limiter.
 const authLimiter = rateLimit({
   windowMs: AUTH_WINDOW_MS,
   max: AUTH_MAX,
@@ -67,11 +75,17 @@ const authLimiter = rateLimit({
 });
 
 logger.info(
-  { generalLimiter: `${RATE_MAX} req/${RATE_WINDOW_MS}ms`, authLimiter: `${AUTH_MAX} req/${AUTH_WINDOW_MS}ms` },
+  { general: `${RATE_MAX}/${RATE_WINDOW_MS}ms`, auth: `${AUTH_MAX}/${AUTH_WINDOW_MS}ms` },
   "Rate limiters configured",
 );
 
 const app: Express = express();
+
+// Trust the first proxy hop so req.ip reflects the real client IP behind
+// Replit's reverse proxy, keeping per-IP rate limiting meaningful.
+// Set TRUST_PROXY=0 to disable (e.g. when running directly without a proxy).
+const trustProxy = parsePositiveInt(process.env.TRUST_PROXY, 1);
+app.set("trust proxy", trustProxy);
 
 app.use(
   pinoHttp({
@@ -121,9 +135,16 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Auth endpoints get the strict limiter first, then also hit the general one
-app.use("/api/auth", authLimiter);
-// All API routes share the general limiter
+// Strict limiter only on brute-force-sensitive credential endpoints
+const AUTH_STRICT_PATHS = [
+  "/api/auth/login",
+  "/api/auth/register",
+  "/api/auth/forgot-password",
+  "/api/auth/reset-password",
+];
+for (const path of AUTH_STRICT_PATHS) app.use(path, authLimiter);
+
+// General limiter covers all /api routes (including the auth ones above)
 app.use("/api", generalLimiter, router);
 
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction): void => {
