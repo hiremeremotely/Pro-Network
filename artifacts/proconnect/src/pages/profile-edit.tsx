@@ -500,7 +500,7 @@ export default function ProfileEdit() {
                       <Input value={profileForm.twitterUrl} onChange={e => setProfileForm(p => ({ ...p, twitterUrl: e.target.value }))} placeholder="https://x.com/..." />
                     </div>
                     <div className="flex items-center gap-3 pt-2 border-t">
-                      <Button onClick={saveProfile} disabled={updateProfile.isPending} className="gap-2">
+                      <Button onClick={() => saveProfile()} disabled={updateProfile.isPending} className="gap-2">
                         <SaveIcon className="w-4 h-4" /> {updateProfile.isPending ? "Saving…" : "Save Links"}
                       </Button>
                     </div>
@@ -561,7 +561,7 @@ export default function ProfileEdit() {
                     </div>
                     {profileForm.customLinks.length > 0 && (
                       <div className="flex items-center gap-3 pt-1 border-t">
-                        <Button onClick={saveProfile} disabled={updateProfile.isPending} className="gap-2">
+                        <Button onClick={() => saveProfile()} disabled={updateProfile.isPending} className="gap-2">
                           <SaveIcon className="w-4 h-4" /> {updateProfile.isPending ? "Saving…" : "Save Links"}
                         </Button>
                       </div>
@@ -649,7 +649,7 @@ export default function ProfileEdit() {
                 <span className="text-sm text-muted-foreground">(shows green badge on your profile)</span>
               </div>
 
-              <Button onClick={saveProfile} disabled={updateProfile.isPending} className="gap-2" data-testid="button-save-profile">
+              <Button onClick={() => saveProfile()} disabled={updateProfile.isPending} className="gap-2" data-testid="button-save-profile">
                 <SaveIcon className="w-4 h-4" /> {updateProfile.isPending ? "Saving..." : "Save Profile"}
               </Button>
             </CardContent>
