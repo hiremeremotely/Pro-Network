@@ -111,7 +111,7 @@ export default function ProfileEdit() {
     });
   }
 
-  function saveProfile() {
+  function saveProfile(afterSave?: () => void) {
     updateProfile.mutate(
       {
         id: CURRENT_PROFILE_ID,
@@ -131,6 +131,7 @@ export default function ProfileEdit() {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetProfileQueryKey(CURRENT_PROFILE_ID) });
           toast({ title: isCompany ? "Company settings saved!" : "Profile saved!" });
+          afterSave?.();
         },
         onError: () => toast({ title: "Error saving profile", variant: "destructive" }),
       }
@@ -445,10 +446,33 @@ export default function ProfileEdit() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 pt-2 border-t">
-                    <Button onClick={saveProfile} disabled={updateProfile.isPending} className="gap-2" data-testid="button-save-profile">
-                      <SaveIcon className="w-4 h-4" /> {updateProfile.isPending ? "Saving…" : "Save Details"}
-                    </Button>
-                    <p className="text-xs text-gray-400">Changes are visible on your public profile immediately.</p>
+                    {isOnboarding ? (
+                      <>
+                        <Button
+                          onClick={() => saveProfile(() => navigate("/company-dashboard"))}
+                          disabled={updateProfile.isPending}
+                          className="gap-2"
+                          data-testid="button-save-profile"
+                        >
+                          <SaveIcon className="w-4 h-4" />
+                          {updateProfile.isPending ? "Saving…" : "Save & go to dashboard"}
+                        </Button>
+                        <button
+                          type="button"
+                          onClick={() => navigate("/company-dashboard")}
+                          className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          Skip for now
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Button onClick={() => saveProfile()} disabled={updateProfile.isPending} className="gap-2" data-testid="button-save-profile">
+                          <SaveIcon className="w-4 h-4" /> {updateProfile.isPending ? "Saving…" : "Save Details"}
+                        </Button>
+                        <p className="text-xs text-gray-400">Changes are visible on your public profile immediately.</p>
+                      </>
+                    )}
                   </div>
                 </CardContent>
               </Card>

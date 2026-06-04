@@ -2401,6 +2401,12 @@ export default function CompanyDashboard() {
     </div>
   );
 
+  const missingProfileItems = [
+    !user?.avatarUrl && "company logo",
+    !user?.headline  && "tagline",
+    !user?.bio       && "about text",
+  ].filter(Boolean) as string[];
+
   return (
     <div className="flex min-h-screen bg-[#f4f5f7]">
       <DisconnectConfirmDialog
@@ -2481,7 +2487,7 @@ export default function CompanyDashboard() {
       <div className="px-4 sm:px-6 py-6 space-y-5">
 
         {/* ── Incomplete profile nudge ── */}
-        {!profileNudgeDismissed && (!user?.avatarUrl || !user?.headline || !user?.bio) && (
+        {!profileNudgeDismissed && missingProfileItems.length > 0 && (
           <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5">
             <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
               <AlertCircleIcon className="w-4 h-4 text-amber-600" />
@@ -2489,7 +2495,14 @@ export default function CompanyDashboard() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-amber-900">Your company profile is incomplete</p>
               <p className="text-xs text-amber-700 mt-0.5">
-                Add a <strong>company logo</strong> and <strong>about text</strong> so candidates know who you are before applying.
+                Missing:{" "}
+                {missingProfileItems.map((item, i) => (
+                  <span key={item}>
+                    {i > 0 && " · "}
+                    <strong>{item}</strong>
+                  </span>
+                ))}.{" "}
+                Candidates judge companies by their profile before applying.
               </p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
