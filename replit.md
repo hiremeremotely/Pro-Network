@@ -69,10 +69,20 @@ LinkedIn-style professional networking platform for remote workers. Users and co
 | `messages` | Individual messages within conversations |
 
 ### Seeded Data
-- 3 individual profiles: Alex Chen, Maria Santos, James Okafor
-- 3 company profiles: Linear, Vercel, Figma
+- 3 individual profiles: Alex Chen, Maria Santos, James Okafor (now renamed Streamline, Deployly, Pixelcraft in DB)
+- 3 company profiles: Streamline, Deployly, Pixelcraft
 - 8 jobs linked to companies
 - 6 social feed posts
+
+### Demo Login Credentials (seeded profiles, all use password `Demo@2026`)
+| Email | Name | Type |
+|---|---|---|
+| `alex@demo.com` | Alex Chen | individual |
+| `maria@demo.com` | Maria Santos | individual |
+| `james@demo.com` | James Okafor | individual |
+| `streamline@demo.com` | Streamline | company |
+| `deployly@demo.com` | Deployly | company |
+| `pixelcraft@demo.com` | Pixelcraft | company |
 
 ---
 
@@ -108,12 +118,13 @@ LinkedIn-style professional networking platform for remote workers. Users and co
 
 ## Important Implementation Notes
 
-- **Auth**: No real auth — `CURRENT_PROFILE_ID = 1` hardcoded as "current user"
+- **Auth**: Real session-based auth (Express + `connect-pg-simple`). `CURRENT_PROFILE_ID` is now dynamic from `req.session.profileId`.
 - **DB queries**: `execute()` returns `{ rows, ... }` — use `result.rows ?? result` pattern
 - **API validation**: Use `zod/v4` not plain `zod` in API routes (bundling issue)
 - **Logo**: `@assets/hr_1775483051104.png` via Vite alias → `attached_assets/`; also at `public/logo.png`
 - **Landing page**: Uses its own header (not wrapped in Layout)
 - **App pages**: All wrapped in Layout component
+- **Email verification**: Demo-mode only — no real emails sent. After signup, `/verify-email` shows the verification link inline ("copy this link") so testers can verify without a real inbox.
 
 ---
 
