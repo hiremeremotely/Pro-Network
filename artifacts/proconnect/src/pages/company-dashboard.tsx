@@ -2058,7 +2058,9 @@ export default function CompanyDashboard() {
   const [showPostJob, setShowPostJob] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarTheme, setSidebarTheme] = useState<"dark" | "light">(() => (localStorage.getItem("hmr_sidebar_theme_v1") as "dark" | "light") ?? "dark");
-  const [profileNudgeDismissed, setProfileNudgeDismissed] = useState(false);
+  const [profileNudgeDismissed, setProfileNudgeDismissed] = useState(
+    () => localStorage.getItem(`hmr_nudge_dismissed_${user?.id}`) === "1"
+  );
   const [activeTab, setActiveTab] = useState<DashTab>("overview");
   const [offerCandidate, setOfferCandidate] = useState<EnrichedApplication | null>(null);
   const [teamFilter, setTeamFilter] = useState<"all" | EmployeeStatus>("all");
@@ -2481,7 +2483,7 @@ export default function CompanyDashboard() {
       <div className="px-4 sm:px-6 py-6 space-y-5">
 
         {/* ── Incomplete profile nudge ── */}
-        {!profileNudgeDismissed && !user?.avatarUrl && (
+        {!profileNudgeDismissed && (!user?.avatarUrl || !user?.headline) && (
           <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5">
             <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
               <AlertCircleIcon className="w-4 h-4 text-amber-600" />
@@ -2499,7 +2501,10 @@ export default function CompanyDashboard() {
                 </button>
               </Link>
               <button
-                onClick={() => setProfileNudgeDismissed(true)}
+                onClick={() => {
+                  localStorage.setItem(`hmr_nudge_dismissed_${user?.id}`, "1");
+                  setProfileNudgeDismissed(true);
+                }}
                 className="p-1 rounded hover:bg-amber-100 text-amber-500 transition-colors"
                 aria-label="Dismiss"
               >
