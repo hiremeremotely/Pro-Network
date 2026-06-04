@@ -30,7 +30,7 @@ import { useLocation } from "wouter";
 import { Layout } from "@/components/layout";
 
 export default function ProfileEdit() {
-  const { user, logout } = useAppAuth();
+  const { user, logout, updateUser } = useAppAuth();
   const [, navigate] = useLocation();
   const profileId = user?.id ?? 0;
   const isCompany = user?.accountType === "company";
@@ -130,6 +130,11 @@ export default function ProfileEdit() {
       {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetProfileQueryKey(CURRENT_PROFILE_ID) });
+          updateUser({
+            name: profileForm.name,
+            headline: profileForm.headline,
+            bio: profileForm.bio || null,
+          });
           toast({ title: isCompany ? "Company settings saved!" : "Profile saved!" });
           afterSave?.();
         },
