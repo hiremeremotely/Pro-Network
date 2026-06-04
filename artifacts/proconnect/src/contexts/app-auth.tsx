@@ -6,6 +6,7 @@ export interface AppUser {
   email: string;
   accountType: string;
   headline: string;
+  bio?: string | null;
   avatarUrl?: string | null;
   authToken?: string;
 }
@@ -48,6 +49,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
             email: d.profile.email,
             accountType: d.profile.accountType,
             headline: d.profile.headline,
+            bio: d.profile.bio,
             avatarUrl: d.profile.avatarUrl,
             authToken: d.authToken,
           });
@@ -76,6 +78,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
           email: data.profile.email,
           accountType: data.profile.accountType,
           headline: data.profile.headline,
+          bio: data.profile.bio,
           avatarUrl: data.profile.avatarUrl,
           authToken: data.authToken,
         };
