@@ -118,4 +118,10 @@ title = "SEO Implementation Plan — Hire Me Remotely"
 id = "86IvHv3s--zPobh5L8pi1"
 uri = "file://.local/hmr-revenue-model.pdf"
 type = "pdf"
-title = "Hire Me Remotely — Revenue Model & Financial Forecast"
+title = "Revenue Model — PDF"
+
+[[outputs]]
+id = "uF9ZuYPb2J4nbr4yYNdMF"
+uri = "file://.local/hmr-revenue-model.docx"
+type = "word_document"
+title = "Revenue Model — Word (.docx)"
