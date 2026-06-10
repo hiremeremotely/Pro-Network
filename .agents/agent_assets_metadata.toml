@@ -113,3 +113,9 @@ id = "N01gGHboH2fjnu2pSgnF1"
 uri = "file://.local/seo-plan.pdf"
 type = "pdf"
 title = "SEO Implementation Plan — Hire Me Remotely"
+
+[[outputs]]
+id = "86IvHv3s--zPobh5L8pi1"
+uri = "file://.local/hmr-revenue-model.pdf"
+type = "pdf"
+title = "Hire Me Remotely — Revenue Model & Financial Forecast"

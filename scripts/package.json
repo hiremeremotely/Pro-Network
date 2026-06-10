@@ -6,6 +6,7 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "generate-logo": "node ./src/generate-logo.mjs",
+    "generate-revenue-pdf": "tsx ./src/generate-revenue-pdf.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
