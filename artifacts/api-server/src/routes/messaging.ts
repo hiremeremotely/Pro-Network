@@ -616,6 +616,19 @@ router.patch("/conversations/:id/read", async (req, res): Promise<void> => {
       )
     );
 
+  // Also mark any new_message notifications for this conversation as read
+  await db
+    .update(notificationsTable)
+    .set({ isRead: true })
+    .where(
+      and(
+        eq(notificationsTable.recipientProfileId, profileId),
+        eq(notificationsTable.conversationId, convId),
+        eq(notificationsTable.type, "new_message"),
+        eq(notificationsTable.isRead, false),
+      )
+    );
+
   res.json({ success: true });
 });
 
