@@ -25,6 +25,7 @@ interface SharedPost {
   authorHeadline: string | null;
   content: string;
   imageUrl: string | null;
+  note?: string | null;
 }
 
 interface SharedJob {
@@ -998,6 +999,11 @@ export default function Messaging() {
                         if (shared) {
                           return (
                             <div className="flex flex-col gap-1">
+                              {shared.note && (
+                                <div className={`px-3 py-2 rounded-2xl text-sm leading-relaxed max-w-[300px] ${isMine ? "bg-primary text-white self-end" : "bg-gray-100 text-gray-800 self-start"}`}>
+                                  {shared.note}
+                                </div>
+                              )}
                               <SharedPostCard shared={shared} isMine={isMine} />
                               {!isTeamChannel && (
                                 <div className={`text-[10px] flex items-center gap-1 ${isMine ? "justify-end text-gray-400" : "justify-start text-gray-400"}`}>

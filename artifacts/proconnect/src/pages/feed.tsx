@@ -344,6 +344,7 @@ function CommentsSection({ postId, currentUserId, currentUserAvatar, currentUser
 // ── Send-to-connection modal ──────────────────────────────────────────────────
 function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void }) {
   const [search, setSearch] = useState("");
+  const [note, setNote] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isSending, setIsSending] = useState(false);
   const startChat = useStartChat();
@@ -397,6 +398,7 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
       authorHeadline: post.profileHeadline,
       content: post.content,
       imageUrl: post.imageUrl ?? null,
+      note: note.trim() || null,
     });
 
     const settled = await Promise.allSettled(
@@ -461,15 +463,28 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
           </button>
         </div>
 
+        {/* Personal note */}
+        <div className="px-4 pt-3 pb-1">
+          <textarea
+            autoFocus
+            rows={2}
+            placeholder="Add a note… (optional)"
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            maxLength={500}
+            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 bg-gray-50 resize-none leading-relaxed placeholder:text-gray-400"
+          />
+        </div>
+
         {/* Post preview */}
-        <div className="mx-4 mt-3 mb-1 bg-gray-50 rounded-xl border border-gray-100 px-3 py-2">
+        <div className="mx-4 mt-1 mb-1 bg-gray-50 rounded-xl border border-gray-100 px-3 py-2">
           <p className="text-xs text-gray-500 font-medium">{post.profileName}</p>
           <p className="text-xs text-gray-600 line-clamp-2 mt-0.5">{post.content}</p>
         </div>
 
         <div className="px-4 pt-2 pb-3">
           <input
-            autoFocus
+            autoFocus={false}
             type="text"
             placeholder="Search people..."
             value={search}
