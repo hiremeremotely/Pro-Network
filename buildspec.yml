@@ -1,0 +1,22 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - npm install -g pnpm
+      - pnpm install --frozen-lockfile
+  build:
+    commands:
+      - pnpm --filter @workspace/api-server run build
+      - mkdir -p deploy
+      - cp artifacts/api-server/dist/index.mjs deploy/
+      - cp artifacts/api-server/dist/index.mjs.map deploy/ 2>/dev/null || true
+      - printf '{"name":"hiremeremotely-api","version":"1.0.0","type":"module","scripts":{"start":"node --enable-source-maps index.mjs"}}\n' > deploy/package.json
+      - printf 'web: node --enable-source-maps index.mjs\n' > deploy/Procfile
+
+artifacts:
+  base-directory: deploy
+  files:
+    - '**/*'
