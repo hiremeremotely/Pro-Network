@@ -480,7 +480,9 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
     .set({ lastMessageAt: new Date(), lastMessagePreview: preview })
     .where(eq(conversationsTable.id, convId));
 
-  // Create a new_message notification for the recipient (direct conversations only)
+  // Upsert a new_message notification for the recipient (direct conversations only).
+  // If an unread notification for this conversation already exists, update it instead
+  // of inserting a new one — prevents notification spam when multiple messages are sent.
   if (conv.type === "direct") {
     const senderId = Number(senderProfileId);
     const recipientId = conv.participant1Id === senderId ? conv.participant2Id : conv.participant1Id;
@@ -490,13 +492,34 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
       .where(eq(profilesTable.id, senderId))
       .limit(1);
 
-    await db.insert(notificationsTable).values({
-      recipientProfileId: recipientId,
-      actorProfileId: senderId,
-      type: "new_message",
-      conversationId: convId,
-      message: `${sender?.name ?? "Someone"} sent you a message`,
-    });
+    const notifMessage = `${sender?.name ?? "Someone"} sent you a message`;
+
+    const [existing] = await db
+      .select({ id: notificationsTable.id })
+      .from(notificationsTable)
+      .where(and(
+        eq(notificationsTable.recipientProfileId, recipientId),
+        eq(notificationsTable.actorProfileId, senderId),
+        eq(notificationsTable.type, "new_message"),
+        eq(notificationsTable.conversationId, convId),
+        eq(notificationsTable.isRead, false),
+      ))
+      .limit(1);
+
+    if (existing) {
+      await db
+        .update(notificationsTable)
+        .set({ message: notifMessage, createdAt: new Date() })
+        .where(eq(notificationsTable.id, existing.id));
+    } else {
+      await db.insert(notificationsTable).values({
+        recipientProfileId: recipientId,
+        actorProfileId: senderId,
+        type: "new_message",
+        conversationId: convId,
+        message: notifMessage,
+      });
+    }
   }
 
   const [enriched] = await db
