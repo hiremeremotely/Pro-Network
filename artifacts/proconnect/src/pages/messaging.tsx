@@ -10,8 +10,9 @@ import {
   SearchIcon, SendHorizontalIcon, PencilIcon,
   MoreHorizontalIcon, VideoIcon, InfoIcon,
   UserPlusIcon, CheckCircle2Icon, UsersIcon, MegaphoneIcon, ArrowLeftIcon,
-  TrashIcon, PenLineIcon, CheckIcon, XIcon, Trash2Icon, PlayCircleIcon,
+  TrashIcon, PenLineIcon, CheckIcon, XIcon, Trash2Icon, PlayCircleIcon, Link2Icon,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -353,6 +354,7 @@ export default function Messaging() {
   const editInputRef = useRef<HTMLTextAreaElement>(null);
   const convMenuRef = useRef<HTMLDivElement>(null);
 
+  const { toast } = useToast();
   const { isConnected: checkConnected, sendRequest: sendConnectionRequest } = useConnections();
   const [noteInput, setNoteInput] = useState("");
 
@@ -777,6 +779,22 @@ export default function Messaging() {
                   </button>
                   {showConvMenu && (
                     <div className="absolute right-0 top-[calc(100%+4px)] w-52 bg-white rounded-lg shadow-lg border border-gray-200 z-50 py-1">
+                      <button
+                        onClick={() => {
+                          const url = `${window.location.origin}/messaging?conv=${activeConvId}`;
+                          navigator.clipboard.writeText(url).then(() => {
+                            toast({ title: "Link copied to clipboard" });
+                          }).catch(() => {
+                            toast({ title: "Could not copy link", variant: "destructive" });
+                          });
+                          setShowConvMenu(false);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <Link2Icon className="w-4 h-4" />
+                        Copy link
+                      </button>
+                      <div className="border-t border-gray-100 my-1" />
                       <button
                         onClick={() => { setShowConvMenu(false); setShowDeleteConvConfirm(true); }}
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
