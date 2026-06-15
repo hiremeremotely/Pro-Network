@@ -341,10 +341,18 @@ export default function Messaging() {
   const [, navigate] = useLocation();
   const queryString = useSearch();
   const qc = useQueryClient();
-  const [activeConvId, setActiveConvId] = useState<number | null>(null);
+  const [activeConvId, setActiveConvId] = useState<number | null>(() => {
+    const params = new URLSearchParams(queryString);
+    const id = Number(params.get("conv"));
+    return id && !isNaN(id) ? id : null;
+  });
   const [input, setInput] = useState("");
   const [search, setSearch] = useState("");
-  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  const [mobileView, setMobileView] = useState<"list" | "chat">(() => {
+    const params = new URLSearchParams(queryString);
+    const id = Number(params.get("conv"));
+    return id && !isNaN(id) ? "chat" : "list";
+  });
   const [editingMsgId, setEditingMsgId] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
   const [hoveredMsgId, setHoveredMsgId] = useState<number | null>(null);
@@ -483,6 +491,17 @@ export default function Messaging() {
   useEffect(() => {
     if (activeConvId) markRead.mutate(activeConvId);
   }, [activeConvId]);
+
+  // Validate conv ID once conversations have finished loading — fall back to list if not found
+  useEffect(() => {
+    if (!activeConvId || convsLoading) return;
+    const exists = conversations.some(c => c.id === activeConvId);
+    if (!exists) {
+      setActiveConvId(null);
+      setMobileView("list");
+      navigate("/messaging", { replace: true });
+    }
+  }, [convsLoading, conversations, activeConvId]);
 
   useEffect(() => {
     if (!user?.id || user.accountType !== "company") return;
