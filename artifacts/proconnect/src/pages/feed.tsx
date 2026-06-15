@@ -362,15 +362,40 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
   });
   const allConnections: any[] = data?.profiles ?? [];
 
+  // Fetch which connections have already been sent this post
+  const { data: recipientsData } = useQuery({
+    queryKey: ["post-recipients", post.id, user?.id],
+    queryFn: () =>
+      fetch(`${BASE}api/conversations/post-recipients?postId=${post.id}`, { credentials: "include" }).then(r => r.json()),
+    enabled: !!user?.id,
+  });
+  const alreadySentIds = new Set<number>(recipientsData?.sentToProfileIds ?? []);
+
+  // When recipient data loads, prune any already-sent IDs that were selected
+  // before the async fetch completed (prevents early-click race duplicates).
+  useEffect(() => {
+    if (alreadySentIds.size === 0) return;
+    setSelectedIds(prev => {
+      const pruned = new Set(prev);
+      let changed = false;
+      for (const id of alreadySentIds) {
+        if (pruned.has(id)) { pruned.delete(id); changed = true; }
+      }
+      return changed ? pruned : prev;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipientsData]);
+
   // Filter locally by search text
   const profiles = search.trim()
-    ? allConnections.filter(p =>
+    ? allConnections.filter((p: any) =>
         p.name.toLowerCase().includes(search.toLowerCase()) ||
         (p.headline ?? "").toLowerCase().includes(search.toLowerCase())
       )
     : allConnections;
 
   function toggleSelect(profileId: number) {
+    if (alreadySentIds.has(profileId)) return;
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(profileId)) next.delete(profileId);
@@ -389,7 +414,9 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
     if (selectedIds.size === 0 || isSending) return;
     setIsSending(true);
 
-    const selected = allConnections.filter(p => selectedIds.has(p.id));
+    // Final guard: exclude any already-sent recipients that may have slipped
+    // through before the async recipients query resolved (race condition).
+    const selected = allConnections.filter(p => selectedIds.has(p.id) && !alreadySentIds.has(p.id));
     const payload = JSON.stringify({
       __type: "shared_post",
       postId: post.id,
@@ -501,13 +528,21 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
           )}
           {profiles.map((p: any) => {
             const initials = p.name.slice(0, 2).toUpperCase();
+            const alreadySent = alreadySentIds.has(p.id);
             const selected = selectedIds.has(p.id);
             return (
               <button
                 key={p.id}
                 onClick={() => toggleSelect(p.id)}
-                disabled={isSending}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left disabled:opacity-60 ${selected ? "bg-primary/5" : "hover:bg-gray-50"}`}
+                disabled={isSending || alreadySent}
+                title={alreadySent ? "Already sent this post" : undefined}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left ${
+                  alreadySent
+                    ? "opacity-50 cursor-not-allowed"
+                    : selected
+                    ? "bg-primary/5"
+                    : "hover:bg-gray-50 disabled:opacity-60"
+                }`}
               >
                 <Avatar className="w-9 h-9 border border-gray-100 flex-shrink-0">
                   <AvatarImage src={p.avatarUrl || undefined} />
@@ -517,9 +552,15 @@ function SendToModal({ post, onClose }: { post: FeedPost; onClose: () => void })
                   <p className="text-sm font-semibold text-gray-900 leading-tight truncate">{p.name}</p>
                   <p className="text-xs text-gray-400 truncate">{p.headline}</p>
                 </div>
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${selected ? "bg-primary border-primary" : "border-gray-300"}`}>
-                  {selected && <CheckIcon className="w-3 h-3 text-white" />}
-                </div>
+                {alreadySent ? (
+                  <span className="flex-shrink-0 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                    Sent
+                  </span>
+                ) : (
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${selected ? "bg-primary border-primary" : "border-gray-300"}`}>
+                    {selected && <CheckIcon className="w-3 h-3 text-white" />}
+                  </div>
+                )}
               </button>
             );
           })}

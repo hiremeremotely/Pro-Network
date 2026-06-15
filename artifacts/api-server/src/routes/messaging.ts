@@ -165,6 +165,65 @@ router.delete("/messaging/team-channel/members", async (req, res): Promise<void>
   res.status(204).end();
 });
 
+// ── GET /conversations/post-recipients?postId=X ───────────────────────────────
+// Returns profileIds of connections the current user has already sent this post to.
+// Checks for shared_post messages sent by the current user in direct conversations.
+router.get("/conversations/post-recipients", async (req, res): Promise<void> => {
+  const profileId = req.session.profileId;
+  if (!profileId) { res.json({ sentToProfileIds: [] }); return; }
+
+  const postId = parseInt(req.query.postId as string);
+  if (isNaN(postId)) { res.status(400).json({ error: "postId required" }); return; }
+
+  // Find all direct conversations where this user is a participant
+  const directConvos = await db
+    .select({ id: conversationsTable.id, participant1Id: conversationsTable.participant1Id, participant2Id: conversationsTable.participant2Id })
+    .from(conversationsTable)
+    .where(and(
+      or(
+        eq(conversationsTable.participant1Id, profileId),
+        eq(conversationsTable.participant2Id, profileId),
+      ),
+      eq(conversationsTable.type, "direct"),
+    ));
+
+  if (directConvos.length === 0) { res.json({ sentToProfileIds: [] }); return; }
+
+  const convIds = directConvos.map(c => c.id);
+
+  // Fetch messages sent by the current user in these conversations.
+  // Shared-post messages start with "{" so we pre-filter with a LIKE to avoid
+  // attempting JSON parsing on every plain-text message.
+  const candidateMessages = await db
+    .select({ conversationId: messagesTable.conversationId, content: messagesTable.content })
+    .from(messagesTable)
+    .where(and(
+      inArray(messagesTable.conversationId, convIds),
+      eq(messagesTable.senderProfileId, profileId),
+      sql`${messagesTable.content} LIKE '{%'`,
+    ));
+
+  // Parse JSON in application code to safely detect shared_post messages.
+  const sentConvIds = new Set<number>();
+  for (const msg of candidateMessages) {
+    try {
+      const parsed = JSON.parse(msg.content);
+      if (parsed.__type === "shared_post" && Number(parsed.postId) === postId) {
+        sentConvIds.add(msg.conversationId);
+      }
+    } catch {
+      // Not valid JSON — skip silently
+    }
+  }
+
+  // Map conversation IDs → other participant profileIds
+  const sentToProfileIds = directConvos
+    .filter(c => sentConvIds.has(c.id))
+    .map(c => c.participant1Id === profileId ? c.participant2Id : c.participant1Id);
+
+  res.json({ sentToProfileIds });
+});
+
 // ── POST /conversations ───────────────────────────────────────────────────────
 // Create or retrieve a direct conversation between two users
 router.post("/conversations", async (req, res): Promise<void> => {
