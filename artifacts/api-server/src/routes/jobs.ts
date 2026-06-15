@@ -98,7 +98,7 @@ router.get("/jobs/suggestions", async (req, res): Promise<void> => {
     ),
   ]);
 
-  const tags = (tagRows.rows ?? tagRows as any[])
+  const tags = (tagRows.rows ?? (tagRows as unknown as any[]))
     .map((r: any) => String(r.value))
     .filter((t: string) => t.toLowerCase().includes(q.toLowerCase()));
 

@@ -18,9 +18,11 @@ router.get("/profiles", async (req, res): Promise<void> => {
     res.status(400).json({ error: query.error.message });
     return;
   }
-  const { search, limit = 20, offset = 0, excludeId } = query.data;
+  const { search, limit = 20, offset = 0 } = query.data;
 
-  // Extra talent filters (read directly — not in generated Zod schema)
+  // Extra filters (read directly — not in generated Zod schema)
+  const excludeIdRaw = req.query.excludeId as string | undefined;
+  const excludeId    = excludeIdRaw ? Number(excludeIdRaw) : undefined;
   const accountTypeFilter  = req.query.accountType as string | undefined;
   const openToWorkRaw      = req.query.openToWork as string | undefined;
   const openToWorkFilter   = openToWorkRaw === "true" ? true : openToWorkRaw === "false" ? false : undefined;

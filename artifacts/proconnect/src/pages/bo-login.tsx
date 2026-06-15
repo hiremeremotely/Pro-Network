@@ -109,20 +109,6 @@ export default function BoLogin() {
             </Button>
           </form>
 
-          {/* Hint */}
-          <div className="mt-6 p-4 bg-white/5 border border-white/10 rounded-2xl">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Demo credentials</p>
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-500">Email</span>
-                <code className="text-xs text-indigo-300 font-mono">admin@hiremeremotely.com</code>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-500">Password</span>
-                <code className="text-xs text-indigo-300 font-mono">Admin@2026</code>
-              </div>
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-xs text-slate-600 mt-6">

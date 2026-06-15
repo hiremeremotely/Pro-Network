@@ -4,10 +4,10 @@ import { db, profilesTable, jobsTable, applicationsTable, postsTable } from "@wo
 
 const router: IRouter = Router();
 
-// ── Seeded admin credentials ──────────────────────────────────────────────────
-const ADMIN_EMAIL    = "admin@hiremeremotely.com";
-const ADMIN_PASSWORD = "Admin@2026";
-const ADMIN_TOKEN    = "bo_super_admin_token_2026";
+// ── Admin credentials — set via environment variables in production ───────────
+const ADMIN_EMAIL    = process.env.ADMIN_EMAIL    ?? "admin@hiremeremotely.com";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "Admin@2026";
+const ADMIN_TOKEN    = process.env.ADMIN_TOKEN    ?? "bo_super_admin_token_2026";
 
 // ── Middleware: require valid admin token ─────────────────────────────────────
 function requireAdmin(req: Request, res: Response, next: NextFunction): void {
