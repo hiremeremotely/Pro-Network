@@ -24,7 +24,7 @@ import {
   type InboxEmail,
   type ParsedEmailApp,
 } from "../lib/email-provider";
-import { getSessionSecret } from "../routes/auth";
+import { getSessionSecret, autoConnectEmailByDomain } from "../routes/auth";
 
 const router: IRouter = Router();
 
@@ -168,6 +168,7 @@ router.get("/job-tracker/:profileId", requireTrackerAuth, async (req, res): Prom
       .where(eq(applicationsTable.profileId, profileId))
       .orderBy(desc(applicationsTable.appliedAt)),
     db.select({
+      email: profilesTable.email,
       indeedUrl: profilesTable.indeedUrl,
       glassdoorUrl: profilesTable.glassdoorUrl,
       wellfoundUrl: profilesTable.wellfoundUrl,
@@ -177,6 +178,27 @@ router.get("/job-tracker/:profileId", requireTrackerAuth, async (req, res): Prom
       outlookConnected: profilesTable.outlookConnected,
     }).from(profilesTable).where(eq(profilesTable.id, profileId)),
   ]);
+
+  const profileRow = profileRows[0];
+  if (profileRow?.email) {
+    const needsGmail = !profileRow.gmailConnected;
+    const needsOutlook = !profileRow.outlookConnected;
+    if (needsGmail || needsOutlook) {
+      await autoConnectEmailByDomain(profileId, profileRow.email);
+      if (needsGmail || needsOutlook) {
+        const [refreshed] = await db.select({
+          indeedUrl: profilesTable.indeedUrl,
+          glassdoorUrl: profilesTable.glassdoorUrl,
+          wellfoundUrl: profilesTable.wellfoundUrl,
+          angellistUrl: profilesTable.angellistUrl,
+          linkedinUrl: profilesTable.linkedinUrl,
+          gmailConnected: profilesTable.gmailConnected,
+          outlookConnected: profilesTable.outlookConnected,
+        }).from(profilesTable).where(eq(profilesTable.id, profileId));
+        if (refreshed) profileRows[0] = { email: profileRow.email, ...refreshed };
+      }
+    }
+  }
 
   const allUnified = [
     ...externalApps.map((a) => ({
@@ -224,7 +246,11 @@ router.get("/job-tracker/:profileId", requireTrackerAuth, async (req, res): Prom
   const total = allUnified.length;
   const applications = allUnified.slice((pageNum - 1) * limitNum, pageNum * limitNum);
 
-  res.json({ applications, platformLinks: profileRows[0] ?? null, total, page: pageNum, limit: limitNum });
+  const rawLinks = profileRows[0];
+  const platformLinks = rawLinks
+    ? (({ email: _email, ...rest }) => rest)(rawLinks)
+    : null;
+  res.json({ applications, platformLinks, total, page: pageNum, limit: limitNum });
 });
 
 router.get("/external-applications", requireTrackerAuth, async (req, res): Promise<void> => {

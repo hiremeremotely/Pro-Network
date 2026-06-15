@@ -37,7 +37,7 @@ function isConsumerDomain(email: string): boolean {
   return CONSUMER_DOMAINS.has(domain);
 }
 
-async function autoConnectEmailByDomain(profileId: number, email: string): Promise<void> {
+export async function autoConnectEmailByDomain(profileId: number, email: string): Promise<void> {
   if (!IS_DEMO) return;
   const lower = email.toLowerCase();
   const updates: Record<string, unknown> = {};
@@ -232,7 +232,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  await autoConnectEmailByDomain(profile.id, profile.email);
+  if (profile.email) await autoConnectEmailByDomain(profile.id, profile.email);
   req.session.profileId = profile.id;
   const { passwordHash: _pw, emailVerificationToken: _evt, ...safe } = profile;
   res.json({ profile: safe, authToken: generateAuthToken(profile.id) });
