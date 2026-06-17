@@ -1,0 +1,107 @@
+This is an AWS Elastic Beanstalk deployment failure. The root cause is clear: **`npm install` failed** on the instance. Here's how to diagnose and fix it:
+
+## Immediate Diagnosis
+
+You need to see the actual npm error. Grab the logs:
+
+**Via AWS Console:** Environment → Logs → Request Logs → Last 100 Lines
+
+**Via CLI:**
+```bash
+eb logs --instance i-0937021a2b0adbfa7
+```
+
+Look specifically in `eb-engine.log` and `/var/log/nodejs/nodejs.log`.
+
+---
+
+## Common Causes & Fixes
+
+**1. Node/npm version mismatch**
+
+Your `package.json` may require a Node version not available on the instance.
+
+```json
+// package.json — add or check this
+"engines": {
+  "node": ">=18.0.0",
+  "npm": ">=9.0.0"
+}
+```
+
+Set the Node version explicitly in Elastic Beanstalk:
+```yaml
+# .ebextensions/nodeversion.config
+option_settings:
+  aws:elasticbeanstalk:container:nodejs:
+    NodeVersion: 20
+```
+
+**2. Private/scoped package auth failure**
+
+If you use private npm packages (e.g. `@your-org/package`), the instance won't have your `.npmrc` credentials.
+
+```yaml
+# .ebextensions/npm-auth.config
+files:
+  "/home/ec2-user/.npmrc":
+    content: |
+      //registry.npmjs.org/:_authToken=YOUR_NPM_TOKEN
+```
+
+Better: store the token in Parameter Store and reference it.
+
+**3. `package-lock.json` out of sync**
+
+```bash
+# Locally
+rm -rf node_modules package-lock.json
+npm install
+# Commit the fresh package-lock.json
+git add package-lock.json
+git commit -m "fix: regenerate lockfile"
+```
+
+**4. Missing native build dependencies** (e.g. `bcrypt`, `sharp`, `canvas`)
+
+```yaml
+# .ebextensions/build-deps.config
+packages:
+  yum:
+    gcc: []
+    gcc-c++: []
+    make: []
+    python3: []
+```
+
+**5. Disk space exhausted on instance**
+
+```yaml
+# .ebextensions/storage.config
+option_settings:
+  aws:autoscaling:launchconfiguration:
+    RootVolumeSize: '20'
+```
+
+---
+
+## Safe Re-deploy Steps
+
+Once you've identified and fixed the cause:
+
+```bash
+# 1. Test npm install locally first
+npm ci
+
+# 2. Deploy
+eb deploy --staged   # or your normal deploy command
+
+# 3. If other instances got the bad version
+eb deploy            # re-deploy the good version to all instances
+```
+
+The top message about "some instances may have deployed the new version" means you should re-deploy your **last stable version** immediately to normalize the environment, then fix and redeploy.
+
+---
+
+**What does your `eb-engine.log` show?** The exact npm error there will pinpoint which of these is your issue.
