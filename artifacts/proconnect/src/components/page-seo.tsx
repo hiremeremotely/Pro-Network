@@ -1,4 +1,5 @@
 import { Helmet } from "react-helmet-async";
+import { useLocation } from "wouter";
 
 const SITE_NAME = "Hire Me Remotely";
 const SITE_URL = "https://hiremeremotely.com";
@@ -23,8 +24,14 @@ export function PageSEO({
   noIndex = false,
   jsonLd,
 }: PageSEOProps) {
+  const [location] = useLocation();
   const fullTitle = title ? `${title} | ${SITE_NAME}` : SITE_NAME;
-  const canonical = canonicalPath ? `${SITE_URL}${canonicalPath}` : undefined;
+  // Use explicit canonicalPath if provided; otherwise derive from the current
+  // route (works because wouter strips the BASE_URL prefix from location).
+  // noIndex pages intentionally omit canonical to avoid mixed signals.
+  const canonical = noIndex
+    ? undefined
+    : `${SITE_URL}${canonicalPath ?? location}`;
 
   const schemas = jsonLd
     ? Array.isArray(jsonLd)

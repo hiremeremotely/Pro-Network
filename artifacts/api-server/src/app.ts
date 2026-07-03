@@ -189,6 +189,14 @@ app.use(
   generalLimiter,
   (req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith("/auth") || req.path === "/healthz" || req.path === "/sitemap.xml") return next();
+    // Allow unauthenticated GET access to public content so crawlers can index it
+    const isPublicGet = req.method === "GET" && (
+      req.path === "/jobs" ||
+      /^\/jobs\/\d+$/.test(req.path) ||
+      req.path === "/profiles" ||
+      /^\/profiles\/\d+$/.test(req.path)
+    );
+    if (isPublicGet) return next();
     requireAuth(req, res, next);
   },
   router,

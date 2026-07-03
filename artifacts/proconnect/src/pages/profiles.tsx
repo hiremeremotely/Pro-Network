@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import type { Profile } from "@workspace/api-client-react";
 import { formatDistanceToNow } from "date-fns";
+import { PageSEO } from "@/components/page-seo";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -739,6 +740,11 @@ export default function Profiles() {
 
   return (
     <div className="max-w-[1320px] mx-auto px-4 py-10 pb-24">
+      <PageSEO
+        title="Remote Professionals Network"
+        description="Discover and connect with remote professionals and companies worldwide. Browse profiles, expand your network, and find your next opportunity on Hire Me Remotely."
+        canonicalPath="/profiles"
+      />
       {/* ConnectModal */}
       {connectingProfile && (
         <ConnectModal
