@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "wouter";
+import { PageSEO } from "@/components/page-seo";
 import { useQuery } from "@tanstack/react-query";
 import { useListJobs, getListJobsQueryKey } from "@workspace/api-client-react";
 import { JobCard } from "@/components/job-card";
@@ -521,6 +522,11 @@ export default function Jobs() {
 
   return (
     <div className="max-w-[1320px] mx-auto px-4 py-10 pb-24">
+      <PageSEO
+        title="Remote Jobs"
+        description="Browse hundreds of remote jobs at top companies. Filter by category, level, and salary. Find your next remote role today."
+        canonicalPath="/jobs"
+      />
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-1">
           <BriefcaseIcon className="w-7 h-7 text-primary" />

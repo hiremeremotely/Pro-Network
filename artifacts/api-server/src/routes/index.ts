@@ -27,9 +27,11 @@ import externalApplicationsRouter from "./external-applications";
 import interestRequestsRouter from "./interest-requests";
 import talentRouter from "./talent";
 import offersRouter from "./offers";
+import sitemapRouter from "./sitemap";
 
 const router: IRouter = Router();
 
+router.use(sitemapRouter);
 router.use(eventsRouter);
 router.use(healthRouter);
 router.use(storageRouter);

@@ -188,7 +188,7 @@ app.use(
   "/api",
   generalLimiter,
   (req: Request, res: Response, next: NextFunction) => {
-    if (req.path.startsWith("/auth") || req.path === "/healthz") return next();
+    if (req.path.startsWith("/auth") || req.path === "/healthz" || req.path === "/sitemap.xml") return next();
     requireAuth(req, res, next);
   },
   router,

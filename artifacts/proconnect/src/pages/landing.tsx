@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
+import { PageSEO } from "@/components/page-seo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -71,8 +72,39 @@ export default function Landing() {
     setChecking(false);
   }
 
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Hire Me Remotely",
+    url: "https://hiremeremotely.com",
+    logo: "https://hiremeremotely.com/logo.png",
+    description: "Professional networking platform connecting remote workers with companies worldwide.",
+    sameAs: [] as string[],
+  };
+
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Hire Me Remotely",
+    url: "https://hiremeremotely.com",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: "https://hiremeremotely.com/jobs?q={search_term_string}",
+      },
+      "query-input": "required name=search_term_string",
+    },
+  };
+
   return (
     <div className="min-h-screen bg-white flex flex-col">
+      <PageSEO
+        title="Remote jobs. Real connections. One ecosystem."
+        description="Find your next remote job or hire remote talent. Hire Me Remotely connects professionals and companies worldwide."
+        canonicalPath="/"
+        jsonLd={[organizationJsonLd, websiteJsonLd]}
+      />
 
       {/* ── Navbar ── */}
       <header className="w-full border-b border-gray-100 bg-white">

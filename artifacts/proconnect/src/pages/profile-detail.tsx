@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useParams, Link, useLocation } from "wouter";
+import { PageSEO } from "@/components/page-seo";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   useGetProfile, getGetProfileQueryKey,
@@ -755,6 +756,26 @@ export default function ProfileDetail() {
   const isCompany = profile.accountType === "company";
   const initials = profile.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().substring(0, 2);
 
+  const profileJsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": isCompany ? "Organization" : "Person",
+    name: profile.name,
+    url: `https://hiremeremotely.com/profiles/${id}`,
+    ...(profile.bio ? { description: profile.bio } : {}),
+    ...(profile.avatarUrl ? { image: profile.avatarUrl } : {}),
+    ...(profile.website ? { sameAs: [profile.website] } : {}),
+  };
+
+  const profileSeo = (
+    <PageSEO
+      title={profile.name}
+      description={profile.headline || (isCompany ? `${profile.name} on Hire Me Remotely — browse open remote jobs and learn more about the company.` : `${profile.name} — remote professional on Hire Me Remotely.`)}
+      canonicalPath={`/profiles/${id}`}
+      ogImage={profile.avatarUrl ?? undefined}
+      jsonLd={profileJsonLd}
+    />
+  );
+
   function fmtDate(d: string) {
     if (!d) return "";
     const [y, m] = d.split("-");
@@ -766,6 +787,7 @@ export default function ProfileDetail() {
   if (isCompany) {
     return (
       <>
+        {profileSeo}
         {modal === "info" && <EditInfoModal profile={profile} profileId={id} onClose={() => setModal(null)} />}
         <DisconnectConfirmDialog
           open={disconnectConfirmOpen}
@@ -797,6 +819,7 @@ export default function ProfileDetail() {
 
   return (
     <div className="bg-[#f3f2ef] min-h-screen pb-24">
+      {profileSeo}
       {/* Modals */}
       {modal === "info"  && <EditInfoModal profile={profile} profileId={id} onClose={() => setModal(null)} />}
       {modal === "exp"   && <AddExperienceModal profileId={id} onClose={() => setModal(null)} />}

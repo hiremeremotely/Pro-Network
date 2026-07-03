@@ -1,10 +1,16 @@
 import { Link } from "wouter";
 import logo from "@assets/hr_1775483051104.png";
 import { ManageCookiesLink } from "@/components/cookie-consent";
+import { PageSEO } from "@/components/page-seo";
 
 export default function Terms() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
+      <PageSEO
+        title="Terms of Service"
+        description="Read the Terms of Service for Hire Me Remotely — the professional networking platform for remote workers and companies."
+        canonicalPath="/terms"
+      />
       <header className="w-full border-b border-gray-100 bg-white sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/">

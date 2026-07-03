@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams, Link } from "wouter";
+import { PageSEO } from "@/components/page-seo";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useGetJob, getGetJobQueryKey, useApplyToJob, getListProfileApplicationsQueryKey } from "@workspace/api-client-react";
 import { LoadingState, ErrorState } from "@/components/loading-state";
@@ -197,6 +198,36 @@ export default function JobDetail() {
   if (error) return <ErrorState error={error} retry={refetch} />;
   if (!job) return null;
 
+  const jobPostingJsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    title: job.title,
+    description: job.description,
+    datePosted: job.createdAt,
+    employmentType: "FULL_TIME",
+    jobLocationType: "TELECOMMUTE",
+    hiringOrganization: {
+      "@type": "Organization",
+      name: job.company,
+      ...(job.companyLogoUrl ? { logo: job.companyLogoUrl } : {}),
+    },
+    ...(job.location ? { jobLocation: { "@type": "Place", address: job.location } } : {}),
+    ...(job.salaryMin || job.salaryMax
+      ? {
+          baseSalary: {
+            "@type": "MonetaryAmount",
+            currency: job.currency || "USD",
+            value: {
+              "@type": "QuantitativeValue",
+              ...(job.salaryMin ? { minValue: job.salaryMin } : {}),
+              ...(job.salaryMax ? { maxValue: job.salaryMax } : {}),
+              unitText: "YEAR",
+            },
+          },
+        }
+      : {}),
+  };
+
   const formatSalary = (min?: number | null, max?: number | null, currency: string = "USD") => {
     if (!min && !max) return "Salary unlisted";
     const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: currency || "USD", maximumFractionDigits: 0 });
@@ -208,6 +239,12 @@ export default function JobDetail() {
 
   return (
     <div className="container mx-auto px-4 py-10 pb-24">
+      <PageSEO
+        title={`${job.title} at ${job.company}`}
+        description={`${job.title} — ${job.company}${job.location ? ` · ${job.location}` : ""}. ${job.description.slice(0, 140)}…`}
+        canonicalPath={`/jobs/${job.id}`}
+        jsonLd={jobPostingJsonLd}
+      />
       <Link href="/jobs">
         <Button variant="ghost" size="sm" className="gap-2 mb-6">
           <ArrowLeftIcon className="w-4 h-4" /> Back to Jobs

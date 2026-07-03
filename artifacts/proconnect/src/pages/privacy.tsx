@@ -1,10 +1,16 @@
 import { Link } from "wouter";
 import logo from "@assets/hr_1775483051104.png";
 import { ManageCookiesLink } from "@/components/cookie-consent";
+import { PageSEO } from "@/components/page-seo";
 
 export default function Privacy() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
+      <PageSEO
+        title="Privacy Policy"
+        description="Read the Privacy Policy for Hire Me Remotely. Learn how we collect, use, and protect your personal data."
+        canonicalPath="/privacy"
+      />
       <header className="w-full border-b border-gray-100 bg-white sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/">
