@@ -5,6 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BellIcon, MessageSquareIcon, ThumbsUpIcon, CheckCheckIcon, UserPlusIcon, UserCheckIcon, AtSignIcon, BriefcaseIcon } from "lucide-react";
 import { useAppAuth } from "@/contexts/app-auth";
+import { PageSEO } from "@/components/page-seo";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -100,6 +101,7 @@ export default function Notifications() {
 
   return (
     <div className="max-w-2xl mx-auto w-full px-4 py-6">
+      <PageSEO title="Notifications" noIndex />
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
         {hasUnread && (

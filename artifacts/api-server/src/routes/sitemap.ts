@@ -24,6 +24,7 @@ router.get("/sitemap.xml", async (req, res) => {
     const staticRoutes = [
       urlEntry(`${SITE_URL}/`, "monthly", "1.0"),
       urlEntry(`${SITE_URL}/jobs`, "weekly", "0.9"),
+      urlEntry(`${SITE_URL}/profiles`, "weekly", "0.8"),
       urlEntry(`${SITE_URL}/terms`, "monthly", "0.3"),
       urlEntry(`${SITE_URL}/privacy`, "monthly", "0.3"),
     ];

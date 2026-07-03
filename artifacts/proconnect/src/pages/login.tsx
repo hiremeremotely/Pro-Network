@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { EyeIcon, EyeOffIcon, AlertCircleIcon, BuildingIcon, CheckCircleIcon, CopyIcon, RefreshCwIcon } from "lucide-react";
 import logo from "@assets/hr_1775483051104.png";
+import { PageSEO } from "@/components/page-seo";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -89,6 +90,8 @@ export default function Login() {
   }
 
   return (
+    <>
+    <PageSEO title="Sign In" noIndex />
     <div className="min-h-screen bg-[#f3f2ef] flex flex-col">
       <header className="bg-white border-b border-gray-200 px-6 h-16 flex items-center">
         <Link href="/">
@@ -222,5 +225,6 @@ export default function Login() {
         </div>
       </div>
     </div>
+    </>
   );
 }

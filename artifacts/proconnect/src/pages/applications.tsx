@@ -16,6 +16,7 @@ import {
   CopyIcon, SendIcon, FileTextIcon, ChevronLeftIcon, ChevronRightIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { PageSEO } from "@/components/page-seo";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -888,6 +889,7 @@ function IndividualApplicationsView({ userId }: { userId: number }) {
 
   return (
     <div className="container mx-auto px-4 py-10 pb-24">
+      <PageSEO title="My Applications" noIndex />
       <div className="flex items-start justify-between mb-8 gap-4">
         <div>
           <div className="flex items-center gap-3 mb-1">

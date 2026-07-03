@@ -205,7 +205,7 @@ export default function JobDetail() {
     description: job.description,
     datePosted: job.createdAt,
     employmentType: "FULL_TIME",
-    jobLocationType: "TELECOMMUTE",
+    ...(job.remote ? { jobLocationType: "TELECOMMUTE" } : {}),
     hiringOrganization: {
       "@type": "Organization",
       name: job.company,

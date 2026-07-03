@@ -51,6 +51,7 @@ import { DisconnectConfirmDialog } from "@/components/disconnect-confirm-dialog"
 import { useBookmarks } from "@/hooks/use-bookmarks";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
+import { PageSEO } from "@/components/page-seo";
 
 // ── Reaction definitions ─────────────────────────────────────────────────────
 const REACTIONS = [
@@ -1280,6 +1281,7 @@ export default function Home() {
 
   return (
     <div className="max-w-[1320px] mx-auto px-4 py-6 w-full pb-24 md:pb-6">
+      <PageSEO title="Feed" noIndex />
       <DisconnectConfirmDialog
         open={!!feedDisconnectTarget}
         profileName={feedDisconnectTarget?.name}

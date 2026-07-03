@@ -8,6 +8,7 @@ import {
   UserIcon, BuildingIcon, CheckIcon, ChevronDownIcon, SearchIcon,
 } from "lucide-react";
 import logo from "@assets/hr_1775483051104.png";
+import { PageSEO } from "@/components/page-seo";
 
 // ── Consumer domain blocklist (mirrors server-side list) ─────────────────────
 
@@ -335,6 +336,8 @@ export default function Signup() {
   }
 
   return (
+    <>
+    <PageSEO title="Create Account" noIndex />
     <div className="min-h-screen bg-[#f3f2ef] flex flex-col">
       <header className="bg-white border-b border-gray-200 px-6 h-16 flex items-center justify-between">
         <Link href="/">
@@ -553,6 +556,7 @@ export default function Signup() {
         </div>
       </div>
     </div>
+    </>
   );
 }
 

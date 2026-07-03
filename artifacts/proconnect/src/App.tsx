@@ -142,16 +142,26 @@ function Router() {
         </RequireAuth>
       </Route>
 
+      {/* Public browseable pages — accessible without login */}
+      <Route path="/profiles">
+        <Layout><Profiles /></Layout>
+      </Route>
+      <Route path="/profiles/:id">
+        <Layout><ProfileDetail /></Layout>
+      </Route>
+      <Route path="/jobs">
+        <Layout><Jobs /></Layout>
+      </Route>
+      <Route path="/jobs/:id">
+        <Layout><JobDetail /></Layout>
+      </Route>
+
       {/* All main-app pages — require user session */}
       <Route>
         <RequireAuth>
           <Layout>
             <Switch>
               <Route path="/feed"><RequireIndividual><Feed /></RequireIndividual></Route>
-              <Route path="/profiles" component={Profiles} />
-              <Route path="/profiles/:id" component={ProfileDetail} />
-              <Route path="/jobs" component={Jobs} />
-              <Route path="/jobs/:id" component={JobDetail} />
               <Route path="/applications"><RequireIndividual><Applications /></RequireIndividual></Route>
               <Route path="/notifications" component={Notifications} />
               <Route path="/messaging" component={Messaging} />

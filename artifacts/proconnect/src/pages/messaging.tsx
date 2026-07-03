@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow, format, isToday, isYesterday } from "date-fns";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useConnections } from "@/hooks/use-connections";
+import { PageSEO } from "@/components/page-seo";
 import {
   SearchIcon, SendHorizontalIcon, PencilIcon,
   MoreHorizontalIcon, VideoIcon, InfoIcon,
@@ -580,6 +581,7 @@ export default function Messaging() {
 
   return (
     <div className="flex overflow-hidden" style={{ height: "calc(100dvh - 56px)" }}>
+      <PageSEO title="Messaging" noIndex />
       {/* ── LEFT SIDEBAR ─────────────────────────────────────────────────────── */}
       <aside className={`${mobileView === "chat" ? "hidden md:flex" : "flex"} flex-col w-full md:w-[336px] md:flex-shrink-0 border-r border-gray-200 bg-white pb-14 md:pb-0`}>
         <div className="px-4 pt-4 pb-2">
