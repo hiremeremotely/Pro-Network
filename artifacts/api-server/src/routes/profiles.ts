@@ -12,6 +12,37 @@ import {
 
 const router: IRouter = Router();
 
+// Columns that are safe to return in any profile response.
+// Sensitive auth fields (passwordHash, tokens, etc.) are deliberately excluded.
+const publicProfileColumns = {
+  id: profilesTable.id,
+  accountType: profilesTable.accountType,
+  name: profilesTable.name,
+  email: profilesTable.email,
+  headline: profilesTable.headline,
+  bio: profilesTable.bio,
+  location: profilesTable.location,
+  industry: profilesTable.industry,
+  avatarUrl: profilesTable.avatarUrl,
+  coverUrl: profilesTable.coverUrl,
+  website: profilesTable.website,
+  linkedinUrl: profilesTable.linkedinUrl,
+  githubUrl: profilesTable.githubUrl,
+  twitterUrl: profilesTable.twitterUrl,
+  interests: profilesTable.interests,
+  openToWork: profilesTable.openToWork,
+  indeedUrl: profilesTable.indeedUrl,
+  glassdoorUrl: profilesTable.glassdoorUrl,
+  wellfoundUrl: profilesTable.wellfoundUrl,
+  angellistUrl: profilesTable.angellistUrl,
+  customLinks: profilesTable.customLinks,
+  gmailConnected: profilesTable.gmailConnected,
+  outlookConnected: profilesTable.outlookConnected,
+  emailVerified: profilesTable.emailVerified,
+  createdAt: profilesTable.createdAt,
+  updatedAt: profilesTable.updatedAt,
+};
+
 router.get("/profiles", async (req, res): Promise<void> => {
   const query = ListProfilesQueryParams.safeParse(req.query);
   if (!query.success) {
@@ -75,11 +106,13 @@ router.get("/profiles", async (req, res): Promise<void> => {
       : undefined;
 
   const [profiles, countResult] = await Promise.all([
-    db.select().from(profilesTable).where(whereClause).limit(limit).offset(offset).orderBy(profilesTable.createdAt),
+    db.select(publicProfileColumns).from(profilesTable).where(whereClause).limit(limit).offset(offset).orderBy(profilesTable.createdAt),
     db.select({ count: sql<number>`count(*)` }).from(profilesTable).where(whereClause),
   ]);
 
-  res.json({ profiles, total: Number(countResult[0]?.count ?? 0) });
+  // Always null-out email in list responses (viewers don't own the listed profiles)
+  const safeProfiles = profiles.map(p => ({ ...p, email: null }));
+  res.json({ profiles: safeProfiles, total: Number(countResult[0]?.count ?? 0) });
 });
 
 router.post("/profiles", async (req, res): Promise<void> => {
@@ -101,7 +134,7 @@ router.get("/profiles/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.id, params.data.id));
+  const [profile] = await db.select(publicProfileColumns).from(profilesTable).where(eq(profilesTable.id, params.data.id));
   if (!profile) {
     res.status(404).json({ error: "Profile not found" });
     return;
@@ -114,11 +147,8 @@ router.get("/profiles/:id", async (req, res): Promise<void> => {
     db.select().from(skillsTable).where(eq(skillsTable.profileId, params.data.id)),
   ]);
 
-  // Privacy layer: hide contact info (email) from anyone except the profile
-  // owner themselves or HMR admin. The viewer identifies themselves via
-  // ?viewerId= query (set by the frontend from the session); HMR admin via
-  // an admin token in the bo-admin header. Without a matching viewer the
-  // email is hidden.
+  // Privacy layer: hide email from anyone except the profile owner or admin.
+  // passwordHash and auth tokens are never selected (publicProfileColumns).
   const viewerId = req.query.viewerId ? Number(req.query.viewerId) : null;
   const adminToken = req.header("x-admin-token");
   const isOwner = viewerId === profile.id;
