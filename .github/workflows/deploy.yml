@@ -1,0 +1,98 @@
+name: Build & Deploy to App Runner
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # allow manual trigger from GitHub UI
+
+jobs:
+  deploy:
+    name: Build, push to ECR, deploy to App Runner
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write  # required for OIDC — no long-lived AWS keys needed
+      contents: read
+
+    steps:
+      # ── 1. Checkout ───────────────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── 2. AWS credentials via OIDC ───────────────────────────────────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # ── 3. Log in to ECR ──────────────────────────────────────────────────
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ── 4. Build image with layer caching ─────────────────────────────────
+      - name: Build, tag, and push Docker image
+        id: build-image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ secrets.ECR_REPOSITORY }}   # e.g. hire-me-remotely
+          SHA_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            --cache-from $REGISTRY/$REPOSITORY:latest \
+            --build-arg BUILDKIT_INLINE_CACHE=1 \
+            -t $REGISTRY/$REPOSITORY:$SHA_TAG \
+            -t $REGISTRY/$REPOSITORY:latest \
+            .
+          docker push $REGISTRY/$REPOSITORY:$SHA_TAG
+          docker push $REGISTRY/$REPOSITORY:latest
+          echo "image=$REGISTRY/$REPOSITORY:$SHA_TAG" >> $GITHUB_OUTPUT
+
+      # ── 5. Deploy to App Runner ───────────────────────────────────────────
+      - name: Update App Runner service
+        env:
+          SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
+          NEW_IMAGE: ${{ steps.build-image.outputs.image }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          aws apprunner update-service \
+            --service-arn "$SERVICE_ARN" \
+            --source-configuration "{
+              \"ImageRepository\": {
+                \"ImageIdentifier\": \"$NEW_IMAGE\",
+                \"ImageRepositoryType\": \"ECR\",
+                \"ImageConfiguration\": {
+                  \"Port\": \"8080\"
+                }
+              },
+              \"AutoDeploymentsEnabled\": true
+            }" \
+            --region "$AWS_REGION"
+
+      # ── 6. Wait for deployment to stabilise ───────────────────────────────
+      - name: Wait for App Runner deployment
+        env:
+          SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          echo "Waiting for App Runner service to become RUNNING..."
+          for i in $(seq 1 20); do
+            STATUS=$(aws apprunner describe-service \
+              --service-arn "$SERVICE_ARN" \
+              --region "$AWS_REGION" \
+              --query "Service.Status" \
+              --output text)
+            echo "  status: $STATUS"
+            if [ "$STATUS" = "RUNNING" ]; then
+              echo "Deployment complete."
+              exit 0
+            fi
+            if [ "$STATUS" = "CREATE_FAILED" ] || [ "$STATUS" = "UPDATE_FAILED" ]; then
+              echo "Deployment FAILED."
+              exit 1
+            fi
+            sleep 15
+          done
+          echo "Timed out waiting for deployment."
+          exit 1
