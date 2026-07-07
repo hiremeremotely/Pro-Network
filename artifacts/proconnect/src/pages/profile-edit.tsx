@@ -501,7 +501,7 @@ export default function ProfileEdit() {
                       <Input value={profileForm.linkedinUrl} onChange={e => setProfileForm(p => ({ ...p, linkedinUrl: e.target.value }))} placeholder="https://linkedin.com/company/..." />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">X (Twitter)</Label>
+                      <Label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">X</Label>
                       <Input value={profileForm.twitterUrl} onChange={e => setProfileForm(p => ({ ...p, twitterUrl: e.target.value }))} placeholder="https://x.com/..." />
                     </div>
                     <div className="flex items-center gap-3 pt-2 border-t">
@@ -642,7 +642,7 @@ export default function ProfileEdit() {
                   <Input value={profileForm.githubUrl} onChange={e => setProfileForm(p => ({ ...p, githubUrl: e.target.value }))} placeholder="https://github.com/..." />
                 </div>
                 <div className="space-y-2">
-                  <Label>X (Twitter) URL</Label>
+                  <Label>X URL</Label>
                   <Input value={profileForm.twitterUrl} onChange={e => setProfileForm(p => ({ ...p, twitterUrl: e.target.value }))} placeholder="https://x.com/..." />
                 </div>
               </div>

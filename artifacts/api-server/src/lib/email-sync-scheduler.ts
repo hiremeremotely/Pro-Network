@@ -53,14 +53,14 @@ function buildSyntheticInbox(profileId: number): InboxEmail[] {
       receivedDate: daysAgo(7),
     },
     {
-      messageId: `<${profileId}.005@greenhouse.io>`,
-      from: "no-reply@greenhouse.io",
+      messageId: `<${profileId}.005@apptrack-demo.com>`,
+      from: "no-reply@apptrack-demo.com",
       subject: "Your application to Staff Backend Engineer at Edgeflow",
       receivedDate: daysAgo(12),
     },
     {
-      messageId: `<${profileId}.006@lever.co>`,
-      from: "noreply@lever.co",
+      messageId: `<${profileId}.006@hirepro-demo.com>`,
+      from: "noreply@hirepro-demo.com",
       subject: "Application status update: Moving forward with your application at Pixelcraft",
       receivedDate: daysAgo(2),
     },
