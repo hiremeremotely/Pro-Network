@@ -109,7 +109,7 @@ export default function Landing() {
       {/* ── Navbar ── */}
       <header className="w-full border-b border-gray-100 bg-white">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <img src={logo} alt="Hire Me Remotely" className="h-12 w-auto" />
+          <img src={logo} alt="Hire Me Remotely" className="h-10 w-auto" />
           <div className="flex items-center gap-2">
             <Link href="/login">
               <Button variant="ghost" size="sm" className="font-semibold text-gray-600 hover:text-gray-900">
@@ -294,7 +294,7 @@ export default function Landing() {
       {/* ── Footer ── */}
       <footer className="border-t border-gray-100 py-6">
         <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <img src={logo} alt="Hire Me Remotely" className="h-9 w-auto opacity-70" />
+          <img src={logo} alt="Hire Me Remotely" className="h-7 w-auto opacity-60" />
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-xs text-gray-400">
             <a href="#" className="hover:text-gray-700">About</a>
             <a href="#" className="hover:text-gray-700">Accessibility</a>

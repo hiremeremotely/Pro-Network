@@ -100,7 +100,7 @@ export default function CompanyLogin() {
     <div className="min-h-screen bg-[#f3f2ef] flex flex-col">
       <header className="bg-white border-b border-gray-200 px-6 h-16 flex items-center justify-between">
         <Link href="/">
-          <img src={logo} alt="Hire Me Remotely" className="h-12 w-auto" />
+          <img src={logo} alt="Hire Me Remotely" className="h-10 w-auto" />
         </Link>
         <Link href="/login">
           <Button variant="ghost" size="sm" className="text-sm text-gray-500 hover:text-gray-900 font-medium">
