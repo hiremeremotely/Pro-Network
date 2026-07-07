@@ -1,25 +1,2 @@
 User-agent: *
-Allow: /
-Allow: /jobs
-Allow: /jobs/
-Allow: /profiles
-Allow: /profiles/
-Allow: /terms
-Allow: /privacy
-
-Disallow: /feed
-Disallow: /notifications
-Disallow: /messaging
-Disallow: /applications
-Disallow: /profile/edit
-Disallow: /bo
-Disallow: /bo/
-Disallow: /company-dashboard
-Disallow: /my-items
-Disallow: /analytics
-Disallow: /salary-estimator
-Disallow: /my-work
-Disallow: /job-tracker
-Disallow: /company/interests
-
-Sitemap: https://hiremeremotely.com/api/sitemap.xml
+Disallow: /

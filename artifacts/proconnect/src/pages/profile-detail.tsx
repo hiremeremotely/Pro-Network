@@ -134,7 +134,7 @@ function EditInfoModal({ profile, profileId, onClose }: { profile: any; profileI
             { key: "website", icon: GlobeIcon, placeholder: "https://yourwebsite.com" },
             { key: "linkedinUrl", icon: LinkedinIcon, placeholder: "https://linkedin.com/in/..." },
             { key: "githubUrl", icon: GithubIcon, placeholder: "https://github.com/..." },
-            { key: "twitterUrl", icon: TwitterIcon, placeholder: "https://twitter.com/..." },
+            { key: "twitterUrl", icon: TwitterIcon, placeholder: "https://x.com/..." },
           ].map(({ key, icon: Icon, placeholder }) => (
             <div key={key} className="flex items-center gap-2">
               <Icon className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -179,7 +179,7 @@ function AddExperienceModal({ profileId, onClose }: { profileId: number; onClose
     <Modal title="Add experience" onClose={onClose}>
       <div className="space-y-4">
         <div><Label className="text-xs font-semibold text-gray-600 mb-1 block">Job title *</Label><Input placeholder="e.g. Senior Engineer" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="h-9 text-sm" /></div>
-        <div><Label className="text-xs font-semibold text-gray-600 mb-1 block">Company *</Label><Input placeholder="e.g. Vercel" value={form.company} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} className="h-9 text-sm" /></div>
+        <div><Label className="text-xs font-semibold text-gray-600 mb-1 block">Company *</Label><Input placeholder="e.g. Deployly" value={form.company} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} className="h-9 text-sm" /></div>
         <div className="grid grid-cols-2 gap-3">
           <div><Label className="text-xs font-semibold text-gray-600 mb-1 block">Start date *</Label><Input type="month" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} className="h-9 text-sm" /></div>
           <div><Label className="text-xs font-semibold text-gray-600 mb-1 block">End date</Label><Input type="month" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} disabled={form.current} className="h-9 text-sm disabled:opacity-40" /></div>
