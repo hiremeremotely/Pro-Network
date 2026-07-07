@@ -202,6 +202,21 @@ app.use(
   router,
 );
 
+// ── Static frontend serving (single-container / Docker mode) ──────────────────
+// When STATIC_DIR is set, Express serves the pre-built Vite frontend and
+// handles SPA routing by returning index.html for all non-API paths.
+// In Replit, static files are served by the platform proxy instead.
+const staticDir = process.env.STATIC_DIR;
+if (staticDir) {
+  app.use(express.static(staticDir));
+  // SPA fallback — only for non-API paths so API 404s stay as JSON
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path.startsWith("/api")) return next();
+    res.sendFile("index.html", { root: staticDir });
+  });
+  logger.info({ staticDir }, "Serving static frontend files");
+}
+
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction): void => {
   logger.error({ err }, "Unhandled error");
   if (!res.headersSent) {

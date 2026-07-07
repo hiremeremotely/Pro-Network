@@ -1,0 +1,30 @@
+node_modules
+**/node_modules
+.git
+.gitignore
+.local
+.agents
+attached_assets
+*.log
+*.md
+
+# Built outputs (rebuilt inside Docker)
+**/dist
+**/dist/public
+
+# Replit-specific
+.replit
+replit.nix
+.upm
+.config
+
+# Test / dev artefacts
+coverage
+.nyc_output
+*.test.ts
+*.spec.ts
+
+# Secrets — never bake into the image
+.env
+.env.*
+!.env.example
