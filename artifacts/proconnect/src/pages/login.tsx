@@ -224,6 +224,11 @@ export default function Login() {
           </Link>
         </div>
       </div>
+
+      <footer className="py-4 text-center text-xs text-gray-400 space-x-4">
+        <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-gray-600">Terms of Service</a>
+        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-gray-600">Privacy Policy</a>
+      </footer>
     </div>
     </>
   );
