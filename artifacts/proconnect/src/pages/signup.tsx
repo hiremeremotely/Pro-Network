@@ -341,7 +341,7 @@ export default function Signup() {
     <div className="min-h-screen bg-[#f3f2ef] flex flex-col">
       <header className="bg-white border-b border-gray-200 px-6 h-16 flex items-center justify-between">
         <Link href="/">
-          <img src={logo} alt="Hire Me Remotely" className="h-10 w-auto" />
+          <img src={logo} alt="Hire Me Remotely" className="h-12 w-auto" />
         </Link>
         <p className="text-sm text-gray-500">
           Already on Hire Me Remotely?{" "}

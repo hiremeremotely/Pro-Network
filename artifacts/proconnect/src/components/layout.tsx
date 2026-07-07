@@ -549,8 +549,9 @@ export function Layout({ children }: LayoutProps) {
         <div className="max-w-[1320px] mx-auto px-4 h-14 flex items-center">
           {/* Left: logo + search */}
           <div className="flex items-center gap-3 flex-shrink-0">
-            <Link href={user ? homeHref : "/"} className="flex-shrink-0 flex items-center">
-              <img src={logo} alt="Hire Me Remotely" className="h-8 w-auto" />
+            <Link href={user ? homeHref : "/"} className="flex-shrink-0 flex items-center gap-2">
+              <img src="/favicon-192.png" alt="Hire Me Remotely" className="h-8 w-8 flex-shrink-0" />
+              <span className="hidden lg:block font-semibold text-[15px] tracking-tight text-[#5B4FD9] leading-none">Hire Me Remotely</span>
             </Link>
             <GlobalSearch />
           </div>

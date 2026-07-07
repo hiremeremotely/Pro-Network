@@ -14,7 +14,7 @@ export default function Privacy() {
       <header className="w-full border-b border-gray-100 bg-white sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/">
-            <img src={logo} alt="Hire Me Remotely" className="h-8 w-auto cursor-pointer" />
+            <img src={logo} alt="Hire Me Remotely" className="h-12 w-auto cursor-pointer" />
           </Link>
           <Link href="/terms" className="text-sm text-primary hover:underline font-medium">
             Terms of Service

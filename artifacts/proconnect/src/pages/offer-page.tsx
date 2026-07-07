@@ -65,7 +65,7 @@ export default function OfferPage() {
     <div className="min-h-screen bg-gray-50" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-3">
-        <img src={logo} alt="Hire Me Remotely" className="h-8 w-auto" />
+        <img src={logo} alt="Hire Me Remotely" className="h-12 w-auto" />
         <span className="text-sm text-gray-400 font-medium">Offer Letter</span>
       </header>
 
@@ -170,7 +170,7 @@ export default function OfferPage() {
 
       {/* Footer */}
       <footer className="text-center py-8 text-xs text-gray-400 border-t border-gray-100 mt-8">
-        <img src={logo} alt="Hire Me Remotely" className="h-5 w-auto mx-auto mb-2 opacity-50" />
+        <img src={logo} alt="Hire Me Remotely" className="h-7 w-auto mx-auto mb-2 opacity-60" />
         Powered by Hire Me Remotely · © {new Date().getFullYear()}
       </footer>
     </div>
