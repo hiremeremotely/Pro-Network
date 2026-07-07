@@ -1,4 +1,4 @@
-name: Build & Deploy to App Runner
+name: Build & Deploy to ECS
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   deploy:
-    name: Build, push to ECR, deploy to App Runner
+    name: Build, push to ECR, deploy to ECS
     runs-on: ubuntu-latest
 
     permissions:
@@ -31,7 +31,7 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # ── 4. Build image with layer caching ─────────────────────────────────
+      # ── 4. Build and push Docker image ────────────────────────────────────
       - name: Build, tag, and push Docker image
         id: build-image
         env:
@@ -49,50 +49,31 @@ jobs:
           docker push $REGISTRY/$REPOSITORY:latest
           echo "image=$REGISTRY/$REPOSITORY:$SHA_TAG" >> $GITHUB_OUTPUT
 
-      # ── 5. Deploy to App Runner ───────────────────────────────────────────
-      - name: Update App Runner service
+      # ── 5. Update ECS task definition with the new image ──────────────────
+      - name: Download current ECS task definition
         env:
-          SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
-          NEW_IMAGE: ${{ steps.build-image.outputs.image }}
+          TASK_DEFINITION: ${{ secrets.ECS_TASK_DEFINITION }}  # e.g. hire-me-remotely
           AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
-          aws apprunner update-service \
-            --service-arn "$SERVICE_ARN" \
-            --source-configuration "{
-              \"ImageRepository\": {
-                \"ImageIdentifier\": \"$NEW_IMAGE\",
-                \"ImageRepositoryType\": \"ECR\",
-                \"ImageConfiguration\": {
-                  \"Port\": \"8080\"
-                }
-              },
-              \"AutoDeploymentsEnabled\": true
-            }" \
-            --region "$AWS_REGION"
+          aws ecs describe-task-definition \
+            --task-definition "$TASK_DEFINITION" \
+            --region "$AWS_REGION" \
+            --query taskDefinition \
+            > task-definition.json
 
-      # ── 6. Wait for deployment to stabilise ───────────────────────────────
-      - name: Wait for App Runner deployment
-        env:
-          SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-        run: |
-          echo "Waiting for App Runner service to become RUNNING..."
-          for i in $(seq 1 20); do
-            STATUS=$(aws apprunner describe-service \
-              --service-arn "$SERVICE_ARN" \
-              --region "$AWS_REGION" \
-              --query "Service.Status" \
-              --output text)
-            echo "  status: $STATUS"
-            if [ "$STATUS" = "RUNNING" ]; then
-              echo "Deployment complete."
-              exit 0
-            fi
-            if [ "$STATUS" = "CREATE_FAILED" ] || [ "$STATUS" = "UPDATE_FAILED" ]; then
-              echo "Deployment FAILED."
-              exit 1
-            fi
-            sleep 15
-          done
-          echo "Timed out waiting for deployment."
-          exit 1
+      - name: Inject new image into task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ secrets.ECS_CONTAINER_NAME }}   # e.g. app
+          image: ${{ steps.build-image.outputs.image }}
+
+      # ── 6. Deploy to ECS service ──────────────────────────────────────────
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ secrets.ECS_SERVICE }}          # e.g. hire-me-remotely-service
+          cluster: ${{ secrets.ECS_CLUSTER }}          # e.g. hire-me-remotely-cluster
+          wait-for-service-stability: true
