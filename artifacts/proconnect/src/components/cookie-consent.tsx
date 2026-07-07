@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useCookieConsent } from "@/hooks/use-cookie-consent";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,12 @@ export function CookieConsent() {
 
   const [draft, setDraft] = useState({ analytics: consent.analytics, marketing: consent.marketing });
 
+  useEffect(() => {
+    if (preferencesOpen) {
+      setDraft({ analytics: consent.analytics, marketing: consent.marketing });
+    }
+  }, [preferencesOpen, consent.analytics, consent.marketing]);
+
   if (BO_ROUTES.some(r => location.startsWith(r))) return null;
 
   function handleSavePreferences() {
@@ -35,13 +41,14 @@ export function CookieConsent() {
           <div className="max-w-4xl mx-auto bg-white border border-gray-200 rounded-2xl shadow-xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <ShieldCheckIcon className="w-6 h-6 text-primary flex-shrink-0 mt-0.5 sm:mt-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 mb-0.5">We use cookies</p>
-              <p className="text-xs text-gray-500 leading-relaxed">
-                We use essential cookies to keep you signed in. We'd also like to use analytics cookies to improve the platform.{" "}
-                <button onClick={openPreferences} className="text-primary hover:underline font-medium">Manage preferences</button>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                We use cookies to improve your experience. You can accept all, or choose which types to allow.
               </p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+              <Button variant="outline" size="sm" onClick={openPreferences} className="rounded-full text-xs h-8 px-4">
+                Manage preferences
+              </Button>
               <Button variant="outline" size="sm" onClick={acceptNecessaryOnly} className="rounded-full text-xs h-8 px-4">
                 Necessary only
               </Button>
