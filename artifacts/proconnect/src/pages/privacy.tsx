@@ -136,7 +136,7 @@ export default function Privacy() {
                     ["Account and profile data", "Until you delete your account, plus 30 days"],
                     ["Job application records", "Until you delete your account, plus 30 days"],
                     ["Messages", "Until you delete your account, plus 30 days"],
-                    ["Server and access logs", "90 days"],
+                    ["Server and access logs", "30 days"],
                     ["Email verification tokens", "24 hours"],
                     ["Password reset tokens", "1 hour"],
                   ].map(([type, retention]) => (

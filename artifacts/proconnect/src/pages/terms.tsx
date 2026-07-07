@@ -166,10 +166,10 @@ export default function Terms() {
           <section className="mb-8">
             <h2 className="text-lg font-bold text-gray-900 mb-3">14. Governing Law and Disputes</h2>
             <p className="text-sm text-gray-600 leading-relaxed mb-3">
-              These Terms are governed by and construed in accordance with applicable law, without regard to conflict of law principles.
+              These Terms are governed by and construed in accordance with the laws of the State of Delaware, United States, without regard to its conflict of law principles. Any disputes not resolved informally shall be subject to the exclusive jurisdiction of the state and federal courts located in Delaware.
             </p>
             <p className="text-sm text-gray-600 leading-relaxed mb-3">
-              For users in the <strong>European Union</strong>, nothing in these Terms limits your rights under applicable EU consumer protection laws or GDPR. You may bring claims before the courts of your country of residence.
+              For users in the <strong>European Union</strong>, nothing in these Terms limits your rights under applicable EU consumer protection laws or GDPR. You may bring claims before the courts of your country of residence, regardless of this governing law clause.
             </p>
             <p className="text-sm text-gray-600 leading-relaxed mb-3">
               For users in the <strong>United Kingdom</strong>, your statutory rights under UK consumer law are not affected by these Terms.
