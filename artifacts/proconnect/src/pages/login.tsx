@@ -4,7 +4,7 @@ import { useAppAuth } from "@/contexts/app-auth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { EyeIcon, EyeOffIcon, AlertCircleIcon, BuildingIcon, CheckCircleIcon, CopyIcon, RefreshCwIcon } from "lucide-react";
-import logo from "@assets/hr_1775483051104.png";
+import logo from "@assets/hmr_logo.png";
 import { PageSEO } from "@/components/page-seo";
 
 const BASE = import.meta.env.BASE_URL;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "wouter";
-import logo from "@assets/hr_1775483051104.png";
+import logo from "@assets/hmr_logo.png";
 
 const BASE = import.meta.env.BASE_URL;
 

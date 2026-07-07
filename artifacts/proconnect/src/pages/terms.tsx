@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import logo from "@assets/hr_1775483051104.png";
+import logo from "@assets/hmr_logo.png";
 import { ManageCookiesLink } from "@/components/cookie-consent";
 import { PageSEO } from "@/components/page-seo";
 

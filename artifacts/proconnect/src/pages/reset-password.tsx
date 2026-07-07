@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AlertCircleIcon, CheckCircleIcon, KeyRoundIcon, EyeIcon, EyeOffIcon } from "lucide-react";
-import logo from "@assets/hr_1775483051104.png";
+import logo from "@assets/hmr_logo.png";
 
 const BASE = import.meta.env.BASE_URL;
 

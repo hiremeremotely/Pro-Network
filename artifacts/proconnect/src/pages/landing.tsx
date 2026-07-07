@@ -14,7 +14,7 @@ import {
   BuildingIcon,
   CheckCircleIcon,
 } from "lucide-react";
-import logo from "@assets/hr_1775483051104.png";
+import logo from "@assets/hmr_logo.png";
 import { ManageCookiesLink } from "@/components/cookie-consent";
 
 const PREVIEW_PROFILES = [

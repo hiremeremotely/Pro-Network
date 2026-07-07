@@ -7,7 +7,7 @@ import {
   EyeIcon, EyeOffIcon, AlertCircleIcon,
   UserIcon, BuildingIcon, CheckIcon, ChevronDownIcon, SearchIcon,
 } from "lucide-react";
-import logo from "@assets/hr_1775483051104.png";
+import logo from "@assets/hmr_logo.png";
 import { PageSEO } from "@/components/page-seo";
 
 // ── Consumer domain blocklist (mirrors server-side list) ─────────────────────

@@ -1,4 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="8" fill="hsl(243,75%,59%)"/>
-  <text x="16" y="22" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="16" font-weight="700" fill="white">H</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- HMR icon mark — brand color #5B4FD9 -->
+  <rect width="100" height="100" rx="18" fill="#5B4FD9"/>
+  <!-- H -->
+  <rect x="12" y="22" width="9" height="56" rx="3" fill="white"/>
+  <rect x="12" y="44" width="30" height="9" rx="2" fill="white"/>
+  <rect x="33" y="22" width="9" height="56" rx="3" fill="white"/>
+  <!-- M -->
+  <rect x="49" y="22" width="8" height="56" rx="3" fill="white"/>
+  <rect x="79" y="22" width="8" height="56" rx="3" fill="white"/>
+  <polygon points="49,22 57,22 68,46 79,22 87,22 68,54" fill="white"/>
 </svg>

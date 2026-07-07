@@ -32,7 +32,7 @@ import {
   TimerIcon,
   KanbanSquareIcon,
 } from "lucide-react";
-import logo from "@assets/hr_1775483051104.png";
+import logo from "@assets/hmr_logo.png";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useListProfiles, getListProfilesQueryKey } from "@workspace/api-client-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";

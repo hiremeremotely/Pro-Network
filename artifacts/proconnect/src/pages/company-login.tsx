@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { EyeIcon, EyeOffIcon, AlertCircleIcon, BuildingIcon, CopyIcon, RefreshCwIcon } from "lucide-react";
-import logo from "@assets/hr_1775483051104.png";
+import logo from "@assets/hmr_logo.png";
 
 const BASE = import.meta.env.BASE_URL;
 
