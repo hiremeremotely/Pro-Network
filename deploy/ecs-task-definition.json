@@ -1,0 +1,59 @@
+{
+  "comment": "Replace every PLACEHOLDER value before first deploy. See deploy/README.md for instructions.",
+
+  "family": "hmr-api-server",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+
+  "cpu": "512",
+  "memory": "1024",
+
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn":      "arn:aws:iam::ACCOUNT_ID:role/hmr-api-task-role",
+
+  "containerDefinitions": [
+    {
+      "name": "api-server",
+
+      "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/hmr-api-server:latest",
+
+      "essential": true,
+
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+
+      "environment": [
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "PORT",     "value": "3000"        },
+        { "name": "AWS_REGION", "value": "REGION"    },
+
+        {
+          "name":  "APP_SECRET_ARN",
+          "value": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:hmr/api/production-XXXXXX"
+        }
+      ],
+
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group":         "/ecs/hmr-api-server",
+          "awslogs-region":        "REGION",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group":  "true"
+        }
+      },
+
+      "healthCheck": {
+        "command":     ["CMD-SHELL", "wget -qO- http://localhost:3000/api/healthz || exit 1"],
+        "interval":    30,
+        "timeout":     5,
+        "retries":     3,
+        "startPeriod": 15
+      }
+    }
+  ]
+}
