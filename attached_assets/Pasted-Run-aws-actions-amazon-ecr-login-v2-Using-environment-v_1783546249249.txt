@@ -1,0 +1,153 @@
+Run aws-actions/amazon-ecr-login@v2
+  
+Using environment variable credentials.
+Logging into registry 985682977618.dkr.ecr.***.amazonaws.com
+12s
+Run docker build \
+  
+#0 building with "default" instance using docker driver
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.95kB done
+#1 DONE 0.0s
+#2 [auth] library/node:pull token for registry-1.docker.io
+#2 DONE 0.0s
+#3 [internal] load metadata for docker.io/library/node:24-slim
+#3 ...
+#4 [internal] load metadata for docker.io/library/node:24-alpine
+#4 DONE 0.3s
+#3 [internal] load metadata for docker.io/library/node:24-slim
+#3 DONE 0.3s
+#5 [internal] load .dockerignore
+#5 transferring context: 700B done
+#5 DONE 0.0s
+#6 [builder  1/10] FROM docker.io/library/node:24-slim@sha256:cb4e8f7c443347358b7875e717c29e27bf9befc8f5a26cf18af3c3dec80e58c5
+#6 DONE 0.0s
+#7 [runner 1/5] FROM docker.io/library/node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd
+#7 DONE 0.0s
+#8 [internal] load build context
+#8 DONE 0.0s
+#9 [auth] sharing credentials for 985682977618.dkr.ecr.***.amazonaws.com
+#9 DONE 0.0s
+#10 importing cache manifest from 985682977618.dkr.ecr.***.amazonaws.com/***:latest
+#10 ERROR: failed to configure registry cache importer: 985682977618.dkr.ecr.***.amazonaws.com/***:latest: not found
+#8 [internal] load build context
+#8 transferring context: 845.26kB 0.0s done
+#8 DONE 0.1s
+#7 [runner 1/5] FROM docker.io/library/node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd
+#7 resolve docker.io/library/node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd 0.0s done
+#7 sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd 3.87kB / 3.87kB done
+#7 sha256:4ba75f835bb8802193e4c114572113d4b26f95f6f094f4b5229d2a77773e0afc 1.72kB / 1.72kB done
+#7 sha256:91d56b2d4e1cf23103d90b0b024c1f489c288f9c3aba1042dd7279503b367de6 6.52kB / 6.52kB done
+#7 sha256:57eb903fc7a4b0006b1253f877823b15c51433ccd41a20392812682211c46a6c 1.26MB / 1.26MB 0.2s done
+#7 sha256:21af007bacf625b557dda6dbce062088808612be54a955980b3d8efb8ea7d082 448B / 448B 0.2s done
+#7 sha256:7e2a5e2761f53b694faaee16c5ad1e400cb41224f693337aac52e74bee3b2f65 23.07MB / 52.52MB 0.2s
+#7 sha256:7e2a5e2761f53b694faaee16c5ad1e400cb41224f693337aac52e74bee3b2f65 52.52MB / 52.52MB 0.3s done
+#7 extracting sha256:7e2a5e2761f53b694faaee16c5ad1e400cb41224f693337aac52e74bee3b2f65
+#7 extracting sha256:7e2a5e2761f53b694faaee16c5ad1e400cb41224f693337aac52e74bee3b2f65 1.6s done
+#7 extracting sha256:57eb903fc7a4b0006b1253f877823b15c51433ccd41a20392812682211c46a6c
+#7 extracting sha256:57eb903fc7a4b0006b1253f877823b15c51433ccd41a20392812682211c46a6c 0.0s done
+#7 extracting sha256:21af007bacf625b557dda6dbce062088808612be54a955980b3d8efb8ea7d082 done
+#7 DONE 2.2s
+#11 [runner 2/5] WORKDIR /app
+#11 DONE 0.0s
+#6 [builder  1/10] FROM docker.io/library/node:24-slim@sha256:cb4e8f7c443347358b7875e717c29e27bf9befc8f5a26cf18af3c3dec80e58c5
+#6 resolve docker.io/library/node:24-slim@sha256:cb4e8f7c443347358b7875e717c29e27bf9befc8f5a26cf18af3c3dec80e58c5 0.0s done
+#6 sha256:6a1d6381a27f2bac8006592190d8baa931e57b804d7dfef93f2afba46ef44157 50.33MB / 50.33MB 0.2s done
+#6 sha256:37c6775b2d205ca3c4a3dda768fb5696549785c3afeae89473fbff0bd303cc11 1.71MB / 1.71MB 0.1s done
+#6 sha256:90c0c1ae6457717aec354ea57244d5a05c843ada32ec0e9a705a6025f7806e67 449B / 449B 0.1s done
+#6 sha256:cb4e8f7c443347358b7875e717c29e27bf9befc8f5a26cf18af3c3dec80e58c5 3.93kB / 3.93kB done
+#6 sha256:0778d035a13f3f3833b7f2cb750e0df6cbce45583e84fd822f499f0c902a6c74 1.93kB / 1.93kB done
+#6 sha256:fdff267bf205894f8c1c62dcb3019ec56c6102278c5c29165d62e015b4850483 6.83kB / 6.83kB done
+#6 sha256:68629629b516c3cd6f5e71ffbe18e32afb1ae5b4926c92d058c0f11ef1fd58a3 28.24MB / 28.24MB 0.1s done
+#6 sha256:fde66df71f630d9e71153841cde1cf9c17ab97485bd0c4ece659b235e74b8de2 3.31kB / 3.31kB 0.0s done
+#6 extracting sha256:68629629b516c3cd6f5e71ffbe18e32afb1ae5b4926c92d058c0f11ef1fd58a3 1.4s done
+#6 extracting sha256:fde66df71f630d9e71153841cde1cf9c17ab97485bd0c4ece659b235e74b8de2 done
+#6 extracting sha256:6a1d6381a27f2bac8006592190d8baa931e57b804d7dfef93f2afba46ef44157
+#6 extracting sha256:6a1d6381a27f2bac8006592190d8baa931e57b804d7dfef93f2afba46ef44157 1.5s done
+#6 extracting sha256:37c6775b2d205ca3c4a3dda768fb5696549785c3afeae89473fbff0bd303cc11
+#6 extracting sha256:37c6775b2d205ca3c4a3dda768fb5696549785c3afeae89473fbff0bd303cc11 0.1s done
+#6 extracting sha256:90c0c1ae6457717aec354ea57244d5a05c843ada32ec0e9a705a6025f7806e67 done
+#6 DONE 3.9s
+#12 [runner 3/5] RUN npm install --no-package-lock --omit=dev     @google-cloud/storage@^7.19.0     @aws-sdk/client-secrets-manager@^3
+#12 ...
+#13 [builder  2/10] RUN corepack enable
+#13 DONE 0.2s
+#14 [builder  3/10] WORKDIR /app
+#14 DONE 0.0s
+#15 [builder  4/10] COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+#15 DONE 0.0s
+#16 [builder  5/10] COPY tsconfig.base.json tsconfig.json ./
+#16 DONE 0.0s
+#17 [builder  6/10] COPY lib/db ./lib/db
+#17 DONE 0.0s
+#18 [builder  7/10] COPY lib/api-zod ./lib/api-zod
+#18 DONE 0.0s
+#12 [runner 3/5] RUN npm install --no-package-lock --omit=dev     @google-cloud/storage@^7.19.0     @aws-sdk/client-secrets-manager@^3
+#12 ...
+#19 [builder  8/10] COPY artifacts/api-server ./artifacts/api-server
+#19 DONE 0.0s
+#20 [builder  9/10] RUN pnpm install --frozen-lockfile
+#20 0.325 ! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-11.10.0.tgz
+#20 1.531 Scope: all 4 workspace projects
+#20 1.677 ? Verifying lockfile against supply-chain policies (785 entries)...
+#20 1.694 Lockfile is up to date, resolution step is skipped
+#20 1.831 Progress: resolved 1, reused 0, downloaded 0, added 0
+#20 1.893 Packages: +224
+#20 1.893 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#20 2.857 Progress: resolved 224, reused 0, downloaded 54, added 0
+#20 3.858 Progress: resolved 224, reused 0, downloaded 167, added 9
+#20 ...
+#12 [runner 3/5] RUN npm install --no-package-lock --omit=dev     @google-cloud/storage@^7.19.0     @aws-sdk/client-secrets-manager@^3
+#12 5.106 npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+#12 6.045 
+#12 6.045 added 112 packages in 6s
+#12 6.045 
+#12 6.045 20 packages are looking for funding
+#12 6.045   run `npm fund` for details
+#12 6.049 npm notice
+#12 6.049 npm notice New major version of npm available! 11.16.0 -> 12.0.0
+#12 6.049 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.0
+#12 6.049 npm notice To update run: npm install -g npm@12.0.0
+#12 6.049 npm notice
+#12 DONE 6.5s
+#20 [builder  9/10] RUN pnpm install --frozen-lockfile
+#20 4.859 Progress: resolved 224, reused 0, downloaded 224, added 174
+#20 5.014 Progress: resolved 224, reused 0, downloaded 224, added 224, done
+#20 6.742 ✓ Lockfile passes supply-chain policies (785 entries in 5s)
+#20 6.823 
+#20 6.823 devDependencies:
+#20 6.823 + prettier 3.8.1
+#20 6.823 + typescript 5.9.3
+#20 6.823 
+#20 6.835 . preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+#20 6.862 . preinstall: Done
+#20 6.913 [ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: esbuild@0.27.3
+#20 6.913 
+#20 6.913 Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+#20 ERROR: process "/bin/sh -c pnpm install --frozen-lockfile" did not complete successfully: exit code: 1
+------
+ > importing cache manifest from 985682977618.dkr.ecr.***.amazonaws.com/***:latest:
+------
+------
+ > [builder  9/10] RUN pnpm install --frozen-lockfile:
+6.823 
+6.823 devDependencies:
+6.823 + prettier 3.8.1
+6.823 + typescript 5.9.3
+6.823 
+6.835 . preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+6.862 . preinstall: Done
+6.913 [ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: esbuild@0.27.3
+6.913 
+6.913 Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+------
+Dockerfile:19
+--------------------
+  17 |     
+  18 |     # Install all workspace deps (frozen to match lockfile exactly)
+  19 | >>> RUN pnpm install --frozen-lockfile
+  20 |     
+  21 |     # Compile — esbuild bundles everything into dist/index.mjs
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c pnpm install --frozen-lockfile" did not complete successfully: exit code: 1
+Error: Process completed with exit code 1.

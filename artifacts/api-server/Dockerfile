@@ -7,7 +7,7 @@ RUN corepack enable
 WORKDIR /app
 
 # Copy workspace config — do this before source so layer is cached when deps don't change
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 COPY tsconfig.base.json tsconfig.json ./
 
 # Copy only the packages needed by the API server
