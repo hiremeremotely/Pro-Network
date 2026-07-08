@@ -7,6 +7,7 @@ on:
       - "artifacts/api-server/**"
       - "lib/db/**"
       - "lib/api-zod/**"
+      - "deploy/ecs-task-definition.json"
       - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
@@ -61,21 +62,12 @@ jobs:
           echo "image=$REGISTRY/$REPOSITORY:$SHA_TAG" >> "$GITHUB_OUTPUT"
 
       # ── 5. Update ECS task definition with the new image ──────────────────
-      - name: Download current ECS task definition
-        env:
-          TASK_DEFINITION: ${{ secrets.ECS_TASK_DEFINITION }}
-        run: |
-          aws ecs describe-task-definition \
-            --task-definition "$TASK_DEFINITION" \
-            --query taskDefinition \
-            > task-definition.json
-
       - name: Inject new image into task definition
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition:  task-definition.json
-          container-name:   ${{ secrets.ECS_CONTAINER_NAME }}
+          task-definition:  deploy/ecs-task-definition.json
+          container-name:   api-server
           image:            ${{ steps.build-image.outputs.image }}
 
       # ── 6. Deploy to ECS service ──────────────────────────────────────────
