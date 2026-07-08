@@ -1,0 +1,35 @@
+Build, push to ECR, deploy to ECS
+failed now in 7s
+Search logs
+2s
+Download action repository 'aws-actions/amazon-ecs-render-task-definition@v1' (SHA:138c24f321fdbdf7edee4a685519d253cae2cdea)
+Download action repository 'aws-actions/amazon-ecs-deploy-task-definition@v2' (SHA:c465972ecbd160473f22e683363b422a5412a3de)
+Complete job name: Build, push to ECR, deploy to ECS
+2s
+Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+Run actions/checkout@v4
+Syncing repository: hiremeremotely/Pro-Network
+Getting Git version info
+Temporarily overriding HOME='/home/runner/work/_temp/595b1270-2cba-4a30-a2ac-f5c0a3521a62' before making global git config changes
+Adding repository directory to the temporary git global config as a safe directory
+/usr/bin/git config --global --add safe.directory /home/runner/work/Pro-Network/Pro-Network
+Deleting the contents of '/home/runner/work/Pro-Network/Pro-Network'
+Initializing the repository
+Disabling automatic garbage collection
+Setting up auth
+Fetching the repository
+Determining the checkout info
+/usr/bin/git sparse-checkout disable
+/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Checking out the ref
+/usr/bin/git log -1 --format=%H
+aaedc18db08a895650a5f999f7e3944398a5eb81
+0s
+Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+Run aws-actions/configure-aws-credentials@v4
+  with:
+    aws-region: ***
+    audience: sts.amazonaws.com
+    output-env-credentials: true
+Error: Credentials could not be loaded, please check your action inputs: Could not load credentials from any providers
+0s

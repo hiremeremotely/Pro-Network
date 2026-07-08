@@ -20,7 +20,6 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      id-token: write  # required for OIDC — no long-lived AWS keys needed
       contents: read
 
     steps:
@@ -28,12 +27,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ── 2. AWS credentials via OIDC ───────────────────────────────────────
+      # ── 2. AWS credentials via access key ─────────────────────────────────
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region:     ${{ secrets.AWS_REGION }}
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ secrets.AWS_REGION }}
 
       # ── 3. Log in to ECR ──────────────────────────────────────────────────
       - name: Log in to Amazon ECR
