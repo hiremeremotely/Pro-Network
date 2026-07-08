@@ -1,4 +1,17 @@
-# This workflow is superseded by deploy.yml — do not use.
-# It is kept as an empty file because git history requires it to be removed
-# via a commit. Set the `on:` trigger to nothing so it never runs.
-on: {}
+# Superseded by deploy.yml — this file is intentionally inert.
+# Kept to avoid git removal conflicts. Will never run automatically.
+name: _disabled
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "This workflow is disabled. Use deploy.yml instead."
+        required: true
+
+jobs:
+  noop:
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "disabled"
