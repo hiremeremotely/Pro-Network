@@ -16,7 +16,9 @@ COPY lib/api-zod ./lib/api-zod
 COPY artifacts/api-server ./artifacts/api-server
 
 # Install all workspace deps (frozen to match lockfile exactly)
-RUN pnpm install --frozen-lockfile
+# --config.approve-all-builds=true bypasses pnpm 11's interactive build-script
+# approval requirement without needing to regenerate the lockfile.
+RUN pnpm install --frozen-lockfile --config.approve-all-builds=true
 
 # Compile — esbuild bundles everything into dist/index.mjs
 RUN pnpm --filter @workspace/api-server run build
