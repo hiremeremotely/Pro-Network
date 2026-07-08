@@ -1,9 +1,18 @@
-name: Build & Deploy to ECS
+name: Deploy API → ECS Fargate
 
 on:
   push:
     branches: [main]
-  workflow_dispatch: # allow manual trigger from GitHub UI
+    paths:
+      - "artifacts/api-server/**"
+      - "lib/db/**"
+      - "lib/api-zod/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-api-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -24,7 +33,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region:     ${{ secrets.AWS_REGION }}
 
       # ── 3. Log in to ECR ──────────────────────────────────────────────────
       - name: Log in to Amazon ECR
@@ -35,29 +44,29 @@ jobs:
       - name: Build, tag, and push Docker image
         id: build-image
         env:
-          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          REPOSITORY: ${{ secrets.ECR_REPOSITORY }}   # e.g. hire-me-remotely
-          SHA_TAG: ${{ github.sha }}
+          REGISTRY:   ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          SHA_TAG:    ${{ github.sha }}
         run: |
           docker build \
-            --cache-from $REGISTRY/$REPOSITORY:latest \
+            --platform linux/amd64 \
+            -f artifacts/api-server/Dockerfile \
+            --cache-from "$REGISTRY/$REPOSITORY:latest" \
             --build-arg BUILDKIT_INLINE_CACHE=1 \
-            -t $REGISTRY/$REPOSITORY:$SHA_TAG \
-            -t $REGISTRY/$REPOSITORY:latest \
+            -t "$REGISTRY/$REPOSITORY:$SHA_TAG" \
+            -t "$REGISTRY/$REPOSITORY:latest" \
             .
-          docker push $REGISTRY/$REPOSITORY:$SHA_TAG
-          docker push $REGISTRY/$REPOSITORY:latest
-          echo "image=$REGISTRY/$REPOSITORY:$SHA_TAG" >> $GITHUB_OUTPUT
+          docker push "$REGISTRY/$REPOSITORY:$SHA_TAG"
+          docker push "$REGISTRY/$REPOSITORY:latest"
+          echo "image=$REGISTRY/$REPOSITORY:$SHA_TAG" >> "$GITHUB_OUTPUT"
 
       # ── 5. Update ECS task definition with the new image ──────────────────
       - name: Download current ECS task definition
         env:
-          TASK_DEFINITION: ${{ secrets.ECS_TASK_DEFINITION }}  # e.g. hire-me-remotely
-          AWS_REGION: ${{ secrets.AWS_REGION }}
+          TASK_DEFINITION: ${{ secrets.ECS_TASK_DEFINITION }}
         run: |
           aws ecs describe-task-definition \
             --task-definition "$TASK_DEFINITION" \
-            --region "$AWS_REGION" \
             --query taskDefinition \
             > task-definition.json
 
@@ -65,15 +74,15 @@ jobs:
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: task-definition.json
-          container-name: ${{ secrets.ECS_CONTAINER_NAME }}   # e.g. app
-          image: ${{ steps.build-image.outputs.image }}
+          task-definition:  task-definition.json
+          container-name:   ${{ secrets.ECS_CONTAINER_NAME }}
+          image:            ${{ steps.build-image.outputs.image }}
 
       # ── 6. Deploy to ECS service ──────────────────────────────────────────
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ secrets.ECS_SERVICE }}          # e.g. hire-me-remotely-service
-          cluster: ${{ secrets.ECS_CLUSTER }}          # e.g. hire-me-remotely-cluster
+          task-definition:            ${{ steps.task-def.outputs.task-definition }}
+          service:                    ${{ secrets.ECS_SERVICE }}
+          cluster:                    ${{ secrets.ECS_CLUSTER }}
           wait-for-service-stability: true
