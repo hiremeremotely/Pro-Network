@@ -33,6 +33,22 @@ LinkedIn-style professional networking platform for remote workers. Users and co
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
+### Push schema to production RDS
+
+Special characters in the password must be URL-encoded first:
+```bash
+node -e "console.log(encodeURIComponent('YOUR_DB_PASSWORD'))"
+```
+
+Then run the push (paste the encoded password into the URL):
+```bash
+NODE_TLS_REJECT_UNAUTHORIZED=0 DATABASE_URL="postgresql://YOUR_DB_USER:ENCODED_PASSWORD@YOUR_RDS_ENDPOINT:5432/postgres?sslmode=require" pnpm --filter @workspace/db run push
+```
+
+- `YOUR_DB_USER` — RDS master username (e.g. `alpha`)
+- `ENCODED_PASSWORD` — output of the `encodeURIComponent` command above
+- `YOUR_RDS_ENDPOINT` — RDS cluster endpoint (e.g. `hiremeremotely-prod-us-east-1.cluster-cgr448g4siho.us-east-1.rds.amazonaws.com`)
+
 ---
 
 ## Architecture
