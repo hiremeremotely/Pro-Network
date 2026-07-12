@@ -28,7 +28,7 @@
         { "name": "NODE_ENV",      "value": "production" },
         { "name": "PORT",          "value": "3000" },
         { "name": "AWS_REGION",    "value": "us-east-1" },
-        { "name": "APP_SECRET_ARN","value": "arn:aws:secretsmanager:us-east-1:985682977618:secret:hire-me-remotely/api/development-XXXXXX" }
+        { "name": "APP_SECRET_ARN","value": "arn:aws:secretsmanager:us-east-1:985682977618:secret:hire-me-remotely/api/development-6hVFQ6" }
       ],
 
       "logConfiguration": {
