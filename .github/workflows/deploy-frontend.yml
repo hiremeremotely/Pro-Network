@@ -1,0 +1,83 @@
+name: Deploy Frontend → S3 + CloudFront
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "artifacts/proconnect/**"
+      - "lib/api-client-react/**"
+      - "lib/api-zod/**"
+      - "lib/api-spec/**"
+      - ".github/workflows/deploy-frontend.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build, sync to S3, invalidate CloudFront
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      # ── 1. Checkout ─────────────────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── 2. Setup pnpm ───────────────────────────────────────────────────────
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+
+      # ── 3. Setup Node ───────────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # ── 4. Install dependencies ──────────────────────────────────────────────
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── 5. Build frontend ────────────────────────────────────────────────────
+      - name: Build frontend
+        env:
+          PORT: "3000"
+          BASE_PATH: "/"
+          NODE_ENV: production
+        run: pnpm --filter @workspace/proconnect run build
+
+      # ── 6. Configure AWS credentials ─────────────────────────────────────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ secrets.AWS_REGION }}
+
+      # ── 7. Sync to S3 ────────────────────────────────────────────────────────
+      - name: Sync to S3
+        run: |
+          aws s3 sync artifacts/proconnect/dist/public s3://${{ secrets.S3_BUCKET }} \
+            --delete \
+            --cache-control "public, max-age=31536000, immutable" \
+            --exclude "index.html"
+
+          # index.html must not be cached so users always get the latest shell
+          aws s3 cp artifacts/proconnect/dist/public/index.html \
+            s3://${{ secrets.S3_BUCKET }}/index.html \
+            --cache-control "no-cache, no-store, must-revalidate" \
+            --content-type "text/html"
+
+      # ── 8. Invalidate CloudFront cache ───────────────────────────────────────
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"

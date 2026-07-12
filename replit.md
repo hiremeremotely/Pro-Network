@@ -9,6 +9,48 @@ LinkedIn-style professional networking platform for remote workers. Users and co
 
 ---
 
+## Production Infrastructure (AWS)
+
+### Backend (deployed ✅)
+| Resource | Value |
+|---|---|
+| ECS Cluster | `hire-me-remotely` |
+| ECS Service | `hire-me-remotely-api-service-dev` |
+| ECR Repo | `hire-me-remotely-api-server` |
+| ALB | `hire-me-remotely-alb` |
+| ALB DNS | `hire-me-remotely-alb-1708204428.us-east-1.elb.amazonaws.com` |
+| Target Group | `hire-me-remotely-api-tg` (HTTP:3000, health `/api/healthz`) |
+| RDS Cluster | `hiremeremotely-prod-us-east-1` |
+| Secrets Manager | `hire-me-remotely/api/development` |
+
+### Frontend (pending — S3 + CloudFront)
+To deploy the frontend:
+
+**1. Create S3 bucket**
+- Name: `hire-me-remotely-frontend` (must be globally unique)
+- Block all public access: **Yes** (CloudFront uses OAC, not public)
+
+**2. Create CloudFront distribution**
+- **Origin 1 (default):** S3 bucket via OAC
+- **Origin 2:** ALB (`hire-me-remotely-alb-1708204428.us-east-1.elb.amazonaws.com`) — HTTP only, port 80
+- **Behaviors:**
+  - `/api/*` → Origin 2 (ALB), forward all headers, no caching
+  - `Default (*)` → Origin 1 (S3), cache static assets
+- **Error pages:** 403 → `/index.html` (status 200), 404 → `/index.html` (status 200) — for SPA routing
+
+**3. Add GitHub secrets**
+| Secret | Value |
+|---|---|
+| `S3_BUCKET` | `hire-me-remotely-frontend` |
+| `CLOUDFRONT_DISTRIBUTION_ID` | from CloudFront console |
+
+The workflow `.github/workflows/deploy-frontend.yml` will then auto-deploy on every push to `main` that changes the frontend.
+
+### GitHub Actions Secrets (all required)
+`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `ECR_REPOSITORY`, `ECS_SERVICE`, `ECS_CLUSTER`, `S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`
+
+---
+
 ## Stack
 
 - **Monorepo tool**: pnpm workspaces
