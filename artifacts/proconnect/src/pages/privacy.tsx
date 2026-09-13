@@ -25,7 +25,7 @@ export default function Privacy() {
       <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-12">
         <div className="prose prose-gray max-w-none">
           <h1 className="text-3xl font-black text-gray-900 mb-1">Privacy Policy</h1>
-          <p className="text-sm text-gray-400 mb-10">Last updated: May 2026</p>
+          <p className="text-sm text-gray-400 mb-10">Last updated: September 2026</p>
 
           <section className="mb-8">
             <h2 className="text-lg font-bold text-gray-900 mb-3">1. Who We Are</h2>
@@ -60,6 +60,9 @@ export default function Privacy() {
             <p className="text-sm text-gray-600 leading-relaxed">
               <strong>Communications</strong> — messages exchanged between users via the Platform's direct messaging feature are stored on our servers to deliver the service.
             </p>
+            <p className="text-sm text-gray-600 leading-relaxed mt-3">
+              <strong>Connected mailbox data</strong> — if you voluntarily connect Gmail or Outlook, we use read-only access to search recent message sender, subject, and date for job-application updates. We do not request permission to send, edit, or delete email, and we do not store complete email bodies. We store encrypted OAuth tokens and the job-tracker fields you approve for import, including role, company, status, date, source platform, and provider message identifier.
+            </p>
           </section>
 
           <section className="mb-8">
@@ -77,6 +80,7 @@ export default function Privacy() {
                     ["Create and manage your account", "Performance of contract"],
                     ["Deliver the networking and job-matching service", "Performance of contract"],
                     ["Enable messaging between users", "Performance of contract"],
+                    ["Scan a connected mailbox and import job updates", "Consent"],
                     ["Send transactional emails (verification, password reset)", "Performance of contract"],
                     ["Detect and prevent fraud or abuse", "Legitimate interests"],
                     ["Improve and debug the Platform", "Legitimate interests"],
@@ -135,6 +139,7 @@ export default function Privacy() {
                   {[
                     ["Account and profile data", "Until you delete your account, plus 30 days"],
                     ["Job application records", "Until you delete your account, plus 30 days"],
+                    ["Encrypted mailbox access tokens", "Until you disconnect the mailbox or delete your account"],
                     ["Messages", "Until you delete your account, plus 30 days"],
                     ["Server and access logs", "30 days"],
                     ["Email verification tokens", "24 hours"],
@@ -150,6 +155,9 @@ export default function Privacy() {
             </div>
             <p className="text-sm text-gray-600 leading-relaxed mt-3">
               After account deletion, anonymised aggregate statistics may be retained indefinitely.
+            </p>
+            <p className="text-sm text-gray-600 leading-relaxed mt-3">
+              Disconnecting a mailbox immediately removes its locally stored access and refresh tokens. At disconnection, you can also delete all job-tracker records imported from email. Keeping imported records does not preserve mailbox access.
             </p>
           </section>
 

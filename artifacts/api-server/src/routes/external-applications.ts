@@ -11,7 +11,7 @@ import {
 import { requireTrackerAuth } from "../middlewares/require-tracker-auth";
 import { encryptToken, decryptToken } from "../lib/crypto";
 import {
-  IS_DEMO,
+  isProviderDemo,
   GOOGLE_CLIENT_ID,
   MICROSOFT_CLIENT_ID,
   DEMO_TOKEN_BUNDLE,
@@ -75,42 +75,36 @@ function buildSyntheticInbox(profileId: number): InboxEmail[] {
       from: "jobs-noreply@jobnest-demo.com",
       subject: "Your application to Senior Frontend Engineer at CloudPay has been received",
       receivedDate: daysAgo(5),
-      snippet: "Thank you for applying to CloudPay. We've received your application for Senior Frontend Engineer...",
     },
     {
       messageId: `<${profileId}.002@app.careertrack-demo.com>`,
       from: "noreply@careertrack-demo.com",
       subject: "Application received: Full-Stack Developer at Nexnote",
       receivedDate: daysAgo(10),
-      snippet: "Nexnote has received your application. They will review it and be in touch...",
     },
     {
       messageId: `<${profileId}.003@mail.remotehub-demo.com>`,
       from: "noreply@remotehub-demo.com",
       subject: "Interview invitation: React Engineer at Deployly",
       receivedDate: daysAgo(3),
-      snippet: "Hi, We'd love to invite you to interview for the React Engineer role at Deployly...",
     },
     {
       messageId: `<${profileId}.004@workboard-demo.com>`,
       from: "noreply@workboard-demo.com",
       subject: "We received your application for TypeScript Developer at Streamline",
       receivedDate: daysAgo(7),
-      snippet: "Your application for TypeScript Developer at Streamline has been submitted successfully...",
     },
     {
       messageId: `<${profileId}.005@apptrack-demo.com>`,
       from: "no-reply@apptrack-demo.com",
       subject: "Your application to Staff Backend Engineer at Edgeflow",
       receivedDate: daysAgo(12),
-      snippet: "Thank you for your interest in the Staff Backend Engineer position at Edgeflow...",
     },
     {
       messageId: `<${profileId}.006@hirepro-demo.com>`,
       from: "noreply@hirepro-demo.com",
       subject: "Application status update: Moving forward with your application at Pixelcraft",
       receivedDate: daysAgo(2),
-      snippet: "We're pleased to let you know you've been shortlisted for a role at Pixelcraft...",
     },
     // Promotional emails that should be filtered out
     {
@@ -118,14 +112,12 @@ function buildSyntheticInbox(profileId: number): InboxEmail[] {
       from: "newsletter@jobsalert.com",
       subject: "New job alert: 50 open positions in your area",
       receivedDate: daysAgo(1),
-      snippet: "Unsubscribe from this newsletter...",
     },
     {
       messageId: `<${profileId}.promo2@marketing.jobnest-demo.com>`,
       from: "marketing@jobnest-demo.com",
       subject: "Newsletter: Top companies hiring this week",
       receivedDate: daysAgo(2),
-      snippet: "See top companies...",
     },
   ];
 }
@@ -444,7 +436,7 @@ router.post("/email-integration/initiate", requireTrackerAuth, async (req, res):
     : (prof?.outlookConnected ?? false);
 
   let authUrl: string;
-  if (IS_DEMO) {
+  if (isProviderDemo(provider)) {
     authUrl = `${OAUTH_REDIRECT_BASE}/api/email-integration/demo-authorize?provider=${provider}&state=${state}`;
   } else if (provider === "gmail") {
     authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}` +
@@ -457,7 +449,7 @@ router.post("/email-integration/initiate", requireTrackerAuth, async (req, res):
       `&scope=${encodeURIComponent("Mail.Read offline_access")}&state=${state}`;
   }
 
-  res.json({ authUrl, demoMode: IS_DEMO, connected });
+  res.json({ authUrl, demoMode: isProviderDemo(provider), connected });
 });
 
 router.get("/email-integration/callback", async (req, res): Promise<void> => {
@@ -476,7 +468,7 @@ router.get("/email-integration/callback", async (req, res): Promise<void> => {
 
   const redirectUri = `${OAUTH_REDIRECT_BASE}/api/email-integration/callback`;
   let rawToken: string;
-  if (!IS_DEMO && code) {
+  if (!isProviderDemo(provider) && code) {
     // Fail closed: only mark connected if token exchange succeeds
     rawToken = await exchangeOAuthCode(provider, code, redirectUri).catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
@@ -526,16 +518,22 @@ router.post("/email-integration/sync", requireTrackerAuth, async (req, res): Pro
   const seenIds = new Set(existingIds.map((r) => r.emailMessageId).filter(Boolean));
 
   let rawInbox: InboxEmail[];
-  if (!IS_DEMO) {
+  if (!isProviderDemo(provider)) {
     const storedToken = provider === "gmail" ? profile.gmailToken : profile.outlookToken;
     const storedBundle = storedToken ? decryptToken(storedToken) : null;
     if (!storedBundle) {
       res.status(403).json({ error: "No valid token stored. Please reconnect." }); return;
     }
-    const accessToken = await getValidAccessToken(provider, storedBundle);
+    const tokenResult = await getValidAccessToken(provider, storedBundle);
+    if (tokenResult.refreshed) {
+      const tokenField = provider === "gmail"
+        ? { gmailToken: encryptToken(tokenResult.storedBundle) }
+        : { outlookToken: encryptToken(tokenResult.storedBundle) };
+      await db.update(profilesTable).set(tokenField).where(eq(profilesTable.id, callerProfileId));
+    }
     rawInbox = provider === "gmail"
-      ? await fetchGmailInbox(accessToken)
-      : await fetchOutlookInbox(accessToken);
+      ? await fetchGmailInbox(tokenResult.accessToken)
+      : await fetchOutlookInbox(tokenResult.accessToken);
   } else {
     rawInbox = buildSyntheticInbox(callerProfileId);
   }
@@ -588,14 +586,14 @@ router.post("/email-integration/confirm-import", requireTrackerAuth, async (req,
 });
 
 router.post("/email-integration/disconnect", requireTrackerAuth, async (req, res): Promise<void> => {
-  const { provider } = req.body;
+  const { provider, deleteImportedData = false } = req.body;
   if (provider !== "gmail" && provider !== "outlook") {
     res.status(400).json({ error: "provider must be gmail or outlook" });
     return;
   }
   const callerProfileId: number = res.locals.callerProfileId;
 
-  if (!IS_DEMO) {
+  if (!isProviderDemo(provider)) {
     const [prof] = await db
       .select({ gmailToken: profilesTable.gmailToken, outlookToken: profilesTable.outlookToken })
       .from(profilesTable)
@@ -611,7 +609,17 @@ router.post("/email-integration/disconnect", requireTrackerAuth, async (req, res
     ? { gmailConnected: false, gmailToken: null }
     : { outlookConnected: false, outlookToken: null };
   await db.update(profilesTable).set(providerField).where(eq(profilesTable.id, callerProfileId));
-  res.json({ disconnected: true });
+  let deletedApplications = 0;
+  if (deleteImportedData === true) {
+    const deleted = await db.delete(externalApplicationsTable)
+      .where(and(
+        eq(externalApplicationsTable.profileId, callerProfileId),
+        eq(externalApplicationsTable.source, "email"),
+      ))
+      .returning({ id: externalApplicationsTable.id });
+    deletedApplications = deleted.length;
+  }
+  res.json({ disconnected: true, deletedApplications });
 });
 
 export default router;

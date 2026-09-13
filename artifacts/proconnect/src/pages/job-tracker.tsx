@@ -311,10 +311,13 @@ function PlatformStrip({ links, profileId, authToken, onRefetch }: {
 
   const disconnectMutation = useMutation({
     mutationFn: async (provider: "gmail" | "outlook") => {
+      const deleteImportedData = window.confirm(
+        `Disconnect ${provider === "gmail" ? "Gmail" : "Outlook"} and delete all job-tracker records previously imported from email?\n\nChoose Cancel to keep the imported records.`,
+      );
       const r = await fetch(`${BASE}api/email-integration/disconnect`, {
         method: "POST",
         headers: authHeader,
-        body: JSON.stringify({ provider }),
+        body: JSON.stringify({ provider, deleteImportedData }),
       });
       if (!r.ok) throw new Error("Disconnect failed");
       return r.json();
@@ -322,7 +325,12 @@ function PlatformStrip({ links, profileId, authToken, onRefetch }: {
     onSuccess: (_, provider) => {
       queryClient.invalidateQueries({ queryKey: ["job-tracker", profileId] });
       onRefetch();
-      toast({ title: `${provider === "gmail" ? "Gmail" : "Outlook"} disconnected` });
+      toast({
+        title: `${provider === "gmail" ? "Gmail" : "Outlook"} disconnected`,
+        description: _.deletedApplications > 0
+          ? `${_.deletedApplications} email-imported application records were deleted.`
+          : "Mailbox access was removed. Existing tracker records were kept.",
+      });
     },
   });
 
@@ -425,12 +433,16 @@ function PlatformStrip({ links, profileId, authToken, onRefetch }: {
             <div className="rounded-lg bg-indigo-50 border border-indigo-100 p-4">
               <p className="text-sm text-indigo-800 font-semibold mb-2">What happens when you connect?</p>
               <ul className="text-sm text-indigo-700 space-y-1.5">
-                <li className="flex items-start gap-2"><CheckCircleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" /> Your inbox is scanned for job application emails</li>
+                <li className="flex items-start gap-2"><CheckCircleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" /> We search recent message sender, subject, and date for job application updates</li>
                 <li className="flex items-start gap-2"><CheckCircleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" /> Matches are shown for your review before import</li>
                 <li className="flex items-start gap-2"><CheckCircleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" /> You choose which applications to add</li>
+                <li className="flex items-start gap-2"><CheckCircleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" /> We cannot send, edit, or delete your email</li>
               </ul>
             </div>
-            <p className="text-xs text-gray-500">This demo simulates a real inbox scan with sample applications.</p>
+            <p className="text-xs text-gray-500">
+              Access tokens are encrypted. Disconnect at any time and choose whether to delete imported records.
+              See our <Link href="/privacy" className="text-primary hover:underline"> Privacy Policy</Link>.
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEmailModal(null)}>Cancel</Button>

@@ -14,6 +14,7 @@ interface StoredData {
   session?: AppSession;
   apiBaseUrl?: string;
   recentApps?: StoredApp[];
+  pendingApps?: PendingApplication[];
 }
 
 interface StoredApp {
@@ -32,6 +33,13 @@ interface ApplicationMessage {
   companyName: string;
   platform: string;
   jobUrl?: string;
+}
+
+interface PendingApplication {
+  id: string;
+  payload: ApplicationMessage;
+  queuedAt: string;
+  attempts: number;
 }
 
 interface SessionSyncMessage {
@@ -172,11 +180,13 @@ chrome.runtime.onMessage.addListener(
 
 async function handleApplicationDetected(
   msg: ApplicationMessage,
+  queueOnFailure = true,
 ): Promise<{ success: boolean; error?: string }> {
   const data = (await chrome.storage.local.get([
     "session",
     "apiBaseUrl",
     "recentApps",
+    "pendingApps",
   ])) as StoredData;
   const session = data.session;
   const apiBaseUrl = data.apiBaseUrl;
@@ -210,9 +220,13 @@ async function handleApplicationDetected(
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+      const error = (err as { error?: string }).error ?? `HTTP ${res.status}`;
+      if (queueOnFailure && (res.status >= 500 || res.status === 408 || res.status === 429)) {
+        await queueApplication(msg, data.pendingApps ?? []);
+      }
       return {
         success: false,
-        error: (err as { error?: string }).error ?? `HTTP ${res.status}`,
+        error,
       };
     }
 
@@ -236,12 +250,62 @@ async function handleApplicationDetected(
 
     return { success: true };
   } catch (err) {
+    if (queueOnFailure) await queueApplication(msg, data.pendingApps ?? []);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Network error",
+      error: "Saved offline and will retry automatically",
     };
   }
 }
+
+async function queueApplication(
+  payload: ApplicationMessage,
+  existing?: PendingApplication[],
+): Promise<void> {
+  const pending = existing ?? ((await chrome.storage.local.get("pendingApps")) as StoredData).pendingApps ?? [];
+  const duplicate = pending.some((item) =>
+    item.payload.jobUrl === payload.jobUrl &&
+    item.payload.jobTitle === payload.jobTitle &&
+    item.payload.companyName === payload.companyName
+  );
+  if (duplicate) return;
+  pending.push({
+    id: crypto.randomUUID(),
+    payload,
+    queuedAt: new Date().toISOString(),
+    attempts: 0,
+  });
+  await chrome.storage.local.set({ pendingApps: pending.slice(-100) });
+  await chrome.alarms.create("retry-pending-applications", { delayInMinutes: 1 });
+}
+
+async function retryPendingApplications(): Promise<void> {
+  const data = (await chrome.storage.local.get("pendingApps")) as StoredData;
+  const pending = data.pendingApps ?? [];
+  if (pending.length === 0) return;
+
+  const remaining: PendingApplication[] = [];
+  for (const item of pending) {
+    const result = await handleApplicationDetected(item.payload, false);
+    if (!result.success) {
+      remaining.push({ ...item, attempts: item.attempts + 1 });
+    }
+  }
+  await chrome.storage.local.set({ pendingApps: remaining });
+  if (remaining.length > 0) {
+    await chrome.alarms.create("retry-pending-applications", { delayInMinutes: 5 });
+  }
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "retry-pending-applications") {
+    void retryPendingApplications();
+  }
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  void retryPendingApplications();
+});
 
 // On install, attempt an immediate session read from any open HMR tab
 chrome.runtime.onInstalled.addListener(() => {

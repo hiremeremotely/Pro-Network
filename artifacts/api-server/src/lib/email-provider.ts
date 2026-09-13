@@ -1,8 +1,10 @@
 export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "DEMO_GOOGLE_CLIENT_ID";
 export const MICROSOFT_CLIENT_ID = process.env.MICROSOFT_CLIENT_ID ?? "DEMO_MICROSOFT_CLIENT_ID";
-export const IS_DEMO =
-  GOOGLE_CLIENT_ID === "DEMO_GOOGLE_CLIENT_ID" ||
-  MICROSOFT_CLIENT_ID === "DEMO_MICROSOFT_CLIENT_ID";
+export const isProviderDemo = (provider: string): boolean =>
+  provider === "gmail"
+    ? GOOGLE_CLIENT_ID === "DEMO_GOOGLE_CLIENT_ID"
+    : MICROSOFT_CLIENT_ID === "DEMO_MICROSOFT_CLIENT_ID";
+export const IS_DEMO = isProviderDemo("gmail") && isProviderDemo("outlook");
 
 // ── Token bundle ───────────────────────────────────────────────────────────────
 
@@ -95,18 +97,22 @@ async function refreshAccessToken(
 export async function getValidAccessToken(
   provider: string,
   storedBundle: string,
-): Promise<string> {
+): Promise<{ accessToken: string; storedBundle: string; refreshed: boolean }> {
   let bundle: TokenBundle;
   try {
     bundle = JSON.parse(storedBundle) as TokenBundle;
   } catch {
-    return storedBundle;
+    return { accessToken: storedBundle, storedBundle, refreshed: false };
   }
   if (!bundle.refresh_token || Date.now() < bundle.expires_at - 60_000) {
-    return bundle.access_token;
+    return { accessToken: bundle.access_token, storedBundle, refreshed: false };
   }
   const refreshed = await refreshAccessToken(provider, bundle.refresh_token, bundle.access_token);
-  return refreshed.access_token;
+  return {
+    accessToken: refreshed.access_token,
+    storedBundle: JSON.stringify(refreshed),
+    refreshed: true,
+  };
 }
 
 export async function revokeToken(provider: string, storedBundle: string): Promise<void> {
@@ -124,16 +130,10 @@ export async function revokeToken(provider: string, storedBundle: string): Promi
         method: "POST",
       });
     } else {
-      await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          token,
-          token_type_hint: "refresh_token",
-          client_id: MICROSOFT_CLIENT_ID,
-          client_secret: process.env.MICROSOFT_CLIENT_SECRET ?? "",
-        }),
-      });
+      // Microsoft does not provide an OAuth token-revocation endpoint for this flow.
+      // Local token deletion stops this app's access. Users can also revoke the app
+      // from https://account.live.com/consent/Manage for account-wide removal.
+      return;
     }
   } catch {
     // best-effort; local tokens cleared regardless
@@ -147,7 +147,6 @@ export interface InboxEmail {
   from: string;
   subject: string;
   receivedDate: string;
-  snippet?: string;
 }
 
 interface GmailHeader {
@@ -198,7 +197,6 @@ export async function fetchGmailInbox(accessToken: string): Promise<InboxEmail[]
       from: get("from"),
       subject: get("subject"),
       receivedDate: new Date(parseInt(msg.internalDate ?? "0")).toISOString().split("T")[0],
-      snippet: msg.snippet,
     });
   }
   return emails;
@@ -210,7 +208,7 @@ export async function fetchOutlookInbox(accessToken: string): Promise<InboxEmail
   );
   const r = await fetch(
     `https://graph.microsoft.com/v1.0/me/messages` +
-      `?$filter=${filter}&$select=id,subject,from,receivedDateTime,bodyPreview` +
+      `?$filter=${filter}&$select=id,subject,from,receivedDateTime` +
       `&$top=50&$orderby=receivedDateTime desc`,
     { headers: { Authorization: `Bearer ${accessToken}` } },
   );
@@ -221,7 +219,6 @@ export async function fetchOutlookInbox(accessToken: string): Promise<InboxEmail
     from: m.from?.emailAddress?.address ?? "",
     subject: m.subject ?? "",
     receivedDate: (m.receivedDateTime ?? "").split("T")[0],
-    snippet: m.bodyPreview,
   }));
 }
 

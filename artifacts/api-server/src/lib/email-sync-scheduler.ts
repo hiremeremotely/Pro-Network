@@ -6,9 +6,9 @@ import {
   notificationsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
-import { decryptToken } from "./crypto";
+import { decryptToken, encryptToken } from "./crypto";
 import {
-  IS_DEMO,
+  isProviderDemo,
   fetchGmailInbox,
   fetchOutlookInbox,
   getValidAccessToken,
@@ -82,33 +82,46 @@ interface ProfileTokens {
 }
 
 async function syncProfileInbox(profileId: number, tokens: ProfileTokens): Promise<void> {
-  let rawInbox: InboxEmail[];
-  if (!IS_DEMO) {
-    rawInbox = [];
-    if (tokens.gmailConnected && tokens.gmailToken) {
+  const rawInbox: InboxEmail[] = [];
+  if (tokens.gmailConnected && tokens.gmailToken) {
+    if (isProviderDemo("gmail")) {
+      rawInbox.push(...buildSyntheticInbox(profileId));
+    } else {
       const bundle = decryptToken(tokens.gmailToken);
       if (bundle) {
         try {
-          const accessToken = await getValidAccessToken("gmail", bundle);
-          rawInbox.push(...await fetchGmailInbox(accessToken));
+          const result = await getValidAccessToken("gmail", bundle);
+          if (result.refreshed) {
+            await db.update(profilesTable)
+              .set({ gmailToken: encryptToken(result.storedBundle) })
+              .where(eq(profilesTable.id, profileId));
+          }
+          rawInbox.push(...await fetchGmailInbox(result.accessToken));
         } catch (err) {
           logger.warn({ err, profileId }, "Email sync: Gmail fetch failed");
         }
       }
     }
-    if (tokens.outlookConnected && tokens.outlookToken) {
+  }
+  if (tokens.outlookConnected && tokens.outlookToken) {
+    if (isProviderDemo("outlook")) {
+      rawInbox.push(...buildSyntheticInbox(profileId));
+    } else {
       const bundle = decryptToken(tokens.outlookToken);
       if (bundle) {
         try {
-          const accessToken = await getValidAccessToken("outlook", bundle);
-          rawInbox.push(...await fetchOutlookInbox(accessToken));
+          const result = await getValidAccessToken("outlook", bundle);
+          if (result.refreshed) {
+            await db.update(profilesTable)
+              .set({ outlookToken: encryptToken(result.storedBundle) })
+              .where(eq(profilesTable.id, profileId));
+          }
+          rawInbox.push(...await fetchOutlookInbox(result.accessToken));
         } catch (err) {
           logger.warn({ err, profileId }, "Email sync: Outlook fetch failed");
         }
       }
     }
-  } else {
-    rawInbox = buildSyntheticInbox(profileId);
   }
   const emails = parseInboxEmails(rawInbox);
 
