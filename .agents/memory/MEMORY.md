@@ -1,2 +1,3 @@
 - [connect-pg-simple esbuild issue](connect-pg-simple-esbuild.md) — createTableIfMissing fails in esbuild bundles; create sessions table manually instead.
 - [api-zod duplicate exports](api-zod-exports.md) — api-zod index.ts must only export from ./generated/api, not ./generated/types; both export the same names after codegen.
+- [Gmail launch approval](gmail-launch-approval.md) — keep Gmail limited to test users until restricted-scope verification and any required security assessment are complete.
