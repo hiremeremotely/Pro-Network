@@ -205,7 +205,7 @@ export default function JobDetail() {
     description: job.description,
     datePosted: job.createdAt,
     employmentType: "FULL_TIME",
-    ...(job.remote ? { jobLocationType: "TELECOMMUTE" } : {}),
+    ...("remote" in job && job.remote ? { jobLocationType: "TELECOMMUTE" } : {}),
     hiringOrganization: {
       "@type": "Organization",
       name: job.company,
@@ -363,7 +363,7 @@ export default function JobDetail() {
                 onClick={handleShare}
               >
                 <Share2Icon className="w-4 h-4" />
-                {typeof navigator !== "undefined" && navigator.share ? "Share Job" : "Copy Link"}
+                {typeof navigator !== "undefined" && typeof navigator.share === "function" ? "Share Job" : "Copy Link"}
               </Button>
               <Link href="/jobs">
                 <Button variant="outline" className="w-full">Browse More Jobs</Button>

@@ -183,6 +183,14 @@ interface FeedPost {
   visibility?: string;
 }
 
+interface FeaturedProfile {
+  id: number;
+  accountType: string;
+  name: string;
+  headline: string | null;
+  avatarUrl: string | null;
+}
+
 // ── Comments Section ─────────────────────────────────────────────────────────
 function CommentsSection({ postId, currentUserId, currentUserAvatar, currentUserName, onCountChange }: {
   postId: number;
@@ -751,8 +759,8 @@ function PostCard({ post, currentUserId, currentUserAvatar, currentUserName }: {
             <div className="flex items-center gap-1.5 mt-0.5">
               <p className="text-xs text-gray-400">{timeAgo}</p>
               {post.visibility === "connections"
-                ? <LockIcon className="w-3 h-3 text-gray-400" title="Visible to connections only" />
-                : <GlobeIcon className="w-3 h-3 text-gray-400" title="Visible to everyone" />
+                ? <LockIcon className="w-3 h-3 text-gray-400"><title>Visible to connections only</title></LockIcon>
+                : <GlobeIcon className="w-3 h-3 text-gray-400"><title>Visible to everyone</title></GlobeIcon>
               }
             </div>
           </div>
@@ -1169,7 +1177,7 @@ export default function Home() {
   }, {});
   const mostRecentApp = myApplications.at(0);
 
-  const { data: suggestedProfiles, isLoading: suggestedProfilesLoading } = useQuery({
+  const { data: suggestedProfiles, isLoading: suggestedProfilesLoading } = useQuery<FeaturedProfile[]>({
     queryKey: ["featured-profiles", user?.id],
     queryFn: () =>
       fetch(`${import.meta.env.BASE_URL}api/feed/featured-profiles${user?.id ? `?excludeId=${user.id}` : ""}`)

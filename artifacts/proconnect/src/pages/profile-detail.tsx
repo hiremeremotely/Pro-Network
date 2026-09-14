@@ -273,7 +273,7 @@ function AddSkillModal({ profileId, onClose }: { profileId: number; onClose: () 
 // ── Company Profile View ──────────────────────────────────────────────────────
 function CompanyProfileView({ profile, id, isOwn, onEditInfo, avatarInputRef, avatarUploading, handleAvatarFile, isFollowing, isFollowPending, onFollow, onMessage, msgLoading }: {
   profile: any; id: number; isOwn: boolean; onEditInfo: () => void;
-  avatarInputRef: React.RefObject<HTMLInputElement>; avatarUploading: boolean;
+  avatarInputRef: React.RefObject<HTMLInputElement | null>; avatarUploading: boolean;
   handleAvatarFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
   isFollowing: boolean; isFollowPending: boolean; onFollow: () => void;
   onMessage: () => void; msgLoading: boolean;

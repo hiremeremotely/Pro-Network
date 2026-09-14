@@ -111,8 +111,8 @@ function PlatformBadge({ platform }: { platform: string }) {
 }
 
 function SourceIcon({ source }: { source: string }) {
-  if (source === "email") return <MailIcon className="w-3 h-3 text-gray-400" title="Imported from email" />;
-  if (source === "native") return <BuildingIcon className="w-3 h-3 text-indigo-400" title="Applied via Hire Me Remotely" />;
+  if (source === "email") return <MailIcon className="w-3 h-3 text-gray-400"><title>Imported from email</title></MailIcon>;
+  if (source === "native") return <BuildingIcon className="w-3 h-3 text-indigo-400"><title>Applied via Hire Me Remotely</title></BuildingIcon>;
   return null;
 }
 
@@ -363,7 +363,7 @@ function PlatformStrip({ links, profileId, authToken, onRefetch }: {
             <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
               <LinkIcon className="w-4 h-4 text-gray-400" /> My Platforms
             </h3>
-            <button onClick={() => { setLinkForm({ indeedUrl: links?.indeedUrl ?? "", glassdoorUrl: links?.glassdoorUrl ?? "", wellfoundUrl: links?.wellfoundUrl ?? "", angellistUrl: links?.angellistUrl ?? "", linkedinUrl: links?.linkedinUrl ?? "" }); setLinksModal(true); }} className="text-xs text-primary font-medium hover:underline">
+            <button onClick={() => { setLinkForm({ indeedUrl: links?.indeedUrl ?? "", glassdoorUrl: links?.glassdoorUrl ?? "", wellfoundUrl: links?.wellfoundUrl ?? "", angellistUrl: links?.angellistUrl ?? "" }); setLinksModal(true); }} className="text-xs text-primary font-medium hover:underline">
               Edit profile links
             </button>
           </div>
@@ -1074,7 +1074,7 @@ export default function JobTracker() {
       </div>
 
       {isLoading && <LoadingState message="Loading your applications…" />}
-      {error && <ErrorState message="Failed to load job tracker" onRetry={refetch} />}
+      {error && <ErrorState message="Failed to load job tracker" retry={refetch} />}
 
       {!isLoading && !error && (
         <>

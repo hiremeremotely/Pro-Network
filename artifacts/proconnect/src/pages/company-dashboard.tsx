@@ -191,7 +191,7 @@ function buildRenderData(d: OfferData, salaryNote = " per year"): TemplateRender
 }
 
 function renderTemplate(content: string, rd: TemplateRenderData): string {
-  return content.replace(/\{\{(\w+)\}\}/g, (_, key) => (rd as Record<string, string>)[key] ?? `{{${key}}}`);
+  return content.replace(/\{\{(\w+)\}\}/g, (_, key) => rd[key as keyof TemplateRenderData] ?? `{{${key}}}`);
 }
 
 interface EditableTemplate {
@@ -1847,7 +1847,7 @@ function CandidateOfferModal({
       await fetch(`${BASE}api/applications/${app.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "offer", companyProfileId: app.job?.companyProfileId }),
+        body: JSON.stringify({ status: "offer" }),
       });
       downloadOfferLetter(selectedTemplate, offerData);
       onSent();

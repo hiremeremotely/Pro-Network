@@ -126,7 +126,7 @@ export default function MyItems() {
       </div>
 
       {isLoading && <LoadingState message="Loading saved items…" />}
-      {error && <ErrorState message="Failed to load saved items" onRetry={refetch} />}
+      {error && <ErrorState message="Failed to load saved items" retry={refetch} />}
 
       {/* Jobs tab */}
       {!isLoading && !error && tab === "jobs" && (

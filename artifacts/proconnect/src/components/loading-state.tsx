@@ -9,7 +9,7 @@ export function LoadingState({ message = "Loading..." }: { message?: string }) {
   );
 }
 
-export function ErrorState({ error, retry }: { error?: Error | unknown, retry?: () => void }) {
+export function ErrorState({ error, message, retry }: { error?: Error | unknown, message?: string, retry?: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[400px] w-full text-destructive gap-4">
       <div className="bg-destructive/10 p-4 rounded-full">
@@ -18,7 +18,7 @@ export function ErrorState({ error, retry }: { error?: Error | unknown, retry?: 
       <div className="text-center">
         <h3 className="font-bold text-lg mb-1">Something went wrong</h3>
         <p className="text-sm text-muted-foreground max-w-md">
-          {error instanceof Error ? error.message : "Failed to load data. Please try again."}
+          {message ?? (error instanceof Error ? error.message : "Failed to load data. Please try again.")}
         </p>
       </div>
       {retry && (
