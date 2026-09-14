@@ -48,6 +48,10 @@ interface SessionSyncMessage {
   apiBaseUrl: string;
 }
 
+interface SessionClearMessage {
+  type: "SESSION_CLEAR";
+}
+
 interface CheckAuthMessage {
   type: "CHECK_AUTH";
 }
@@ -59,6 +63,7 @@ interface RefreshSessionMessage {
 type IncomingMessage =
   | ApplicationMessage
   | SessionSyncMessage
+  | SessionClearMessage
   | CheckAuthMessage
   | RefreshSessionMessage;
 
@@ -132,6 +137,15 @@ chrome.runtime.onMessage.addListener(
         session: message.session,
         apiBaseUrl: message.apiBaseUrl,
       });
+      sendResponse({ ok: true });
+      return false;
+    }
+
+    if (message.type === "SESSION_CLEAR") {
+      // Logout is a data-boundary: remove the bearer token and queued/cached
+      // application data instead of allowing the service worker to retain PII.
+      chrome.storage.local.remove(["session", "apiBaseUrl", "recentApps", "pendingApps"]);
+      void chrome.alarms.clear("retry-pending-applications");
       sendResponse({ ok: true });
       return false;
     }
@@ -245,7 +259,7 @@ async function handleApplicationDetected(
         createdAt: newApp.createdAt ?? new Date().toISOString(),
       },
       ...existing,
-    ].slice(0, 10);
+    ].slice(0, 5);
     await chrome.storage.local.set({ recentApps: updated });
 
     return { success: true };

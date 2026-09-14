@@ -3,7 +3,6 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 const SESSION_KEY = "bo_admin_session";
 
 interface BoSession {
-  token: string;
   name: string;
   email: string;
 }
@@ -38,7 +37,7 @@ export function BoAuthProvider({ children }: { children: ReactNode }) {
       });
       const data = await res.json();
       if (data.success) {
-        const s: BoSession = { token: data.token, name: data.name, email: data.email };
+        const s: BoSession = { name: data.name, email: data.email };
         sessionStorage.setItem(SESSION_KEY, JSON.stringify(s));
         setSession(s);
         return { ok: true };
@@ -50,9 +49,10 @@ export function BoAuthProvider({ children }: { children: ReactNode }) {
   }, [BASE]);
 
   const logout = useCallback(() => {
+    void fetch(`${BASE}api/admin/logout`, { method: "POST" });
     sessionStorage.removeItem(SESSION_KEY);
     setSession(null);
-  }, []);
+  }, [BASE]);
 
   return <Ctx.Provider value={{ session, login, logout }}>{children}</Ctx.Provider>;
 }

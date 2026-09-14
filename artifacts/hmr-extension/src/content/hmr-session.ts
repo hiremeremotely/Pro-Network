@@ -6,7 +6,10 @@
   function syncSession() {
     try {
       const raw = localStorage.getItem(SESSION_KEY);
-      if (!raw) return;
+      if (!raw) {
+        chrome.runtime.sendMessage({ type: "SESSION_CLEAR" });
+        return;
+      }
       const session = JSON.parse(raw);
       if (!session?.authToken) return;
 
@@ -29,6 +32,14 @@
     origSetItem(key, value);
     if (key === SESSION_KEY) {
       setTimeout(syncSession, 100);
+    }
+  };
+
+  const origRemoveItem = localStorage.removeItem.bind(localStorage);
+  localStorage.removeItem = function (key: string) {
+    origRemoveItem(key);
+    if (key === SESSION_KEY) {
+      chrome.runtime.sendMessage({ type: "SESSION_CLEAR" });
     }
   };
 

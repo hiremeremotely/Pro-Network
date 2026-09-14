@@ -1,4 +1,4 @@
-import { createHash } from "crypto";
+import { randomBytes, scryptSync } from "crypto";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import {
@@ -27,12 +27,21 @@ const pool = new Pool({
 const db = drizzle(pool);
 
 function hashPassword(password: string): string {
-  return createHash("sha256").update(password + "hmr_salt_2026").digest("hex");
+  const salt = randomBytes(16);
+  const digest = scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 });
+  return `scrypt$16384$8$1$${salt.toString("base64url")}$${digest.toString("base64url")}`;
 }
 
-const DEMO_PASSWORD = hashPassword("Demo@2026");
+const seedPassword = process.env.SEED_DEMO_PASSWORD;
+if (!seedPassword || seedPassword.length < 12) {
+  throw new Error("SEED_DEMO_PASSWORD (at least 12 characters) is required for seeding");
+}
+const DEMO_PASSWORD = hashPassword(seedPassword);
 
 async function seed() {
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DESTRUCTIVE_SEED !== "true") {
+    throw new Error("Refusing destructive seed in production. Set ALLOW_DESTRUCTIVE_SEED=true only for an intentional, reviewed reset.");
+  }
   console.log("🌱 Starting seed...");
 
   console.log("  → Clearing existing data...");

@@ -120,6 +120,11 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
       method: "POST",
       credentials: "include",
     }).catch(() => {});
+    // Clear any legacy client-side session copy so browser extensions and
+    // other tabs receive the logout boundary through the storage event.
+    localStorage.removeItem("app_user_session");
+    sessionStorage.removeItem("verify_token");
+    sessionStorage.removeItem("verify_email_address");
     setUser(null);
   }, [BASE]);
 

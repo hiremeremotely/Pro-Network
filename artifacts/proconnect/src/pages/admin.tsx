@@ -55,16 +55,12 @@ const PLAN_FEATURES: Record<string, string[]> = {
 
 // ── Shared fetch ────────────────────────────────────────────────────────────
 
-function adminHeaders(token: string) {
-  return { Authorization: `Bearer ${token}` } as const;
-}
-
 function useAdminStats() {
   const { session } = useBoAuth();
   return useQuery({
     queryKey: ["admin-stats"],
     queryFn: async () => {
-      const res = await fetch(`${BASE}api/admin/stats`, { headers: adminHeaders(session?.token ?? "") });
+      const res = await fetch(`${BASE}api/admin/stats`);
       if (!res.ok) throw new Error("Failed to load admin stats");
       return res.json();
     },
@@ -80,7 +76,7 @@ function useAdminUsers(accountType: string) {
     queryFn: async () => {
       const params = new URLSearchParams({ limit: "100" });
       if (accountType !== "all") params.set("accountType", accountType);
-      const res = await fetch(`${BASE}api/admin/users?${params}`, { headers: adminHeaders(session?.token ?? "") });
+      const res = await fetch(`${BASE}api/admin/users?${params}`);
       if (!res.ok) throw new Error("Failed to load users");
       return res.json();
     },
@@ -753,8 +749,6 @@ function SubscriptionsSection() {
 
 // ── Interests section ────────────────────────────────────────────────────────
 
-const ADMIN_TOKEN = "bo_super_admin_token_2026";
-
 type AdminInterest = {
   id: number;
   status: "pending" | "approved" | "declined";
@@ -768,11 +762,12 @@ type AdminInterest = {
 };
 
 function useAdminInterests(status: string) {
+  const { session } = useBoAuth();
   return useQuery<{ requests: AdminInterest[]; counts: Record<string, number> }>({
     queryKey: ["admin-interests", status],
     queryFn: async () => {
       const res = await fetch(`${BASE}api/admin/interest-requests?status=${status}`, {
-        headers: { "x-admin-token": ADMIN_TOKEN },
+        headers: {},
       });
       if (!res.ok) throw new Error("Failed to load interest requests");
       return res.json();
@@ -782,6 +777,7 @@ function useAdminInterests(status: string) {
 }
 
 function ApproveDialog({ req, onClose, onDone }: { req: AdminInterest; onClose: () => void; onDone: () => void }) {
+  const { session } = useBoAuth();
   const [msg, setMsg] = useState(
     `Hi ${req.candidate?.name?.split(" ")[0] ?? "there"} — ${req.company?.name ?? "a hiring team"} on Hire Me Remotely is interested in connecting with you${req.jobTitle ? ` about a "${req.jobTitle}" role` : ""}. ${req.companyNote ? `\n\nThey wrote: "${req.companyNote}"\n\n` : "\n\n"}Reply here if you'd like to learn more.`
   );
@@ -793,7 +789,9 @@ function ApproveDialog({ req, onClose, onDone }: { req: AdminInterest; onClose: 
     try {
       const res = await fetch(`${BASE}api/admin/interest-requests/${req.id}/approve`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-token": ADMIN_TOKEN },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ introMessage: msg }),
       });
       if (!res.ok) { setErr((await res.json()).error || "Failed"); return; }
@@ -830,6 +828,7 @@ function ApproveDialog({ req, onClose, onDone }: { req: AdminInterest; onClose: 
 }
 
 function DeclineDialog({ req, onClose, onDone }: { req: AdminInterest; onClose: () => void; onDone: () => void }) {
+  const { session } = useBoAuth();
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   async function submit() {
@@ -837,7 +836,9 @@ function DeclineDialog({ req, onClose, onDone }: { req: AdminInterest; onClose: 
     try {
       await fetch(`${BASE}api/admin/interest-requests/${req.id}/decline`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-token": ADMIN_TOKEN },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ adminNote: note.trim() || null }),
       });
       onDone();

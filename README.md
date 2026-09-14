@@ -245,7 +245,7 @@ The central account table for both individual users and company accounts.
 | `account_type` | text | `"individual"` or `"company"` |
 | `name` | text NOT NULL | Display name |
 | `email` | text UNIQUE | Login email |
-| `password_hash` | text | SHA-256 + salt (`hmr_salt_2026`) |
+| `password_hash` | text | scrypt-derived password hash (legacy hashes are rehashed on login) |
 | `headline` | text NOT NULL | Short bio line |
 | `bio` | text | Long bio |
 | `location` | text | City / country |
@@ -733,7 +733,7 @@ There is no session middleware or JWT — authentication is a simple stateless c
 
 1. **Registration** — `POST /api/auth/register`
    - Accepts `name`, `email`, `password`, `accountType`, and optional profile fields.
-   - Password is hashed with **SHA-256 + salt** (`hmr_salt_2026`).
+    - Passwords use Node's built-in scrypt KDF, with legacy hashes rehashed after successful login.
    - Returns the created profile (without `passwordHash`).
 
 2. **Login** — `POST /api/auth/login`
@@ -741,13 +741,16 @@ There is no session middleware or JWT — authentication is a simple stateless c
    - Returns the profile on success.
    - HTTP 401 on mismatch.
 
-3. **Frontend session** — The React app stores the returned profile object in `localStorage` under the key `app_user_session`. The `AppAuthProvider` / `useAppAuth()` hook reads and writes this key.
+3. **Frontend session** — The app uses the server session cookie. The extension receives only a short-lived signed token and purges it on logout.
 
 4. **Company login** — A separate `/login` flow validates that `accountType === "company"` before writing the session.
 
-5. **Backoffice** — Hardcoded credentials (`admin@hiremeremotely.com` / `Admin@2026`), session stored in `sessionStorage` under `bo_admin_session`.
+5. **Backoffice** — Credentials and bearer token are deployment secrets, with the UI session stored in `sessionStorage` under `bo_admin_session`.
 
-> **Security note:** This is a demo-grade auth implementation — no HTTPS-only cookies, no token rotation, no CSRF protection. Do not use in production without replacing it with a proper auth layer.
+> **Security note:** Production deployments must provide `SESSION_SECRET`, admin
+> secrets, and TLS-protected origins. Passwords use scrypt and extension bearer
+> tokens expire; continue to review cookie and CSRF policy as deployment topology
+> changes.
 
 ---
 
@@ -874,9 +877,9 @@ interface AppUser {
 }
 ```
 
-**Session persistence** — the user object is JSON-serialised into `localStorage["app_user_session"]`. On page load the provider reads this key to restore the session instantly.
+**Session persistence** — the server maintains an HTTP-only session cookie. Extension-side session copies are cleared when the web app logs out.
 
-**Password hashing** — done server-side: `SHA-256(password + "hmr_salt_2026")`.
+**Password hashing** — done server-side with Node's built-in scrypt KDF.
 
 ---
 
@@ -1043,11 +1046,9 @@ Sign up with any email at `/signup`. Existing demo users can be accessed by regi
 Use the **"For Companies"** option on `/login` or navigate to `/company-login`.
 
 ### Backoffice Admin Panel
-| Field | Value |
-|---|---|
-| URL | `/bo` |
-| Email | `admin@hiremeremotely.com` |
-| Password | `Admin@2026` |
+The panel is available at `/bo`. Configure `ADMIN_EMAIL` and `ADMIN_PASSWORD`
+through the deployment secret manager; these values must not be
+committed to documentation or source control.
 
 ---
 

@@ -57,7 +57,7 @@ export default function BoLogin() {
               </label>
               <Input
                 type="email"
-                placeholder="admin@hiremeremotely.com"
+                placeholder="Configured admin email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"

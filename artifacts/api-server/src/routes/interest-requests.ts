@@ -5,10 +5,9 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 const router: IRouter = Router();
 
 const MAX_PENDING_PER_COMPANY = 10;
-const ADMIN_TOKEN = "bo_super_admin_token_2026";
 
 function requireAdmin(req: any, res: any): boolean {
-  if (req.header("x-admin-token") !== ADMIN_TOKEN) {
+  if (req.session?.isAdmin !== true) {
     res.status(401).json({ error: "Unauthorized" });
     return false;
   }

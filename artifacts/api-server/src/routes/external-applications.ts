@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and, or, ilike, sql } from "drizzle-orm";
-import { createHmac, randomBytes } from "crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import {
   db,
   externalApplicationsTable,
@@ -46,7 +46,9 @@ function safeInt(val: unknown): number | null {
   return isNaN(n) ? null : n;
 }
 
-function signOAuthState(payload: { profileId: number; provider: string; nonce: string }): string {
+const usedOAuthStates = new Map<string, number>();
+
+function signOAuthState(payload: { profileId: number; provider: string; nonce: string; expiresAt: number }): string {
   const raw = JSON.stringify(payload);
   const sig = createHmac("sha256", getSessionSecret()).update(raw).digest("hex");
   return Buffer.from(JSON.stringify({ p: raw, s: sig })).toString("base64url");
@@ -54,11 +56,19 @@ function signOAuthState(payload: { profileId: number; provider: string; nonce: s
 
 function verifyOAuthState(state: string): { profileId: number; provider: string } | null {
   try {
+    const usedAt = usedOAuthStates.get(state);
+    if (usedAt) return null;
     const outer = JSON.parse(Buffer.from(state, "base64url").toString("utf8")) as { p: string; s: string };
     const expected = createHmac("sha256", getSessionSecret()).update(outer.p).digest("hex");
-    if (expected !== outer.s) return null;
-    const inner = JSON.parse(outer.p) as { profileId: number; provider: string };
-    if (!inner.profileId || (inner.provider !== "gmail" && inner.provider !== "outlook")) return null;
+    if (outer.s.length !== expected.length ||
+        !timingSafeEqual(Buffer.from(expected), Buffer.from(outer.s))) return null;
+    const inner = JSON.parse(outer.p) as { profileId: number; provider: string; expiresAt: number };
+    if (!inner.profileId || (inner.provider !== "gmail" && inner.provider !== "outlook") ||
+        !Number.isSafeInteger(inner.expiresAt) || inner.expiresAt <= Date.now()) return null;
+    usedOAuthStates.set(state, Date.now());
+    for (const [key, used] of usedOAuthStates) {
+      if (used < Date.now() - 10 * 60 * 1000) usedOAuthStates.delete(key);
+    }
     return { profileId: inner.profileId, provider: inner.provider };
   } catch {
     return null;
@@ -388,7 +398,7 @@ function htmlEsc(s: string): string {
 
 router.get("/email-integration/demo-authorize", (req, res): void => {
   const { state, provider } = req.query as Record<string, string>;
-  if (!state || (provider !== "gmail" && provider !== "outlook")) {
+  if (!state || (provider !== "gmail" && provider !== "outlook") || !isProviderDemo(provider)) {
     res.status(400).send("Missing state or provider"); return;
   }
   const label = provider === "gmail" ? "Gmail" : "Outlook";
@@ -425,7 +435,10 @@ router.post("/email-integration/initiate", requireTrackerAuth, async (req, res):
 
   const callerProfileId: number = res.locals.callerProfileId;
   const nonce = randomBytes(8).toString("hex");
-  const state = signOAuthState({ profileId: callerProfileId, provider, nonce });
+  const state = signOAuthState({
+    profileId: callerProfileId, provider, nonce,
+    expiresAt: Date.now() + 10 * 60 * 1000,
+  });
   const redirectUri = `${OAUTH_REDIRECT_BASE}/api/email-integration/callback`;
 
   const [prof] = await db
@@ -439,11 +452,19 @@ router.post("/email-integration/initiate", requireTrackerAuth, async (req, res):
   if (isProviderDemo(provider)) {
     authUrl = `${OAUTH_REDIRECT_BASE}/api/email-integration/demo-authorize?provider=${provider}&state=${state}`;
   } else if (provider === "gmail") {
+    if (GOOGLE_CLIENT_ID === "DEMO_GOOGLE_CLIENT_ID" || !process.env.GOOGLE_CLIENT_SECRET) {
+      res.status(503).json({ error: "Gmail OAuth is not configured." });
+      return;
+    }
     authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code` +
       `&scope=${encodeURIComponent("https://www.googleapis.com/auth/gmail.readonly")}` +
       `&access_type=offline&prompt=consent&state=${state}`;
   } else {
+    if (MICROSOFT_CLIENT_ID === "DEMO_MICROSOFT_CLIENT_ID" || !process.env.MICROSOFT_CLIENT_SECRET) {
+      res.status(503).json({ error: "Outlook OAuth is not configured." });
+      return;
+    }
     authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${MICROSOFT_CLIENT_ID}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code` +
       `&scope=${encodeURIComponent("Mail.Read offline_access")}&state=${state}`;
@@ -462,13 +483,19 @@ router.get("/email-integration/callback", async (req, res): Promise<void> => {
   if (!parsed) { res.status(400).send("Invalid or tampered state parameter"); return; }
 
   const { profileId, provider } = parsed;
+  if (!code) {
+    // A real OAuth callback without an authorization code must never silently
+    // connect a synthetic/demo token.
+    res.status(400).send("Missing OAuth authorization code");
+    return;
+  }
   const [profile] = await db.select({ id: profilesTable.id })
     .from(profilesTable).where(eq(profilesTable.id, profileId));
   if (!profile) { res.status(404).send("Profile not found"); return; }
 
   const redirectUri = `${OAUTH_REDIRECT_BASE}/api/email-integration/callback`;
   let rawToken: string;
-  if (!isProviderDemo(provider) && code) {
+  if (!isProviderDemo(provider)) {
     // Fail closed: only mark connected if token exchange succeeds
     rawToken = await exchangeOAuthCode(provider, code, redirectUri).catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);

@@ -26,6 +26,10 @@ router.post("/offer-letters", async (req, res): Promise<void> => {
   const appId = Number(applicationId);
   const companyId = Number(companyProfileId);
   const candidateId = Number(candidateProfileId);
+  if (!req.session.profileId || req.session.profileId !== companyId) {
+    res.status(403).json({ error: "Only the company account that owns the job may create an offer." });
+    return;
+  }
 
   // Verify ownership: application must belong to a job posted by this company
   const [app] = await db.select().from(applicationsTable).where(eq(applicationsTable.id, appId));
@@ -221,9 +225,8 @@ router.patch("/offer-letters/:token/respond", async (req, res): Promise<void> =>
 // Requires ?companyProfileId=<N> — verifies requester owns the job the application belongs to.
 router.get("/applications/:id/offer-letter", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
-  const companyProfileId = Number(req.query.companyProfileId);
-  if (!id || isNaN(id) || !companyProfileId || isNaN(companyProfileId)) {
-    res.status(400).json({ error: "Valid id and companyProfileId are required" });
+  if (!id || isNaN(id) || !req.session.profileId) {
+    res.status(400).json({ error: "Valid id and authentication are required" });
     return;
   }
 
@@ -234,7 +237,9 @@ router.get("/applications/:id/offer-letter", async (req, res): Promise<void> => 
     return;
   }
   const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, app.jobId));
-  if (!job || job.companyProfileId !== companyProfileId) {
+  const callerIsCompany = job?.companyProfileId === req.session.profileId;
+  const callerIsCandidate = app.profileId === req.session.profileId;
+  if (!job || (!callerIsCompany && !callerIsCandidate)) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }

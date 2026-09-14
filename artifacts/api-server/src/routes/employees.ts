@@ -6,7 +6,11 @@ import { and } from "drizzle-orm";
 const router: IRouter = Router();
 
 async function enrichEmployee(emp: typeof employeesTable.$inferSelect) {
-  const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.id, emp.individualProfileId));
+  const [profile] = await db.select({
+    id: profilesTable.id, accountType: profilesTable.accountType, name: profilesTable.name,
+    email: profilesTable.email, headline: profilesTable.headline, bio: profilesTable.bio,
+    location: profilesTable.location, industry: profilesTable.industry, avatarUrl: profilesTable.avatarUrl,
+  }).from(profilesTable).where(eq(profilesTable.id, emp.individualProfileId));
   const job = emp.jobId
     ? (await db.select().from(jobsTable).where(eq(jobsTable.id, emp.jobId)))[0] ?? null
     : null;
@@ -221,6 +225,10 @@ router.get("/companies/:companyId/applications", async (req, res): Promise<void>
     res.status(400).json({ error: "Invalid companyId" });
     return;
   }
+  if (req.session.profileId !== companyId) {
+    res.status(403).json({ error: "Only the owning company may view these applications." });
+    return;
+  }
   const jobs = await db
     .select()
     .from(jobsTable)
@@ -236,7 +244,11 @@ router.get("/companies/:companyId/applications", async (req, res): Promise<void>
     .where(inArray(applicationsTable.jobId, jobIds));
   const enriched = await Promise.all(
     apps.map(async (app) => {
-      const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.id, app.profileId));
+      const [profile] = await db.select({
+        id: profilesTable.id, accountType: profilesTable.accountType, name: profilesTable.name,
+        email: profilesTable.email, headline: profilesTable.headline, bio: profilesTable.bio,
+        location: profilesTable.location, industry: profilesTable.industry, avatarUrl: profilesTable.avatarUrl,
+      }).from(profilesTable).where(eq(profilesTable.id, app.profileId));
       const job = jobs.find((j) => j.id === app.jobId) ?? null;
       return {
         ...app,
@@ -250,13 +262,13 @@ router.get("/companies/:companyId/applications", async (req, res): Promise<void>
 
 router.patch("/applications/:id/status", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
-  const { status, companyProfileId } = req.body;
+  const { status } = req.body;
   if (!id || isNaN(id) || !status) {
     res.status(400).json({ error: "Invalid parameters" });
     return;
   }
-  if (!companyProfileId) {
-    res.status(400).json({ error: "companyProfileId is required" });
+  if (!req.session.profileId) {
+    res.status(401).json({ error: "Authentication required" });
     return;
   }
   // Unconditional ownership check: application must belong to a job posted by this company
@@ -266,7 +278,7 @@ router.patch("/applications/:id/status", async (req, res): Promise<void> => {
     return;
   }
   const [ownerJob] = await db.select().from(jobsTable).where(eq(jobsTable.id, existingApp.jobId));
-  if (!ownerJob || ownerJob.companyProfileId !== Number(companyProfileId)) {
+  if (!ownerJob || ownerJob.companyProfileId !== req.session.profileId) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -279,7 +291,11 @@ router.patch("/applications/:id/status", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Application not found" });
     return;
   }
-  const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.id, app.profileId));
+  const [profile] = await db.select({
+    id: profilesTable.id, accountType: profilesTable.accountType, name: profilesTable.name,
+    email: profilesTable.email, headline: profilesTable.headline, bio: profilesTable.bio,
+    location: profilesTable.location, industry: profilesTable.industry, avatarUrl: profilesTable.avatarUrl,
+  }).from(profilesTable).where(eq(profilesTable.id, app.profileId));
   const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, app.jobId));
   res.json({
     ...app,

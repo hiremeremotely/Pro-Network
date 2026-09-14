@@ -81,7 +81,14 @@ router.get("/connections/network", async (req, res): Promise<void> => {
 
   const partnerIds = rows.map(r => r.partnerId);
   const profiles = await db
-    .select()
+    .select({
+      id: profilesTable.id, accountType: profilesTable.accountType, name: profilesTable.name,
+      headline: profilesTable.headline, bio: profilesTable.bio, location: profilesTable.location,
+      industry: profilesTable.industry, avatarUrl: profilesTable.avatarUrl, coverUrl: profilesTable.coverUrl,
+      website: profilesTable.website, linkedinUrl: profilesTable.linkedinUrl, githubUrl: profilesTable.githubUrl,
+      twitterUrl: profilesTable.twitterUrl, interests: profilesTable.interests, openToWork: profilesTable.openToWork,
+      customLinks: profilesTable.customLinks,
+    })
     .from(profilesTable)
     .where(inArray(profilesTable.id, partnerIds));
 
@@ -105,7 +112,9 @@ router.get("/connections/network", async (req, res): Promise<void> => {
 router.get("/connections/recommended", async (req, res): Promise<void> => {
   const profileId = req.session.profileId!;
 
-  const [myProfile] = await db.select().from(profilesTable).where(eq(profilesTable.id, profileId));
+  const [myProfile] = await db.select({
+    industry: profilesTable.industry, interests: profilesTable.interests,
+  }).from(profilesTable).where(eq(profilesTable.id, profileId));
   if (!myProfile) { res.json({ profiles: [] }); return; }
 
   // Exclude everyone already connected (both directions) or pending
@@ -132,7 +141,21 @@ router.get("/connections/recommended", async (req, res): Promise<void> => {
     ? and(individualsOnly, notInArray(profilesTable.id, excludeIds))
     : and(individualsOnly, ne(profilesTable.id, profileId));
 
-  let recommended: typeof profilesTable.$inferSelect[] = [];
+  type SafeProfile = {
+    id: number; accountType: string; name: string; headline: string; bio: string | null;
+    location: string | null; industry: string | null; avatarUrl: string | null; coverUrl: string | null;
+    website: string | null; linkedinUrl: string | null; githubUrl: string | null; twitterUrl: string | null;
+    interests: string[]; openToWork: boolean; customLinks: Array<{ label: string; url: string }>;
+  };
+  let recommended: SafeProfile[] = [];
+  const safeProfileSelection = {
+    id: profilesTable.id, accountType: profilesTable.accountType, name: profilesTable.name,
+    headline: profilesTable.headline, bio: profilesTable.bio, location: profilesTable.location,
+    industry: profilesTable.industry, avatarUrl: profilesTable.avatarUrl, coverUrl: profilesTable.coverUrl,
+    website: profilesTable.website, linkedinUrl: profilesTable.linkedinUrl, githubUrl: profilesTable.githubUrl,
+    twitterUrl: profilesTable.twitterUrl, interests: profilesTable.interests, openToWork: profilesTable.openToWork,
+    customLinks: profilesTable.customLinks,
+  };
   let matchedByProfile = false;
 
   if (myIndustry || myInterests.length > 0) {
@@ -142,7 +165,7 @@ router.get("/connections/recommended", async (req, res): Promise<void> => {
       conditions.push(sql`${profilesTable.interests} && ARRAY[${sql.join(myInterests.map(i => sql`${i}`), sql`, `)}]::text[]`);
     }
     recommended = await db
-      .select()
+      .select(safeProfileSelection)
       .from(profilesTable)
       .where(and(baseWhere, or(...conditions)))
       .orderBy(desc(profilesTable.createdAt))
@@ -153,7 +176,7 @@ router.get("/connections/recommended", async (req, res): Promise<void> => {
   if (recommended.length < 8) {
     const already = new Set([...excludeIds, ...recommended.map(p => p.id)]);
     const fallback = await db
-      .select()
+      .select(safeProfileSelection)
       .from(profilesTable)
       .where(and(individualsOnly, notInArray(profilesTable.id, [...already])))
       .orderBy(desc(profilesTable.createdAt))

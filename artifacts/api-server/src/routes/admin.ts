@@ -5,25 +5,29 @@ import { db, profilesTable, jobsTable, applicationsTable, postsTable } from "@wo
 const router: IRouter = Router();
 
 // ── Admin credentials — set via environment variables in production ───────────
-const ADMIN_EMAIL    = process.env.ADMIN_EMAIL    ?? "admin@hiremeremotely.com";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "Admin@2026";
-const ADMIN_TOKEN    = process.env.ADMIN_TOKEN    ?? "bo_super_admin_token_2026";
-
-// ── Middleware: require valid admin token ─────────────────────────────────────
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+// ── Middleware: require server-side admin session ─────────────────────────────
 function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  const auth = req.headers["authorization"] ?? "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (token === ADMIN_TOKEN) { next(); return; }
+  if (req.session.isAdmin === true) { next(); return; }
   res.status(401).json({ error: "Unauthorised" });
 }
 
 router.post("/admin/login", (req, res): void => {
   const { email, password } = req.body as { email?: string; password?: string };
-  if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-    res.json({ success: true, token: ADMIN_TOKEN, name: "Super Admin", email: ADMIN_EMAIL });
+  if (ADMIN_EMAIL && ADMIN_PASSWORD && email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+    req.session.isAdmin = true;
+    req.session.adminEmail = ADMIN_EMAIL;
+    res.json({ success: true, name: "Super Admin", email: ADMIN_EMAIL });
   } else {
     res.status(401).json({ success: false, message: "Invalid email or password." });
   }
+});
+
+router.post("/admin/logout", requireAdmin, (req, res): void => {
+  req.session.isAdmin = false;
+  req.session.adminEmail = undefined;
+  req.session.save(() => res.json({ success: true }));
 });
 
 router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
@@ -54,7 +58,11 @@ router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
       .from(jobsTable)
       .groupBy(jobsTable.category)
       .orderBy(desc(sql`count(*)`)),
-    db.select().from(profilesTable).orderBy(desc(profilesTable.createdAt)).limit(10),
+    db.select({
+      id: profilesTable.id, accountType: profilesTable.accountType, name: profilesTable.name,
+      email: profilesTable.email, headline: profilesTable.headline, location: profilesTable.location,
+      emailVerified: profilesTable.emailVerified, createdAt: profilesTable.createdAt,
+    }).from(profilesTable).orderBy(desc(profilesTable.createdAt)).limit(10),
     db.select().from(jobsTable).orderBy(desc(jobsTable.createdAt)).limit(10),
   ]);
 
@@ -84,7 +92,13 @@ router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
 router.get("/admin/users", requireAdmin, async (req, res): Promise<void> => {
   const { accountType, search, limit = "50", offset = "0" } = req.query as Record<string, string>;
 
-  let query = db.select().from(profilesTable).$dynamic();
+  let query = db.select({
+    id: profilesTable.id, accountType: profilesTable.accountType, name: profilesTable.name,
+    email: profilesTable.email, headline: profilesTable.headline, bio: profilesTable.bio,
+    location: profilesTable.location, industry: profilesTable.industry,
+    avatarUrl: profilesTable.avatarUrl, emailVerified: profilesTable.emailVerified,
+    createdAt: profilesTable.createdAt, updatedAt: profilesTable.updatedAt,
+  }).from(profilesTable).$dynamic();
 
   if (accountType) {
     query = query.where(eq(profilesTable.accountType, accountType as "individual" | "company"));

@@ -188,7 +188,9 @@ app.use(
   "/api",
   generalLimiter,
   (req: Request, res: Response, next: NextFunction) => {
-    if (req.path.startsWith("/auth") || req.path === "/healthz" || req.path === "/sitemap.xml") return next();
+    // Admin routes authenticate independently with a server-side admin session;
+    // do not require an end-user profile session first.
+    if (req.path.startsWith("/auth") || req.path.startsWith("/admin") || req.path === "/healthz" || req.path === "/sitemap.xml") return next();
     // Allow unauthenticated GET access to public content so crawlers can index it
     const isPublicGet = req.method === "GET" && (
       req.path === "/jobs" ||

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { createHash, createHmac, randomBytes } from "crypto";
+import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { eq } from "drizzle-orm";
 import { db, profilesTable } from "@workspace/db";
 import { IS_DEMO, DEMO_TOKEN_BUNDLE } from "../lib/email-provider";
@@ -55,7 +55,28 @@ export async function autoConnectEmailByDomain(profileId: number, email: string)
 }
 
 function hashPassword(password: string): string {
-  return createHash("sha256").update(password + "hmr_salt_2026").digest("hex");
+  const salt = randomBytes(16);
+  const derived = scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 });
+  return `scrypt$16384$8$1$${salt.toString("base64url")}$${derived.toString("base64url")}`;
+}
+
+function verifyPassword(password: string, stored: string): { valid: boolean; needsRehash: boolean } {
+  // Keep existing accounts usable while progressively moving them away from the
+  // legacy SHA-256 scheme. New credentials are always scrypt hashes.
+  if (stored.startsWith("scrypt$")) {
+    try {
+      const [, n, r, p, saltText, digestText] = stored.split("$");
+      const digest = Buffer.from(digestText, "base64url");
+      const actual = scryptSync(password, Buffer.from(saltText, "base64url"), digest.length, {
+        N: Number(n), r: Number(r), p: Number(p),
+      });
+      return { valid: actual.length === digest.length && timingSafeEqual(actual, digest), needsRehash: false };
+    } catch {
+      return { valid: false, needsRehash: false };
+    }
+  }
+  const legacy = createHash("sha256").update(password + "hmr_salt_2026").digest("hex");
+  return { valid: stored.length === legacy.length && timingSafeEqual(Buffer.from(stored), Buffer.from(legacy)), needsRehash: true };
 }
 
 export function getSessionSecret(): string {
@@ -65,21 +86,26 @@ export function getSessionSecret(): string {
 }
 
 export function generateAuthToken(profileId: number): string {
-  const hmac = createHmac("sha256", getSessionSecret()).update(String(profileId)).digest("hex");
-  return `${profileId}:${hmac}`;
+  const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+  const nonce = randomBytes(32).toString("base64url");
+  const payload = `${profileId}:${expiresAt}:${nonce}`;
+  const hmac = createHmac("sha256", getSessionSecret()).update(payload).digest("base64url");
+  return `${payload}:${hmac}`;
 }
 
 export function validateAuthToken(token: string): number | null {
-  const colonIdx = token.lastIndexOf(":");
-  if (colonIdx < 0) return null;
-  const profileIdStr = token.slice(0, colonIdx);
-  const providedHmac = token.slice(colonIdx + 1);
+  const parts = token.split(":");
+  if (parts.length !== 4) return null;
+  const [profileIdStr, expiresText, nonce, providedHmac] = parts;
   const profileId = parseInt(profileIdStr, 10);
-  if (isNaN(profileId) || profileId <= 0) return null;
+  const expiresAt = Number(expiresText);
+  if (isNaN(profileId) || profileId <= 0 || !Number.isSafeInteger(expiresAt) || expiresAt <= Date.now() || !nonce) return null;
   let secret: string;
   try { secret = getSessionSecret(); } catch { return null; }
-  const expectedHmac = createHmac("sha256", secret).update(String(profileId)).digest("hex");
-  if (providedHmac !== expectedHmac) return null;
+  const payload = `${profileId}:${expiresAt}:${nonce}`;
+  const expectedHmac = createHmac("sha256", secret).update(payload).digest("base64url");
+  if (providedHmac.length !== expectedHmac.length ||
+      !timingSafeEqual(Buffer.from(providedHmac), Buffer.from(expectedHmac))) return null;
   return profileId;
 }
 
@@ -130,8 +156,9 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }).returning();
 
   await autoConnectEmailByDomain(profile.id, email);
-  const { passwordHash: _pw, emailVerificationToken: _evt, ...safe } = profile;
-  res.status(201).json({ profile: safe, verificationToken: rawToken });
+  const { passwordHash: _pw, emailVerificationToken: _evt, emailVerificationTokenExpiry: _evx, resetToken: _rt, resetTokenExpiry: _rtx, gmailToken: _gt, outlookToken: _ot, ...safe } = profile;
+  const demoToken = process.env.NODE_ENV !== "production" && process.env.DEMO_MODE === "true" ? { verificationToken: rawToken } : {};
+  res.status(201).json({ profile: safe, ...demoToken });
 });
 
 router.post("/auth/verify-email", async (req, res): Promise<void> => {
@@ -153,7 +180,7 @@ router.post("/auth/verify-email", async (req, res): Promise<void> => {
     .set({ emailVerified: true, emailVerificationToken: null, emailVerificationTokenExpiry: null })
     .where(eq(profilesTable.id, profile.id));
 
-  const { passwordHash: _pw, emailVerificationToken: _evt, ...safe } = profile;
+  const { passwordHash: _pw, emailVerificationToken: _evt, emailVerificationTokenExpiry: _evx, resetToken: _rt, resetTokenExpiry: _rtx, gmailToken: _gt, outlookToken: _ot, ...safe } = profile;
   res.json({ profile: { ...safe, emailVerified: true }, authToken: generateAuthToken(profile.id), message: "Email verified successfully." });
 });
 
@@ -171,7 +198,8 @@ router.post("/auth/resend-verification", async (req, res): Promise<void> => {
     return;
   }
   if (profile.emailVerified) {
-    res.json({ message: "This account is already verified." });
+    // Keep the response indistinguishable from the unknown-email path.
+    res.json({ message: "If that email is registered and unverified, a new link has been sent." });
     return;
   }
 
@@ -183,7 +211,8 @@ router.post("/auth/resend-verification", async (req, res): Promise<void> => {
     .set({ emailVerificationToken: tokenHash, emailVerificationTokenExpiry: expiry })
     .where(eq(profilesTable.id, profile.id));
 
-  res.json({ verificationToken: rawToken, message: "Verification token generated." });
+  const demoToken = process.env.NODE_ENV !== "production" && process.env.DEMO_MODE === "true" ? { verificationToken: rawToken } : {};
+  res.json({ ...demoToken, message: "If that email is registered and unverified, a new link has been sent." });
 });
 
 router.post("/auth/token", async (req, res): Promise<void> => {
@@ -203,8 +232,10 @@ router.get("/auth/check-email", async (req, res): Promise<void> => {
     .select({ accountType: profilesTable.accountType })
     .from(profilesTable)
     .where(eq(profilesTable.email, email));
-  if (!profile) { res.json({ exists: false }); return; }
-  res.json({ exists: true, accountType: profile.accountType });
+  // This endpoint is intentionally non-disclosing; callers must not be able to
+  // probe whether an address is registered.
+  void profile;
+  res.json({ exists: false });
 });
 
 router.post("/auth/login", async (req, res): Promise<void> => {
@@ -222,7 +253,8 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  if (profile.passwordHash !== hashPassword(password)) {
+  const passwordCheck = verifyPassword(password, profile.passwordHash);
+  if (!passwordCheck.valid) {
     res.status(401).json({ error: "Invalid email or password." });
     return;
   }
@@ -232,9 +264,12 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
+  if (passwordCheck.needsRehash) {
+    await db.update(profilesTable).set({ passwordHash: hashPassword(password) }).where(eq(profilesTable.id, profile.id));
+  }
   if (profile.email) await autoConnectEmailByDomain(profile.id, profile.email);
   req.session.profileId = profile.id;
-  const { passwordHash: _pw, emailVerificationToken: _evt, ...safe } = profile;
+  const { passwordHash: _pw, emailVerificationToken: _evt, emailVerificationTokenExpiry: _evx, resetToken: _rt, resetTokenExpiry: _rtx, gmailToken: _gt, outlookToken: _ot, ...safe } = profile;
   res.json({ profile: safe, authToken: generateAuthToken(profile.id) });
 });
 
@@ -250,7 +285,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     res.status(401).json({ error: "Session expired" });
     return;
   }
-  const { passwordHash: _pw, emailVerificationToken: _evt, ...safe } = profile;
+  const { passwordHash: _pw, emailVerificationToken: _evt, emailVerificationTokenExpiry: _evx, resetToken: _rt, resetTokenExpiry: _rtx, gmailToken: _gt, outlookToken: _ot, ...safe } = profile;
   res.json({ profile: safe, authToken: generateAuthToken(profile.id) });
 });
 
@@ -285,8 +320,8 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
     .set({ resetToken: tokenHash, resetTokenExpiry: expiry })
     .where(eq(profilesTable.id, profile.id));
 
-  // In production this token would be emailed; for demo we return it directly
-  res.json({ resetToken: rawToken, message: "Reset token generated." });
+  const demoToken = process.env.NODE_ENV !== "production" && process.env.DEMO_MODE === "true" ? { resetToken: rawToken } : {};
+  res.json({ ...demoToken, message: "If that email is registered, a reset link has been sent." });
 });
 
 router.post("/auth/reset-password", async (req, res): Promise<void> => {

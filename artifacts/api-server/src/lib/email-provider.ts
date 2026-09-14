@@ -1,9 +1,12 @@
 export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "DEMO_GOOGLE_CLIENT_ID";
 export const MICROSOFT_CLIENT_ID = process.env.MICROSOFT_CLIENT_ID ?? "DEMO_MICROSOFT_CLIENT_ID";
+// Demo integrations must be explicitly enabled. Missing OAuth configuration is
+// never treated as permission to mint synthetic credentials.
+export const DEMO_MODE = process.env.NODE_ENV !== "production" && process.env.DEMO_MODE === "true";
 export const isProviderDemo = (provider: string): boolean =>
-  provider === "gmail"
+  DEMO_MODE && (provider === "gmail"
     ? GOOGLE_CLIENT_ID === "DEMO_GOOGLE_CLIENT_ID"
-    : MICROSOFT_CLIENT_ID === "DEMO_MICROSOFT_CLIENT_ID";
+    : MICROSOFT_CLIENT_ID === "DEMO_MICROSOFT_CLIENT_ID");
 export const IS_DEMO = isProviderDemo("gmail") && isProviderDemo("outlook");
 
 // ── Token bundle ───────────────────────────────────────────────────────────────

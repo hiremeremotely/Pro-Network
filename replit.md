@@ -5,7 +5,7 @@
 LinkedIn-style professional networking platform for remote workers. Users and companies can create profiles, browse/post remote jobs, apply, and engage via a social feed.
 
 **Live at:** `/` (landing page), `/login` (sign in), `/signup` (register), `/feed` (authenticated app)  
-**Backoffice at:** `/bo` (admin login), `/bo/dashboard` (admin panel — `admin@hiremeremotely.com` / `Admin@2026`)
+**Backoffice at:** `/bo` (admin login), `/bo/dashboard` (admin panel; credentials are supplied only through deployment secrets)
 
 ---
 
@@ -91,9 +91,12 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 DATABASE_URL="postgresql://YOUR_DB_USER:ENCODED_P
 - `ENCODED_PASSWORD` — output of the `encodeURIComponent` command above
 - `YOUR_RDS_ENDPOINT` — RDS cluster endpoint (e.g. `hiremeremotely-prod-us-east-1.cluster-cgr448g4siho.us-east-1.rds.amazonaws.com`)
 
-To seed demo data (6 profiles, 8 jobs, 6 posts, 3 applications — **wipes existing data first**):
+To seed demo data (6 profiles, 8 jobs, 6 posts, 3 applications), provide a temporary
+`SEED_DEMO_PASSWORD` (at least 12 characters) through a secret manager. Seeding
+destructively clears existing data and is refused in production unless an operator
+explicitly sets `ALLOW_DESTRUCTIVE_SEED=true`:
 ```bash
-NODE_TLS_REJECT_UNAUTHORIZED=0 DATABASE_URL="postgresql://YOUR_DB_USER:ENCODED_PASSWORD@YOUR_RDS_ENDPOINT:5432/postgres?sslmode=require" pnpm --filter @workspace/db run seed
+NODE_TLS_REJECT_UNAUTHORIZED=0 DATABASE_URL="postgresql://YOUR_DB_USER:ENCODED_PASSWORD@YOUR_RDS_ENDPOINT:5432/postgres?sslmode=require" SEED_DEMO_PASSWORD="..." pnpm --filter @workspace/db run seed
 ```
 
 ---
@@ -137,15 +140,9 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 DATABASE_URL="postgresql://YOUR_DB_USER:ENCODED_P
 - 8 jobs linked to companies
 - 6 social feed posts
 
-### Demo Login Credentials (seeded profiles, all use password `Demo@2026`)
-| Email | Name | Type |
-|---|---|---|
-| `alex@demo.com` | Alex Chen | individual |
-| `maria@demo.com` | Maria Santos | individual |
-| `james@demo.com` | James Okafor | individual |
-| `streamline@demo.com` | Streamline | company |
-| `deployly@demo.com` | Deployly | company |
-| `pixelcraft@demo.com` | Pixelcraft | company |
+Seeded account addresses and credentials are environment-specific and must not be
+published in collaborator documentation. Use a temporary password supplied through
+`SEED_DEMO_PASSWORD` when intentionally creating local demo data.
 
 ---
 
@@ -181,13 +178,13 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 DATABASE_URL="postgresql://YOUR_DB_USER:ENCODED_P
 
 ## Important Implementation Notes
 
-- **Auth**: Real session-based auth (Express + `connect-pg-simple`). `CURRENT_PROFILE_ID` is now dynamic from `req.session.profileId`.
+- **Auth**: Real session-based auth (Express + `connect-pg-simple`). `CURRENT_PROFILE_ID` is now dynamic from `req.session.profileId`; admin credentials are deployment secrets.
 - **DB queries**: `execute()` returns `{ rows, ... }` — use `result.rows ?? result` pattern
 - **API validation**: Use `zod/v4` not plain `zod` in API routes (bundling issue)
 - **Logo**: `@assets/hr_1775483051104.png` via Vite alias → `attached_assets/`; also at `public/logo.png`
 - **Landing page**: Uses its own header (not wrapped in Layout)
 - **App pages**: All wrapped in Layout component
-- **Email verification**: Demo-mode only — no real emails sent. After signup, `/verify-email` shows the verification link inline ("copy this link") so testers can verify without a real inbox.
+- **Email verification**: Verification links are delivered out-of-band; raw tokens are not returned by production endpoints.
 
 ---
 
@@ -199,8 +196,8 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 DATABASE_URL="postgresql://YOUR_DB_USER:ENCODED_P
 
 ## Auth Details
 
-- **App Auth**: session in `localStorage` key `app_user_session`; `AppAuthProvider` → `useAppAuth()`; SHA-256 + `hmr_salt_2026`; `AppUser` has `accountType` (`"individual"` | `"company"`)
-- **Backoffice Auth**: `sessionStorage` key `bo_admin_session`; credentials: `admin@hiremeremotely.com` / `Admin@2026`
+- **App Auth**: HTTP-only server session plus short-lived signed extension tokens; `AppUser` has `accountType` (`"individual"` | `"company"`)
+- **Backoffice Auth**: `sessionStorage` key `bo_admin_session`; credentials are deployment secrets and are never documented here.
 
 ## Messaging System
 
@@ -222,7 +219,7 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 DATABASE_URL="postgresql://YOUR_DB_USER:ENCODED_P
 - Jobs page with Grid/List/Table view, detail page, apply modal
 - Applications tracking page
 - Company dashboard at `/company-dashboard`
-- Full backoffice at `/bo/dashboard` (admin@hiremeremotely.com / Admin@2026)
+- Full backoffice at `/bo/dashboard` (deployment-configured admin credentials)
 - LinkedIn-style notifications (DB + API + bell dropdown + `/notifications` page)
 - Full messaging system: DB + API + `/messaging` full-page inbox + floating `MessagingWidget`
 - "Message" button on profile pages navigates to messaging with auto-created conversation

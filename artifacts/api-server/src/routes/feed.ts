@@ -38,7 +38,14 @@ router.get("/feed/featured-profiles", async (req, res): Promise<void> => {
   const excludeId = parseInt(req.query.excludeId as string, 10);
   const conditions = [eq(profilesTable.accountType, "individual")];
   if (!isNaN(excludeId)) conditions.push(sql`${profilesTable.id} != ${excludeId}` as any);
-  const profiles = await db.select().from(profilesTable).where(sql.join(conditions, sql` AND `)).limit(6).orderBy(desc(profilesTable.createdAt));
+  const profiles = await db.select({
+    id: profilesTable.id, accountType: profilesTable.accountType, name: profilesTable.name,
+    headline: profilesTable.headline, bio: profilesTable.bio, location: profilesTable.location,
+    industry: profilesTable.industry, avatarUrl: profilesTable.avatarUrl, coverUrl: profilesTable.coverUrl,
+    website: profilesTable.website, linkedinUrl: profilesTable.linkedinUrl, githubUrl: profilesTable.githubUrl,
+    twitterUrl: profilesTable.twitterUrl, interests: profilesTable.interests, openToWork: profilesTable.openToWork,
+    customLinks: profilesTable.customLinks,
+  }).from(profilesTable).where(sql.join(conditions, sql` AND `)).limit(6).orderBy(desc(profilesTable.createdAt));
   res.json(profiles);
 });
 
@@ -46,7 +53,14 @@ router.get("/feed/featured-companies", async (req, res): Promise<void> => {
   const excludeId = parseInt(req.query.excludeId as string, 10);
   const conditions = [eq(profilesTable.accountType, "company")];
   if (!isNaN(excludeId)) conditions.push(sql`${profilesTable.id} != ${excludeId}` as any);
-  const companies = await db.select().from(profilesTable).where(sql.join(conditions, sql` AND `)).limit(5).orderBy(desc(profilesTable.createdAt));
+  const companies = await db.select({
+    id: profilesTable.id, accountType: profilesTable.accountType, name: profilesTable.name,
+    headline: profilesTable.headline, bio: profilesTable.bio, location: profilesTable.location,
+    industry: profilesTable.industry, avatarUrl: profilesTable.avatarUrl, coverUrl: profilesTable.coverUrl,
+    website: profilesTable.website, linkedinUrl: profilesTable.linkedinUrl, githubUrl: profilesTable.githubUrl,
+    twitterUrl: profilesTable.twitterUrl, interests: profilesTable.interests, openToWork: profilesTable.openToWork,
+    customLinks: profilesTable.customLinks,
+  }).from(profilesTable).where(sql.join(conditions, sql` AND `)).limit(5).orderBy(desc(profilesTable.createdAt));
   res.json(companies);
 });
 

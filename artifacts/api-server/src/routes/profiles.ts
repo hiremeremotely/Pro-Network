@@ -1,6 +1,11 @@
 import { Router, type IRouter } from "express";
 import { and, eq, ilike, ne, or, sql, inArray } from "drizzle-orm";
-import { db, profilesTable, educationTable, experienceTable, portfolioTable, skillsTable } from "@workspace/db";
+import {
+  db, profilesTable, educationTable, experienceTable, portfolioTable, skillsTable,
+  applicationsTable, externalApplicationsTable, postsTable, postReactionsTable, postCommentsTable, connectionsTable,
+  bookmarksTable, interestRequestsTable, jobsTable,
+  notificationsTable, conversationsTable, messagesTable, conversationMembersTable,
+} from "@workspace/db";
 import {
   CreateProfileBody,
   UpdateProfileBody,
@@ -18,7 +23,6 @@ const publicProfileColumns = {
   id: profilesTable.id,
   accountType: profilesTable.accountType,
   name: profilesTable.name,
-  email: profilesTable.email,
   headline: profilesTable.headline,
   bio: profilesTable.bio,
   location: profilesTable.location,
@@ -36,12 +40,20 @@ const publicProfileColumns = {
   wellfoundUrl: profilesTable.wellfoundUrl,
   angellistUrl: profilesTable.angellistUrl,
   customLinks: profilesTable.customLinks,
-  gmailConnected: profilesTable.gmailConnected,
-  outlookConnected: profilesTable.outlookConnected,
-  emailVerified: profilesTable.emailVerified,
   createdAt: profilesTable.createdAt,
   updatedAt: profilesTable.updatedAt,
 };
+
+function profileDto(profile: typeof profilesTable.$inferSelect, includeEmail = false) {
+  const {
+    passwordHash: _passwordHash, resetToken: _resetToken, resetTokenExpiry: _resetTokenExpiry,
+    emailVerificationToken: _emailVerificationToken,
+    emailVerificationTokenExpiry: _emailVerificationTokenExpiry,
+    gmailToken: _gmailToken, outlookToken: _outlookToken,
+    email: _email, ...safe
+  } = profile;
+  return { ...safe, email: includeEmail ? profile.email : null };
+}
 
 router.get("/profiles", async (req, res): Promise<void> => {
   const query = ListProfilesQueryParams.safeParse(req.query);
@@ -110,9 +122,7 @@ router.get("/profiles", async (req, res): Promise<void> => {
     db.select({ count: sql<number>`count(*)` }).from(profilesTable).where(whereClause),
   ]);
 
-  // Always null-out email in list responses (viewers don't own the listed profiles)
-  const safeProfiles = profiles.map(p => ({ ...p, email: null }));
-  res.json({ profiles: safeProfiles, total: Number(countResult[0]?.count ?? 0) });
+  res.json({ profiles, total: Number(countResult[0]?.count ?? 0) });
 });
 
 router.post("/profiles", async (req, res): Promise<void> => {
@@ -125,7 +135,7 @@ router.post("/profiles", async (req, res): Promise<void> => {
     ...parsed.data,
     openToWork: parsed.data.openToWork ?? false,
   }).returning();
-  res.status(201).json(profile);
+  res.status(201).json(profileDto(profile, true));
 });
 
 router.get("/profiles/:id", async (req, res): Promise<void> => {
@@ -147,15 +157,7 @@ router.get("/profiles/:id", async (req, res): Promise<void> => {
     db.select().from(skillsTable).where(eq(skillsTable.profileId, params.data.id)),
   ]);
 
-  // Privacy layer: hide email from anyone except the profile owner or admin.
-  // passwordHash and auth tokens are never selected (publicProfileColumns).
-  const viewerId = req.query.viewerId ? Number(req.query.viewerId) : null;
-  const adminToken = req.header("x-admin-token");
-  const isOwner = viewerId === profile.id;
-  const isAdmin = adminToken === "bo_super_admin_token_2026";
-  const sanitized = (isOwner || isAdmin) ? profile : { ...profile, email: null };
-
-  res.json({ ...sanitized, education, experience, portfolio, skills });
+  res.json({ ...profile, education, experience, portfolio, skills });
 });
 
 router.put("/profiles/:id", async (req, res): Promise<void> => {
@@ -169,6 +171,10 @@ router.put("/profiles/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  if (req.session.profileId !== params.data.id) {
+    res.status(403).json({ error: "You may only update your own profile." });
+    return;
+  }
   const [profile] = await db.update(profilesTable)
     .set({ ...parsed.data, updatedAt: new Date() })
     .where(eq(profilesTable.id, params.data.id))
@@ -177,7 +183,7 @@ router.put("/profiles/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Profile not found" });
     return;
   }
-  res.json(profile);
+  res.json(profileDto(profile, true));
 });
 
 router.delete("/profiles/:id", async (req, res): Promise<void> => {
@@ -186,8 +192,44 @@ router.delete("/profiles/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  await db.delete(profilesTable).where(eq(profilesTable.id, params.data.id));
-  res.sendStatus(204);
+  if (req.session.profileId !== params.data.id) {
+    res.status(403).json({ error: "You may only delete your own profile." });
+    return;
+  }
+
+  await db.transaction(async (tx) => {
+    const profileId = params.data.id;
+    // Remove records without profile foreign keys and records that can contain
+    // personal content before deleting the profile itself.
+    await tx.delete(externalApplicationsTable).where(eq(externalApplicationsTable.profileId, profileId));
+    await tx.delete(applicationsTable).where(eq(applicationsTable.profileId, profileId));
+    await tx.delete(postsTable).where(eq(postsTable.profileId, profileId));
+    await tx.delete(postReactionsTable).where(eq(postReactionsTable.profileId, profileId));
+    await tx.delete(postCommentsTable).where(eq(postCommentsTable.profileId, profileId));
+    await tx.delete(connectionsTable).where(or(eq(connectionsTable.followerId, profileId), eq(connectionsTable.followingId, profileId)));
+    await tx.delete(bookmarksTable).where(eq(bookmarksTable.profileId, profileId));
+    await tx.delete(interestRequestsTable).where(or(eq(interestRequestsTable.companyProfileId, profileId), eq(interestRequestsTable.candidateProfileId, profileId)));
+    await tx.delete(notificationsTable).where(or(eq(notificationsTable.recipientProfileId, profileId), eq(notificationsTable.actorProfileId, profileId)));
+    const conversations = await tx.select({ id: conversationsTable.id })
+      .from(conversationsTable)
+      .where(or(eq(conversationsTable.participant1Id, profileId), eq(conversationsTable.participant2Id, profileId)));
+    if (conversations.length) {
+      const conversationIds = conversations.map((c) => c.id);
+      await tx.delete(messagesTable).where(inArray(messagesTable.conversationId, conversationIds));
+      await tx.delete(conversationMembersTable).where(inArray(conversationMembersTable.conversationId, conversationIds));
+      await tx.delete(conversationsTable).where(inArray(conversationsTable.id, conversationIds));
+    }
+    await tx.delete(messagesTable).where(eq(messagesTable.senderProfileId, profileId));
+    await tx.delete(conversationMembersTable).where(eq(conversationMembersTable.profileId, profileId));
+    // Jobs remain visible as historical listings, but no longer point to a
+    // deleted company account.
+    await tx.update(jobsTable).set({ companyProfileId: null }).where(eq(jobsTable.companyProfileId, profileId));
+    await tx.delete(profilesTable).where(eq(profilesTable.id, profileId));
+  });
+  req.session.destroy(() => {
+    res.clearCookie("hmr.sid");
+    res.sendStatus(204);
+  });
 });
 
 export default router;
