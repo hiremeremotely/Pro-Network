@@ -1,5 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
+import { eq } from "drizzle-orm";
+import { db, portfolioTable, portfolioUploadTicketsTable } from "@workspace/db";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
@@ -19,6 +21,10 @@ const objectStorageService = new ObjectStorageService();
  * Then uploads the file directly to the returned presigned URL.
  */
 router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
+  if (!req.session.profileId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
   const parsed = RequestUploadUrlBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Missing or invalid required fields" });
@@ -26,10 +32,30 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
   }
 
   try {
-    const { name, size, contentType } = parsed.data;
+    const { name, size, contentType, purpose } = parsed.data;
+    const portfolioMimeTypes = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
+    if (purpose === "portfolio") {
+      if (!portfolioMimeTypes.includes(contentType)) {
+        res.status(400).json({ error: "Portfolio uploads must be PDF, PNG, JPEG, or WebP" });
+        return;
+      }
+      if (size > 15 * 1024 * 1024) {
+        res.status(413).json({ error: "Portfolio uploads must be 15MB or smaller" });
+        return;
+      }
+    }
 
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+    if (purpose === "portfolio") {
+      await db.insert(portfolioUploadTicketsTable).values({
+        profileId: req.session.profileId,
+        objectPath,
+        originalName: name,
+        declaredMimeType: contentType,
+        declaredSize: size,
+      });
+    }
 
     res.json(
       RequestUploadUrlResponse.parse({
@@ -79,6 +105,53 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
 });
 
 /**
+ * Serve a portfolio upload by item id without exposing its object-storage path.
+ * Public items are viewable from public profiles; private items are owner-only.
+ */
+router.get("/storage/portfolio/:id", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid portfolio item" });
+    return;
+  }
+  try {
+    const [item] = await db.select({
+      profileId: portfolioTable.profileId,
+      objectPath: portfolioTable.objectPath,
+      visibility: portfolioTable.visibility,
+      mimeType: portfolioTable.mimeType,
+    }).from(portfolioTable).where(eq(portfolioTable.id, id));
+    if (!item?.objectPath) {
+      res.status(404).json({ error: "Portfolio file not found" });
+      return;
+    }
+    if (item.visibility !== "public" && req.session.profileId !== item.profileId) {
+      res.status(403).json({ error: "This portfolio file is private" });
+      return;
+    }
+    const objectFile = await objectStorageService.getObjectEntityFile(item.objectPath);
+    const response = await objectStorageService.downloadObject(objectFile);
+    res.status(response.status);
+    response.headers.forEach((value, key) => res.setHeader(key, value));
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Type", item.mimeType ?? "application/octet-stream");
+    res.setHeader("Content-Disposition", item.mimeType === "application/pdf" ? "attachment" : "inline");
+    if (response.body) {
+      Readable.fromWeb(response.body as ReadableStream<Uint8Array>).pipe(res);
+    } else {
+      res.end();
+    }
+  } catch (error) {
+    if (error instanceof ObjectNotFoundError) {
+      res.status(404).json({ error: "Portfolio file not found" });
+      return;
+    }
+    logger.error({ err: error, portfolioId: id }, "Error serving portfolio file");
+    res.status(500).json({ error: "Failed to serve portfolio file" });
+  }
+});
+
+/**
  * GET /storage/objects/*
  *
  * Serve object entities from PRIVATE_OBJECT_DIR.
@@ -90,6 +163,12 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const raw = req.params.path;
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
     const objectPath = `/objects/${wildcardPath}`;
+    const [ticket] = await db.select({ profileId: portfolioUploadTicketsTable.profileId })
+      .from(portfolioUploadTicketsTable).where(eq(portfolioUploadTicketsTable.objectPath, objectPath));
+    if (ticket && req.session.profileId !== ticket.profileId) {
+      res.status(403).json({ error: "You do not have access to this uploaded object" });
+      return;
+    }
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
     // --- Protected route example (uncomment when using replit-auth) ---

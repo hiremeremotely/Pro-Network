@@ -1168,6 +1168,31 @@ export default function ProfileDetail() {
               </div>
             )}
 
+            {/* Public portfolio */}
+            {((profile.portfolio ?? []) as any[]).length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-200 px-6 py-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-semibold text-gray-900 flex items-center gap-2"><FileTextIcon className="w-4 h-4 text-primary" /> Portfolio</h2>
+                  {isOwn && <Link href="/profile/edit"><Button variant="ghost" size="sm" className="text-xs gap-1"><PencilIcon className="w-3 h-3" /> Manage</Button></Link>}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {((profile.portfolio ?? []) as any[]).sort((a, b) => Number(b.featured) - Number(a.featured)).map((item: any) => {
+                    const fileUrl = item.mimeType ? `${BASE}api/storage/portfolio/${item.id}` : null;
+                    const media = item.imageUrl || (item.mimeType?.startsWith("image/") ? fileUrl : null);
+                    return <article key={item.id} className="rounded-xl border border-gray-100 overflow-hidden hover:border-primary/30 transition-colors">
+                      <div className="h-28 bg-gradient-to-br from-indigo-50 to-gray-50 flex items-center justify-center overflow-hidden">{media ? <img src={media} alt={`${item.title} preview`} className="w-full h-full object-cover" /> : <FileTextIcon className="w-8 h-8 text-indigo-300" />}</div>
+                      <div className="p-3"><div className="flex items-start justify-between gap-2"><h3 className="text-sm font-semibold text-gray-900">{item.title}</h3>{item.featured && <StarIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />}</div>
+                        <div className="flex items-center gap-1.5 mt-1"><Badge variant="outline" className="text-[10px]">{item.source === "github" ? "GitHub" : item.source === "linkedin" ? "LinkedIn" : item.source === "upload" ? "Upload" : item.source || "Portfolio"}</Badge>{item.mimeType === "application/pdf" && <span className="text-[10px] text-gray-400">PDF</span>}</div>
+                        {item.description && <p className="text-xs text-gray-500 line-clamp-2 mt-2">{item.description}</p>}
+                        {!!item.tags?.length && <div className="flex flex-wrap gap-1 mt-2">{item.tags.slice(0, 4).map((tag: string) => <span key={tag} className="text-[10px] bg-gray-50 rounded-full px-2 py-0.5 text-gray-500">{tag}</span>)}</div>}
+                        {(item.projectUrl || item.canonicalUrl || fileUrl) && <a href={item.projectUrl || item.canonicalUrl || fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline inline-block mt-2">{fileUrl && !item.projectUrl && !item.canonicalUrl ? "View file" : "View project"} ↗</a>}
+                      </div>
+                    </article>;
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Experience */}
             <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4">
               <SectionHeader title="Experience" icon={BriefcaseIcon} isOwn={isOwn} onAdd={() => setModal("exp")} />

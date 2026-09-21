@@ -16,6 +16,8 @@ interface UploadResponse {
 interface UseUploadOptions {
   /** Base path where object storage routes are mounted (default: "/api/storage") */
   basePath?: string;
+  /** Adds stricter server-side ownership checks for portfolio files. */
+  purpose?: "portfolio";
   onSuccess?: (response: UploadResponse) => void;
   onError?: (error: Error) => void;
 }
@@ -70,6 +72,7 @@ export function useUpload(options: UseUploadOptions = {}) {
           name: file.name,
           size: file.size,
           contentType: file.type || "application/octet-stream",
+          purpose: options.purpose,
         }),
       });
 
@@ -80,7 +83,7 @@ export function useUpload(options: UseUploadOptions = {}) {
 
       return response.json();
     },
-    []
+    [basePath, options.purpose]
   );
 
   const uploadToPresignedUrl = useCallback(
@@ -145,6 +148,7 @@ export function useUpload(options: UseUploadOptions = {}) {
           name: file.name,
           size: file.size,
           contentType: file.type || "application/octet-stream",
+          purpose: options.purpose,
         }),
       });
 
@@ -159,7 +163,7 @@ export function useUpload(options: UseUploadOptions = {}) {
         headers: { "Content-Type": file.type || "application/octet-stream" },
       };
     },
-    []
+    [basePath, options.purpose]
   );
 
   return {

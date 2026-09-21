@@ -25,7 +25,8 @@
     "google-auth-library": "^10.6.2",
     "http-proxy-middleware": "^4.2.0",
     "pino": "^9",
-    "pino-http": "^10"
+    "pino-http": "^10",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/connect-pg-simple": "^7.0.3",

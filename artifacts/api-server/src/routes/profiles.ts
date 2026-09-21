@@ -150,14 +150,27 @@ router.get("/profiles/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const isOwner = req.session.profileId === params.data.id;
   const [education, experience, portfolio, skills] = await Promise.all([
     db.select().from(educationTable).where(eq(educationTable.profileId, params.data.id)),
     db.select().from(experienceTable).where(eq(experienceTable.profileId, params.data.id)),
-    db.select().from(portfolioTable).where(eq(portfolioTable.profileId, params.data.id)),
+    db.select().from(portfolioTable).where(
+      isOwner
+        ? eq(portfolioTable.profileId, params.data.id)
+        : and(eq(portfolioTable.profileId, params.data.id), eq(portfolioTable.visibility, "public"))
+    ),
     db.select().from(skillsTable).where(eq(skillsTable.profileId, params.data.id)),
   ]);
 
-  res.json({ ...profile, education, experience, portfolio, skills });
+  res.json({
+    ...profile, education, experience,
+    portfolio: portfolio.map((item) => {
+      if (isOwner) return item;
+      const { objectPath: _objectPath, ...safe } = item;
+      return safe;
+    }),
+    skills,
+  });
 });
 
 router.put("/profiles/:id", async (req, res): Promise<void> => {

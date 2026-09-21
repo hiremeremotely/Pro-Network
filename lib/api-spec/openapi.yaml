@@ -89,6 +89,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /storage/portfolio/{id}:
+    get:
+      operationId: getPortfolioFile
+      tags: [Storage]
+      summary: Serve a portfolio file with visibility enforcement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Portfolio file
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
   /healthz:
     get:
       operationId: healthCheck
@@ -465,7 +487,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreatePortfolioProjectBody"
+              $ref: "#/components/schemas/UpdatePortfolioProjectBody"
       responses:
         "200":
           description: Updated
@@ -491,6 +513,92 @@ paths:
       responses:
         "204":
           description: Deleted
+
+  /profiles/{profileId}/portfolio/reorder:
+    put:
+      operationId: reorderPortfolio
+      tags: [portfolio]
+      summary: Reorder portfolio projects
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items: { type: integer }
+      responses:
+        "200":
+          description: Reordered
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+
+  /profiles/{profileId}/portfolio/import:
+    post:
+      operationId: importPortfolio
+      tags: [portfolio]
+      summary: Confirm portfolio import candidates
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items: { $ref: "#/components/schemas/CreatePortfolioProjectBody" }
+      responses:
+        "201":
+          description: Imported projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PortfolioProject" }
+
+  /profiles/{profileId}/portfolio/import/github:
+    get:
+      operationId: discoverGithubPortfolio
+      tags: [portfolio]
+      summary: Discover public GitHub repositories for import
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: username
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Repository candidates
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/GithubPortfolioCandidate" }
 
   /profiles/{profileId}/skills:
     get:
@@ -1510,7 +1618,50 @@ components:
             type: string
         featured:
           type: boolean
-      required: [id, profileId, title, tags, featured]
+        source:
+          type: string
+        externalId:
+          type: string
+          nullable: true
+        canonicalUrl:
+          type: string
+          nullable: true
+        objectPath:
+          type: string
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+        fileSize:
+          type: integer
+          nullable: true
+        visibility:
+          type: string
+          enum: [public, private]
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, profileId, title, tags, featured, source, visibility, sortOrder, createdAt, updatedAt]
+
+    GithubPortfolioCandidate:
+      type: object
+      properties:
+        externalId: { type: string }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        canonicalUrl: { type: string, format: uri }
+        projectUrl: { type: string, format: uri }
+        imageUrl: { type: string, nullable: true }
+        tags:
+          type: array
+          items: { type: string }
+        source: { type: string, enum: [github] }
+      required: [externalId, title, canonicalUrl, projectUrl, tags, source]
 
     CreatePortfolioProjectBody:
       type: object
@@ -1532,7 +1683,77 @@ components:
             type: string
         featured:
           type: boolean
+        source:
+          type: string
+          enum: [manual, github, behance, dribbble, linkedin, personal, upload]
+        externalId:
+          type: string
+          nullable: true
+        canonicalUrl:
+          type: string
+          format: uri
+          nullable: true
+        visibility:
+          type: string
+          enum: [public, private]
+        objectPath:
+          type: string
+          nullable: true
+        mimeType:
+          type: string
+          enum: [application/pdf, image/png, image/jpeg, image/webp]
+          nullable: true
+        fileSize:
+          type: integer
+          maximum: 15728640
+          nullable: true
       required: [title, tags]
+
+    UpdatePortfolioProjectBody:
+      type: object
+      description: Partial portfolio project update; all properties are optional.
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        projectUrl:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        featured:
+          type: boolean
+        source:
+          type: string
+          enum: [manual, github, behance, dribbble, linkedin, personal, upload]
+        externalId:
+          type: string
+          nullable: true
+        canonicalUrl:
+          type: string
+          format: uri
+          nullable: true
+        visibility:
+          type: string
+          enum: [public, private]
+        objectPath:
+          type: string
+          nullable: true
+        mimeType:
+          type: string
+          enum: [application/pdf, image/png, image/jpeg, image/webp]
+          nullable: true
+        fileSize:
+          type: integer
+          maximum: 15728640
+          nullable: true
 
     Skill:
       type: object
@@ -1710,6 +1931,10 @@ components:
           type: string
           minLength: 1
           description: MIME type of the file (e.g. image/jpeg).
+        purpose:
+          type: string
+          enum: [portfolio]
+          description: Optional stricter handling for portfolio files; omitted for existing general uploads.
     UploadUrlResponse:
       type: object
       required: [uploadURL, objectPath]

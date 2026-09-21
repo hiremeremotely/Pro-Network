@@ -28,6 +28,7 @@ import {
 import { useAppAuth } from "@/contexts/app-auth";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/layout";
+import { PortfolioManager } from "@/components/portfolio-manager";
 
 export default function ProfileEdit() {
   const { user, logout, updateUser } = useAppAuth();
@@ -783,52 +784,7 @@ export default function ProfileEdit() {
 
         {/* Portfolio Tab */}
         <TabsContent value="portfolio" className="space-y-6">
-          <Card>
-            <CardHeader><CardTitle>Portfolio Projects</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              {portfolio?.map((proj) => (
-                <div key={proj.id} className="flex items-start justify-between p-4 rounded-lg bg-muted/30 border" data-testid={`portfolio-row-${proj.id}`}>
-                  <div>
-                    <p className="font-semibold">{proj.title}</p>
-                    {proj.description && <p className="text-sm text-muted-foreground line-clamp-1">{proj.description}</p>}
-                    <div className="flex gap-1 mt-1 flex-wrap">
-                      {proj.tags.map(tag => <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>)}
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="icon" className="text-destructive shrink-0" onClick={() => removePortfolio(proj.id)} data-testid={`button-delete-portfolio-${proj.id}`}>
-                    <TrashIcon className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader><CardTitle>Add Project</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Project Title</Label>
-                <Input value={portForm.title} onChange={e => setPortForm(p => ({ ...p, title: e.target.value }))} placeholder="My Awesome Project" data-testid="input-portfolio-title" />
-              </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea value={portForm.description} onChange={e => setPortForm(p => ({ ...p, description: e.target.value }))} placeholder="What did you build and what impact did it have?" rows={3} />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Project URL</Label>
-                  <Input value={portForm.projectUrl} onChange={e => setPortForm(p => ({ ...p, projectUrl: e.target.value }))} placeholder="https://github.com/..." />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tags (comma-separated)</Label>
-                  <Input value={portForm.tags} onChange={e => setPortForm(p => ({ ...p, tags: e.target.value }))} placeholder="React, TypeScript, Node.js" data-testid="input-portfolio-tags" />
-                </div>
-              </div>
-              <Button onClick={addPortfolio} disabled={createPortfolio.isPending} className="gap-2" data-testid="button-add-portfolio">
-                <PlusIcon className="w-4 h-4" /> Add Project
-              </Button>
-            </CardContent>
-          </Card>
+          <PortfolioManager profileId={CURRENT_PROFILE_ID} portfolio={portfolio ?? []} githubUrl={profile?.githubUrl} />
         </TabsContent>
 
         {/* Skills Tab */}

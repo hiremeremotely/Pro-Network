@@ -211,7 +211,9 @@ app.use(
       req.path === "/jobs" ||
       /^\/jobs\/\d+$/.test(req.path) ||
       req.path === "/profiles" ||
-      /^\/profiles\/\d+$/.test(req.path)
+      /^\/profiles\/\d+$/.test(req.path) ||
+      /^\/profiles\/\d+\/portfolio$/.test(req.path) ||
+      /^\/storage\/portfolio\/\d+$/.test(req.path)
     );
     if (isPublicGet) return next();
     requireAuth(req, res, next);

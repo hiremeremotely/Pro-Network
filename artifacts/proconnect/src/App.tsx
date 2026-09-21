@@ -54,7 +54,7 @@ function ClerkBridge() {
   const { user } = useUser();
   const { signOut } = useClerk();
   const { establishSession } = useAppAuth();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const bridgedUser = useRef<string | null>(null);
 
   useEffect(() => {
@@ -85,13 +85,20 @@ function ClerkBridge() {
           avatarUrl: data.profile.avatarUrl,
           authToken: data.authToken,
         });
-        navigate(data.profile.accountType === "company" ? "/company-dashboard" : "/feed");
+        const isAuthEntry =
+          location === "/" ||
+          location === "/login" ||
+          location.startsWith("/sign-in") ||
+          location.startsWith("/sign-up");
+        if (isAuthEntry) {
+          navigate(data.profile.accountType === "company" ? "/company-dashboard" : "/feed");
+        }
       })
       .catch(() => {
         if (!cancelled) bridgedUser.current = null;
       });
     return () => { cancelled = true; };
-  }, [isLoaded, isSignedIn, user, establishSession, navigate]);
+  }, [isLoaded, isSignedIn, user, establishSession, location, navigate]);
 
   return null;
 }
