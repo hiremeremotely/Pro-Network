@@ -18,6 +18,7 @@ interface AppAuthCtx {
   signup: (data: SignupData) => Promise<{ ok: boolean; error?: string; verificationToken?: string }>;
   logout: () => void;
   updateUser: (partial: Partial<AppUser>) => void;
+  establishSession: (user: AppUser) => void;
 }
 
 interface SignupData {
@@ -125,6 +126,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("app_user_session");
     sessionStorage.removeItem("verify_token");
     sessionStorage.removeItem("verify_email_address");
+    window.dispatchEvent(new Event("proconnect:clerk-logout"));
     setUser(null);
   }, [BASE]);
 
@@ -132,7 +134,12 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
     setUser(prev => (prev ? { ...prev, ...partial } : null));
   }, []);
 
-  return <Ctx.Provider value={{ user, isLoading, login, signup, logout, updateUser }}>{children}</Ctx.Provider>;
+  const establishSession = useCallback((nextUser: AppUser) => {
+    setUser(nextUser);
+    setIsLoading(false);
+  }, []);
+
+  return <Ctx.Provider value={{ user, isLoading, login, signup, logout, updateUser, establishSession }}>{children}</Ctx.Provider>;
 }
 
 export function useAppAuth() {

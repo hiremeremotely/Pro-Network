@@ -4,9 +4,12 @@ import rateLimit from "express-rate-limit";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import pinoHttp from "pino-http";
+import { clerkMiddleware } from "@clerk/express";
+import { publishableKeyFromHost } from "@clerk/shared/keys";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { requireAuth } from "./middlewares/require-auth";
+import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from "./middlewares/clerkProxyMiddleware";
 
 // ── Allowed CORS origins ──────────────────────────────────────────────────────
 // Production domains come from REPLIT_DOMAINS (comma-separated, no protocol).
@@ -127,6 +130,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Clerk's frontend API proxy must stream requests before body parsers.
+app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+
 app.use(
   cors({
     origin(requestOrigin, callback) {
@@ -140,6 +146,15 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   }),
+);
+
+app.use(
+  clerkMiddleware((req) => ({
+    publishableKey: publishableKeyFromHost(
+      getClerkProxyHost(req) ?? "",
+      process.env.CLERK_PUBLISHABLE_KEY,
+    ),
+  })),
 );
 
 app.use(express.json());

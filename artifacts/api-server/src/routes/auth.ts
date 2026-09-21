@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "crypto";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+import { clerkClient, getAuth } from "@clerk/express";
 import { db, profilesTable } from "@workspace/db";
 import { IS_DEMO, DEMO_TOKEN_BUNDLE } from "../lib/email-provider";
 import { encryptToken } from "../lib/crypto";
@@ -268,6 +269,51 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     await db.update(profilesTable).set({ passwordHash: hashPassword(password) }).where(eq(profilesTable.id, profile.id));
   }
   if (profile.email) await autoConnectEmailByDomain(profile.id, profile.email);
+  req.session.profileId = profile.id;
+  const { passwordHash: _pw, emailVerificationToken: _evt, emailVerificationTokenExpiry: _evx, resetToken: _rt, resetTokenExpiry: _rtx, gmailToken: _gt, outlookToken: _ot, ...safe } = profile;
+  res.json({ profile: safe, authToken: generateAuthToken(profile.id) });
+});
+
+// Bridge a verified Clerk identity into the existing local profile/session
+// system. Identity and email are read exclusively from Clerk's server APIs.
+router.post("/auth/clerk-bridge", async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  const clerkUserId = auth?.userId;
+  if (!clerkUserId) {
+    res.status(401).json({ error: "Clerk authentication required." });
+    return;
+  }
+
+  const clerkUser = await clerkClient.users.getUser(clerkUserId);
+  const primary = clerkUser.emailAddresses.find(
+    (address) => address.id === clerkUser.primaryEmailAddressId,
+  );
+  if (!primary || primary.verification?.status !== "verified") {
+    res.status(403).json({ error: "A verified primary email is required." });
+    return;
+  }
+
+  const email = primary.emailAddress.trim().toLowerCase();
+  let [profile] = await db
+    .select()
+    .from(profilesTable)
+    .where(sql`lower(${profilesTable.email}) = ${email}`)
+    .limit(1);
+
+  if (!profile) {
+    const name = clerkUser.fullName?.trim() || clerkUser.firstName?.trim() || email.split("@")[0];
+    [profile] = await db.insert(profilesTable).values({
+      name,
+      email,
+      accountType: "individual",
+      headline: "Professional on Hire Me Remotely",
+      emailVerified: true,
+      openToWork: false,
+      interests: [],
+      customLinks: [],
+    }).returning();
+  }
+
   req.session.profileId = profile.id;
   const { passwordHash: _pw, emailVerificationToken: _evt, emailVerificationTokenExpiry: _evx, resetToken: _rt, resetTokenExpiry: _rtx, gmailToken: _gt, outlookToken: _ot, ...safe } = profile;
   res.json({ profile: safe, authToken: generateAuthToken(profile.id) });
