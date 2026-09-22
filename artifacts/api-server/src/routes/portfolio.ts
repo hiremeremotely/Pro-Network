@@ -3,7 +3,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db, portfolioTable, portfolioUploadTicketsTable } from "@workspace/db";
 import { ObjectStorageService } from "../lib/objectStorage";
-import { companyReleaseScope } from "../lib/privacyProjection";
+import { canViewProfile, companyReleaseScope } from "../lib/privacyProjection";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -75,9 +75,10 @@ async function validateUpload(profileId: number, objectPath: string, declaredMim
 router.get("/profiles/:profileId/portfolio", async (req, res): Promise<void> => {
   const parsed = idParams.safeParse(req.params);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  const owner = owns(req, parsed.data.profileId);
+  if (!(await canViewProfile(req, parsed.data.profileId))) { res.status(404).json({ error: "Profile not found" }); return; }
   const scope = await companyReleaseScope(req, parsed.data.profileId);
-  if (scope && !scope.has("portfolio")) { res.json([]); return; }
+  if (!scope.has("portfolio")) { res.json([]); return; }
+  const owner = owns(req, parsed.data.profileId) || req.session?.isAdmin === true;
   const rows = await db.select().from(portfolioTable)
     .where(owner ? eq(portfolioTable.profileId, parsed.data.profileId) : and(eq(portfolioTable.profileId, parsed.data.profileId), eq(portfolioTable.visibility, "public")))
     .orderBy(asc(portfolioTable.sortOrder), asc(portfolioTable.id));

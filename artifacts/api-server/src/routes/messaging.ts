@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { conversationsTable, conversationMembersTable, messagesTable, profilesTable, connectionsTable, employeesTable, notificationsTable } from "@workspace/db";
+import { conversationsTable, conversationMembersTable, messagesTable, profilesTable, connectionsTable, employeesTable, notificationsTable, interestRequestsTable } from "@workspace/db";
 import { desc, eq, ne, sql, and, or, count, inArray, isNotNull } from "drizzle-orm";
 
 const router = Router();
@@ -17,9 +17,17 @@ async function areConnected(a: number, b: number): Promise<boolean> {
     .from(connectionsTable)
     .where(
       or(
-        and(eq(connectionsTable.followerId, a), eq(connectionsTable.followingId, b)),
-        and(eq(connectionsTable.followerId, b), eq(connectionsTable.followingId, a)),
-      )
+        and(
+          eq(connectionsTable.followerId, a),
+          eq(connectionsTable.followingId, b),
+          eq(connectionsTable.status, "accepted"),
+        ),
+        and(
+          eq(connectionsTable.followerId, b),
+          eq(connectionsTable.followingId, a),
+          eq(connectionsTable.status, "accepted"),
+        ),
+      ),
     )
     .limit(1);
   return rows.length > 0;
@@ -29,6 +37,10 @@ async function areConnected(a: number, b: number): Promise<boolean> {
 // Returns (or creates) the team channel for a given company.
 // Query: ?companyProfileId=
 router.get("/messaging/team-channel", async (req, res): Promise<void> => {
+  if (!req.session.profileId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
   const companyProfileId = parseInt(req.query.companyProfileId as string);
   if (isNaN(companyProfileId)) {
     res.status(400).json({ error: "companyProfileId required" });
@@ -43,7 +55,26 @@ router.get("/messaging/team-channel", async (req, res): Promise<void> => {
     .limit(1);
 
   if (existing) {
+    // Existing team channels may be viewed by the company owner or a member.
+    const [membership] = await db
+      .select({ id: conversationMembersTable.id })
+      .from(conversationMembersTable)
+      .where(and(
+        eq(conversationMembersTable.conversationId, existing.id),
+        eq(conversationMembersTable.profileId, req.session.profileId!),
+      ))
+      .limit(1);
+    if (req.session.profileId !== companyProfileId && !membership) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
     res.json(existing);
+    return;
+  }
+
+  // Only the company account may create its team channel.
+  if (req.session.profileId !== companyProfileId) {
+    res.status(403).json({ error: "Only the company owner can create a team channel" });
     return;
   }
 
@@ -74,6 +105,10 @@ router.post("/messaging/team-channel/members", async (req, res): Promise<void> =
   const { companyProfileId, memberProfileId } = req.body;
   if (!companyProfileId || !memberProfileId) {
     res.status(400).json({ error: "companyProfileId and memberProfileId required" });
+    return;
+  }
+  if (req.session.profileId !== Number(companyProfileId)) {
+    res.status(403).json({ error: "Only the company owner can modify team members" });
     return;
   }
 
@@ -135,6 +170,10 @@ router.delete("/messaging/team-channel/members", async (req, res): Promise<void>
   const memberProfileId = parseInt(req.query.memberProfileId as string);
   if (isNaN(companyProfileId) || isNaN(memberProfileId)) {
     res.status(400).json({ error: "companyProfileId and memberProfileId required" });
+    return;
+  }
+  if (req.session.profileId !== companyProfileId) {
+    res.status(403).json({ error: "Only the company owner can modify team members" });
     return;
   }
 
@@ -228,12 +267,21 @@ router.get("/conversations/post-recipients", async (req, res): Promise<void> => 
 // Create or retrieve a direct conversation between two users
 router.post("/conversations", async (req, res): Promise<void> => {
   const { myProfileId, otherProfileId } = req.body;
+  const sessionProfileId = req.session.profileId;
+  if (!sessionProfileId) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
   if (!myProfileId || !otherProfileId) {
     res.status(400).json({ error: "myProfileId and otherProfileId required" });
     return;
   }
   const myId = Number(myProfileId);
   const otherId = Number(otherProfileId);
+  if (!Number.isInteger(myId) || !Number.isInteger(otherId) || myId !== sessionProfileId || myId === otherId) {
+    res.status(403).json({ error: "myProfileId must match the authenticated profile" });
+    return;
+  }
   const [p1, p2] = orderedPair(myId, otherId);
 
   // Try to find existing direct conversation FIRST — allows existing convos
@@ -250,6 +298,10 @@ router.post("/conversations", async (req, res): Promise<void> => {
     .limit(1);
 
   if (existing) {
+    if (existing.participant1Id !== sessionProfileId && existing.participant2Id !== sessionProfileId) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
     res.json(existing);
     return;
   }
@@ -501,8 +553,17 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
 
     const otherProfileId = conv.participant1Id === senderId ? conv.participant2Id : conv.participant1Id;
     const connected = await areConnected(senderId, otherProfileId);
+    const [hmrIntroduction] = await db
+      .select({ id: interestRequestsTable.id })
+      .from(interestRequestsTable)
+      .where(and(
+        eq(interestRequestsTable.conversationId, convId),
+        eq(interestRequestsTable.handlingMode, "direct"),
+        inArray(interestRequestsTable.status, ["approved", "expired", "revoked"]),
+      ))
+      .limit(1);
 
-    if (!connected) {
+    if (!connected && !hmrIntroduction) {
       const [{ senderMsgCount }] = await db
         .select({ senderMsgCount: count() })
         .from(messagesTable)

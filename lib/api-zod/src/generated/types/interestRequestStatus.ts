@@ -17,4 +17,6 @@ export const InterestRequestStatus = {
   declined: 'declined',
   declined_hmr: 'declined_hmr',
   declined_candidate: 'declined_candidate',
+  expired: 'expired',
+  revoked: 'revoked',
 } as const;

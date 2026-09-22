@@ -1392,6 +1392,41 @@ paths:
         "200":
           description: Declined
           content: { application/json: { schema: { $ref: "#/components/schemas/InterestRequest" } } }
+  /admin/interest-requests/{id}/expire:
+    post:
+      operationId: expireInterestRequest
+      tags: [interest]
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]
+      responses:
+        "200":
+          description: Expired request
+          content: { application/json: { schema: { $ref: "#/components/schemas/InterestRequest" } } }
+  /admin/interest-requests/{id}/audit:
+    get:
+      operationId: listInterestRequestAudit
+      tags: [interest]
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]
+      responses:
+        "200":
+          description: Immutable audit history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events: { type: array, items: { type: object, additionalProperties: true } }
+  /admin/interest-requests/{id}/revoke:
+    post:
+      operationId: revokeInterestRequest
+      tags: [interest]
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]
+      responses:
+        "200":
+          description: Revoked release
+          content: { application/json: { schema: { $ref: "#/components/schemas/InterestRequest" } } }
 
 components:
   schemas:
@@ -1430,16 +1465,20 @@ components:
         companyNote: { type: string }
     InterestApproval:
       type: object
-      required: [releaseScope]
+      required: [releaseScope, handlingMode]
       properties:
         releaseScope:
           type: array
           items: { type: string }
+        handlingMode: { type: string, enum: [direct, hmr_managed] }
     InterestRequest:
       type: object
       properties:
         id: { type: integer }
-        status: { type: string, enum: [pending, pending_hmr, pending_candidate, approved, declined, declined_hmr, declined_candidate] }
+        status: { type: string, enum: [pending, pending_hmr, pending_candidate, approved, declined, declined_hmr, declined_candidate, expired, revoked] }
+        handlingMode: { type: string, enum: [direct, hmr_managed] }
+        expiresAt: { type: string, format: date-time, nullable: true }
+        releaseExpiresAt: { type: string, format: date-time, nullable: true }
         roleTitle: { type: string, nullable: true }
         conversationId: { type: integer, nullable: true }
     CompanyInterestRequest:
@@ -2042,18 +2081,25 @@ components:
           type: string
         appliedAt:
           type: string
+        consentToShare: { type: boolean }
+        consentScope: { type: array, items: { type: string } }
+        consentedAt: { type: string, format: date-time, nullable: true }
         profile:
           $ref: "#/components/schemas/Profile"
         job:
           $ref: "#/components/schemas/Job"
-      required: [id, jobId, profileId, status, appliedAt, profile, job]
+      required: [id, jobId, profileId, status, appliedAt, consentToShare, consentScope, profile, job]
 
     CreateApplicationBody:
       type: object
+      required: [consentToShare]
       properties:
         coverLetter:
           type: string
           nullable: true
+        consentToShare:
+          type: boolean
+          description: Consent to share identity, contact, profile, and cover letter with the job company.
 
     FeedStats:
       type: object

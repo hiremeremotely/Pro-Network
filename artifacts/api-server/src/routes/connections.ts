@@ -3,6 +3,7 @@ import { db, connectionsTable, profilesTable } from "@workspace/db";
 import { notificationsTable } from "@workspace/db";
 import { eq, and, inArray, notInArray, ne, or, sql, desc } from "drizzle-orm";
 import { emitToUser } from "./events";
+import { companyReleaseScope, projectProfileForScope } from "../lib/privacyProjection";
 
 const router = Router();
 
@@ -87,7 +88,10 @@ router.get("/connections/network", async (req, res): Promise<void> => {
       industry: profilesTable.industry, avatarUrl: profilesTable.avatarUrl, coverUrl: profilesTable.coverUrl,
       website: profilesTable.website, linkedinUrl: profilesTable.linkedinUrl, githubUrl: profilesTable.githubUrl,
       twitterUrl: profilesTable.twitterUrl, interests: profilesTable.interests, openToWork: profilesTable.openToWork,
-      customLinks: profilesTable.customLinks,
+      customLinks: profilesTable.customLinks, privacySettings: profilesTable.privacySettings,
+      indeedUrl: profilesTable.indeedUrl, glassdoorUrl: profilesTable.glassdoorUrl,
+      wellfoundUrl: profilesTable.wellfoundUrl, angellistUrl: profilesTable.angellistUrl,
+      createdAt: profilesTable.createdAt, updatedAt: profilesTable.updatedAt,
     })
     .from(profilesTable)
     .where(inArray(profilesTable.id, partnerIds));
@@ -95,11 +99,16 @@ router.get("/connections/network", async (req, res): Promise<void> => {
   const orderMap = Object.fromEntries(partnerIds.map((id, i) => [id, i]));
   profiles.sort((a, b) => (orderMap[a.id] ?? 99) - (orderMap[b.id] ?? 99));
 
-  const connections = profiles.filter(p => p.accountType !== "company");
-  const following   = profiles.filter(p => p.accountType === "company");
+  const projectedProfiles = await Promise.all(profiles.map(async (profile) =>
+    profile.accountType === "individual"
+      ? projectProfileForScope(profile, await companyReleaseScope(req, profile.id))
+      : profile
+  ));
+  const connections = projectedProfiles.filter(p => p.accountType !== "company");
+  const following   = projectedProfiles.filter(p => p.accountType === "company");
 
   res.json({
-    profiles,
+    profiles: projectedProfiles,
     connections,
     following,
     total: profiles.length,
@@ -113,9 +122,13 @@ router.get("/connections/recommended", async (req, res): Promise<void> => {
   const profileId = req.session.profileId!;
 
   const [myProfile] = await db.select({
-    industry: profilesTable.industry, interests: profilesTable.interests,
+    accountType: profilesTable.accountType, industry: profilesTable.industry, interests: profilesTable.interests,
   }).from(profilesTable).where(eq(profilesTable.id, profileId));
   if (!myProfile) { res.json({ profiles: [] }); return; }
+  if (myProfile.accountType === "company") {
+    res.status(403).json({ error: "Company talent discovery is available through the HMR marketplace." });
+    return;
+  }
 
   // Exclude everyone already connected (both directions) or pending
   const connectionRows = await db
@@ -135,7 +148,11 @@ router.get("/connections/recommended", async (req, res): Promise<void> => {
   const myInterests = (myProfile.interests ?? []) as string[];
 
   // Only suggest individuals — companies are follower targets, not peer connections
-  const individualsOnly = eq(profilesTable.accountType, "individual");
+  const individualsOnly = and(
+    eq(profilesTable.accountType, "individual"),
+    eq(profilesTable.discoveryEnabled, true),
+    sql`${profilesTable.privacySettings}->>'identity' = 'public'`,
+  )!;
 
   const baseWhere = excludeIds.length > 0
     ? and(individualsOnly, notInArray(profilesTable.id, excludeIds))
@@ -155,6 +172,9 @@ router.get("/connections/recommended", async (req, res): Promise<void> => {
     website: profilesTable.website, linkedinUrl: profilesTable.linkedinUrl, githubUrl: profilesTable.githubUrl,
     twitterUrl: profilesTable.twitterUrl, interests: profilesTable.interests, openToWork: profilesTable.openToWork,
     customLinks: profilesTable.customLinks,
+    indeedUrl: profilesTable.indeedUrl, glassdoorUrl: profilesTable.glassdoorUrl,
+    wellfoundUrl: profilesTable.wellfoundUrl, angellistUrl: profilesTable.angellistUrl,
+    createdAt: profilesTable.createdAt, updatedAt: profilesTable.updatedAt,
   };
   let matchedByProfile = false;
 
@@ -184,7 +204,10 @@ router.get("/connections/recommended", async (req, res): Promise<void> => {
     recommended = [...recommended, ...fallback];
   }
 
-  res.json({ profiles: recommended.slice(0, 20), matchedByProfile });
+  const projected = await Promise.all(recommended.slice(0, 20).map(async (profile) =>
+    projectProfileForScope(profile, await companyReleaseScope(req, profile.id))
+  ));
+  res.json({ profiles: projected, matchedByProfile });
 });
 
 // ── GET /connections/count — connection count for current user ────────────────
@@ -211,7 +234,25 @@ router.post("/connections", async (req, res): Promise<void> => {
     .select({ accountType: profilesTable.accountType })
     .from(profilesTable)
     .where(eq(profilesTable.id, followingId));
+  if (!targetProfile) {
+    res.status(404).json({ error: "Profile not found" });
+    return;
+  }
   const isCompanyTarget = targetProfile?.accountType === "company";
+
+  // Company-to-individual outreach is mediated by HMR. Companies must use
+  // Express Interest; ordinary connection requests are for peer networking.
+  const [followerProfile] = await db
+    .select({ accountType: profilesTable.accountType })
+    .from(profilesTable)
+    .where(eq(profilesTable.id, followerId));
+  if (followerProfile?.accountType === "company" && targetProfile.accountType === "individual") {
+    res.status(403).json({
+      error: "mediated_only",
+      message: "Use Express Interest to contact an individual candidate.",
+    });
+    return;
+  }
 
   const [row] = await db
     .insert(connectionsTable)

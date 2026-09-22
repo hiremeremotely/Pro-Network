@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, applicationsTable, profilesTable, jobsTable } from "@workspace/db";
 import {
   ApplyToJobBody,
@@ -42,7 +42,10 @@ router.get("/jobs/:jobId/applications", async (req, res): Promise<void> => {
     res.status(403).json({ error: "Only the company that owns this job may view applications." });
     return;
   }
-  const apps = await db.select().from(applicationsTable).where(eq(applicationsTable.jobId, params.data.jobId));
+  const apps = await db.select().from(applicationsTable).where(and(
+    eq(applicationsTable.jobId, params.data.jobId),
+    eq(applicationsTable.consentToShare, true),
+  ));
   const enriched = await Promise.all(apps.map(enrichApplication));
   res.json(enriched);
 });
@@ -56,6 +59,10 @@ router.post("/jobs/:jobId/applications", async (req, res): Promise<void> => {
   const parsed = ApplyToJobBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  if (parsed.data.consentToShare !== true) {
+    res.status(400).json({ error: "Explicit consent to share application details is required." });
     return;
   }
   const callerId = req.session.profileId;
@@ -73,6 +80,9 @@ router.post("/jobs/:jobId/applications", async (req, res): Promise<void> => {
     profileId: callerId,
     jobId: params.data.jobId,
     status: "pending",
+    consentToShare: true,
+    consentScope: ["identity", "contact", "profile", "coverLetter"],
+    consentedAt: new Date(),
   }).returning();
   const enriched = await enrichApplication(app);
   res.status(201).json(enriched);

@@ -14,7 +14,7 @@ import {
   DeleteProfileParams,
   ListProfilesQueryParams,
 } from "@workspace/api-zod";
-import { companyReleaseScope, anonymizedCandidate } from "../lib/privacyProjection";
+import { companyReleaseScope, canViewProfile, projectExperienceForScope, projectProfileForScope } from "../lib/privacyProjection";
 
 const router: IRouter = Router();
 
@@ -69,6 +69,7 @@ router.put("/profiles/me/privacy", async (req, res): Promise<void> => {
 const publicProfileColumns = {
   id: profilesTable.id,
   accountType: profilesTable.accountType,
+  email: profilesTable.email,
   name: profilesTable.name,
   headline: profilesTable.headline,
   bio: profilesTable.bio,
@@ -124,20 +125,35 @@ router.get("/profiles", async (req, res): Promise<void> => {
 
   if (search) {
     clauses.push(
-      or(
-        ilike(profilesTable.name, `%${search}%`),
-        ilike(profilesTable.headline, `%${search}%`),
-        ilike(profilesTable.location, `%${search}%`),
-        ilike(profilesTable.email, `%${search}%`),
+      and(
+        or(
+          ne(profilesTable.accountType, "individual"),
+          sql`${profilesTable.privacySettings}->>'identity' = 'public'`,
+        ),
+        or(
+          ilike(profilesTable.name, `%${search}%`),
+          ilike(profilesTable.headline, `%${search}%`),
+          ilike(profilesTable.location, `%${search}%`),
+        )!,
       )!
     );
   }
 
   if (excludeId) clauses.push(ne(profilesTable.id, excludeId));
+  clauses.push(eq(profilesTable.discoveryEnabled, true));
   if (accountTypeFilter) clauses.push(eq(profilesTable.accountType, accountTypeFilter));
-  if (openToWorkFilter !== undefined) clauses.push(eq(profilesTable.openToWork, openToWorkFilter));
-  if (industryFilter) clauses.push(eq(profilesTable.industry, industryFilter));
-  if (locationFilter) clauses.push(ilike(profilesTable.location, `%${locationFilter}%`));
+  if (openToWorkFilter !== undefined) clauses.push(and(
+    eq(profilesTable.openToWork, openToWorkFilter),
+    sql`${profilesTable.privacySettings}->>'identity' = 'public'`,
+  )!);
+  if (industryFilter) clauses.push(and(
+    eq(profilesTable.industry, industryFilter),
+    sql`${profilesTable.privacySettings}->>'identity' = 'public'`,
+  )!);
+  if (locationFilter) clauses.push(and(
+    ilike(profilesTable.location, `%${locationFilter}%`),
+    sql`${profilesTable.privacySettings}->>'identity' = 'public'`,
+  )!);
 
   let profileIds: number[] | null = null;
   if (skillsFilter) {
@@ -155,6 +171,7 @@ router.get("/profiles", async (req, res): Promise<void> => {
         return;
       }
       clauses.push(inArray(profilesTable.id, profileIds));
+      clauses.push(sql`${profilesTable.privacySettings}->>'skills' = 'public'`);
     }
   }
 
@@ -169,14 +186,11 @@ router.get("/profiles", async (req, res): Promise<void> => {
     db.select({ count: sql<number>`count(*)` }).from(profilesTable).where(whereClause),
   ]);
 
-  const [viewer] = req.session.profileId
-    ? await db.select({ accountType: profilesTable.accountType }).from(profilesTable).where(eq(profilesTable.id, Number(req.session.profileId)))
-    : [];
-  const responseProfiles = viewer?.accountType === "company"
-    ? profiles.map((p) => p.accountType === "individual"
-      ? { ...anonymizedCandidate(p.id, p.headline, p.industry, p.location), accountType: p.accountType, openToWork: p.openToWork }
-      : p)
-    : profiles;
+  const responseProfiles = await Promise.all(profiles.map(async (p) => {
+    if (p.accountType !== "individual") return { ...p, email: null };
+    const scope = await companyReleaseScope(req, p.id);
+    return projectProfileForScope(p, scope);
+  }));
   res.json({ profiles: responseProfiles, total: Number(countResult[0]?.count ?? 0) });
 });
 
@@ -204,42 +218,35 @@ router.get("/profiles/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Profile not found" });
     return;
   }
+  if (!(await canViewProfile(req, params.data.id))) {
+    res.status(404).json({ error: "Profile not found" });
+    return;
+  }
 
   const isOwner = req.session.profileId === params.data.id;
   const scope = await companyReleaseScope(req, params.data.id);
+  const isOwnerOrAdmin = isOwner || req.session?.isAdmin === true;
   const [education, experience, portfolio, skills] = await Promise.all([
     db.select().from(educationTable).where(eq(educationTable.profileId, params.data.id)),
     db.select().from(experienceTable).where(eq(experienceTable.profileId, params.data.id)),
     db.select().from(portfolioTable).where(
-      isOwner
+        isOwnerOrAdmin
         ? eq(portfolioTable.profileId, params.data.id)
         : and(eq(portfolioTable.profileId, params.data.id), eq(portfolioTable.visibility, "public"))
     ),
     db.select().from(skillsTable).where(eq(skillsTable.profileId, params.data.id)),
   ]);
 
-  if (scope) {
-    const candidate = anonymizedCandidate(profile.id, profile.headline, profile.industry, profile.location);
-    res.json({
-      ...candidate,
-      ...(scope.has("identity") ? { name: profile.name, avatarUrl: profile.avatarUrl } : {}),
-      ...(scope.has("contact") ? { email: null } : {}),
-      education: scope.has("education") ? education : [],
-      experience: scope.has("experience") ? experience : [],
-      skills: scope.has("skills") ? skills : [],
-      portfolio: scope.has("portfolio") ? portfolio.map((item) => { const { objectPath: _objectPath, ...safe } = item; return safe; }) : [],
-      ...(scope.has("socialLinks") ? { website: profile.website, linkedinUrl: profile.linkedinUrl, githubUrl: profile.githubUrl, twitterUrl: profile.twitterUrl } : {}),
-    });
-    return;
-  }
   res.json({
-    ...profile, education, experience,
-    portfolio: portfolio.map((item) => {
+    ...projectProfileForScope(profile, scope),
+    education: scope.has("education") ? education : [],
+    experience: projectExperienceForScope(experience, scope),
+    portfolio: scope.has("portfolio") ? portfolio.map((item) => {
       if (isOwner) return item;
       const { objectPath: _objectPath, ...safe } = item;
       return safe;
-    }),
-    skills,
+    }) : [],
+    skills: scope.has("skills") ? skills : [],
   });
 });
 

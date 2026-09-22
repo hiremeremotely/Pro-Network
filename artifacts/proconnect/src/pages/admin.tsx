@@ -878,6 +878,10 @@ function InterestsSection() {
 
   const counts = data?.counts ?? {};
   const requests = data?.requests ?? [];
+  async function expireRequest(id: number) {
+    await fetch(`${BASE}api/admin/interest-requests/${id}/expire`, { method: "POST" });
+    refetch();
+  }
 
   return (
     <>
@@ -958,6 +962,11 @@ function InterestsSection() {
                             <CheckIcon className="w-3.5 h-3.5 mr-1" /> Route to professional
                         </Button>
                       </div>
+                    )}
+                    {(r.status === "pending_candidate" || r.status === "approved") && (
+                      <Button size="sm" variant="outline" onClick={() => expireRequest(r.id)} className="rounded-full h-8 px-3 text-xs text-gray-600">
+                        Expire
+                      </Button>
                     )}
                   </div>
 

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, interestRequestsTable, profilesTable, jobsTable, conversationsTable, messagesTable, notificationsTable, hmrAuditEventsTable } from "@workspace/db";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lte, or, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -13,10 +13,63 @@ function requireAdmin(req: any, res: any): boolean {
   }
   return true;
 }
+function adminMetadata(req: any): Record<string, unknown> {
+  return { adminEmail: req.session?.adminEmail ?? null, adminSession: true };
+}
+function activeStatus(status: string, expiresAt: Date | null, releaseExpiresAt: Date | null, revokedAt: Date | null): string {
+  const now = Date.now();
+  if (revokedAt || status === "revoked") return "revoked";
+  if (releaseExpiresAt && releaseExpiresAt.getTime() <= now) return "expired";
+  if (expiresAt && expiresAt.getTime() <= now && ["pending_hmr", "pending_candidate"].includes(status)) return "expired";
+  return status;
+}
 
 function orderedPair(a: number, b: number): [number, number] {
   return a < b ? [a, b] : [b, a];
 }
+
+async function expireStaleRequests(): Promise<void> {
+  const now = new Date();
+  const stale = await db.select({
+    id: interestRequestsTable.id,
+    status: interestRequestsTable.status,
+  }).from(interestRequestsTable).where(or(
+    and(
+      inArray(interestRequestsTable.status, ["pending", "pending_hmr", "pending_candidate"]),
+      lte(interestRequestsTable.expiresAt, now),
+    ),
+    and(
+      eq(interestRequestsTable.status, "approved"),
+      lte(interestRequestsTable.releaseExpiresAt, now),
+    ),
+  ));
+  for (const row of stale) {
+    const [expired] = await db.update(interestRequestsTable).set({
+      status: "expired",
+      respondedAt: now,
+    }).where(and(
+      eq(interestRequestsTable.id, row.id),
+      eq(interestRequestsTable.status, row.status),
+    )).returning({ id: interestRequestsTable.id });
+    if (expired) {
+      await db.insert(hmrAuditEventsTable).values({
+        interestRequestId: row.id,
+        actorRole: "system",
+        event: "automatic_expiry",
+        metadata: { previousStatus: row.status },
+      });
+    }
+  }
+}
+
+router.use(async (_req, _res, next) => {
+  try {
+    await expireStaleRequests();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 // ── POST /api/interest-requests ──────────────────────────────────────────────
 // Body: { companyProfileId, candidateProfileId, jobId?, companyNote? }
@@ -78,7 +131,8 @@ router.post("/interest-requests", async (req, res): Promise<void> => {
       jobId: jobId ? Number(jobId) : null,
       roleTitle: String(roleTitle).trim().slice(0, 200),
       companyNote: companyNote ? String(companyNote).trim().slice(0, 500) : null,
-      status: "pending_hmr",
+    status: "pending_hmr",
+    expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
     })
     .returning();
 
@@ -89,7 +143,7 @@ router.post("/interest-requests", async (req, res): Promise<void> => {
 // ── GET /api/interest-requests/status?companyProfileId=&candidateProfileId= ───
 // Returns the current status for a specific company → candidate pair, or null.
 router.get("/interest-requests/status", async (req, res): Promise<void> => {
-  const companyId   = Number(req.query.companyProfileId);
+  const companyId   = Number(req.session?.profileId);
   const candidateId = Number(req.query.candidateProfileId);
   if (!companyId || !candidateId) {
     res.status(400).json({ error: "companyProfileId and candidateProfileId required" });
@@ -97,7 +151,13 @@ router.get("/interest-requests/status", async (req, res): Promise<void> => {
   }
 
   const [row] = await db
-    .select({ id: interestRequestsTable.id, status: interestRequestsTable.status })
+    .select({
+      id: interestRequestsTable.id,
+      status: interestRequestsTable.status,
+      expiresAt: interestRequestsTable.expiresAt,
+      releaseExpiresAt: interestRequestsTable.releaseExpiresAt,
+      revokedAt: interestRequestsTable.revokedAt,
+    })
     .from(interestRequestsTable)
     .where(and(
       eq(interestRequestsTable.companyProfileId, companyId),
@@ -106,7 +166,7 @@ router.get("/interest-requests/status", async (req, res): Promise<void> => {
     .orderBy(desc(interestRequestsTable.createdAt))
     .limit(1);
 
-  res.json({ status: row?.status ?? null });
+  res.json({ status: row ? activeStatus(row.status, row.expiresAt, row.releaseExpiresAt, row.revokedAt) : null });
 });
 
 // ── GET /api/interest-requests/by-company?companyProfileId= ───────────────────
@@ -125,6 +185,9 @@ router.get("/interest-requests/by-company", async (req, res): Promise<void> => {
       jobId: interestRequestsTable.jobId,
       createdAt: interestRequestsTable.createdAt,
       respondedAt: interestRequestsTable.respondedAt,
+       expiresAt: interestRequestsTable.expiresAt,
+       releaseExpiresAt: interestRequestsTable.releaseExpiresAt,
+       revokedAt: interestRequestsTable.revokedAt,
       conversationId: interestRequestsTable.conversationId,
       releaseScope: interestRequestsTable.releaseScope,
       candidateId: profilesTable.id,
@@ -145,9 +208,10 @@ router.get("/interest-requests/by-company", async (req, res): Promise<void> => {
   const jobMap = new Map(jobs.map(j => [j.id, j.title]));
 
   res.json(rows.map(r => {
-    const approved = r.status === "approved";
+    const status = activeStatus(r.status, r.expiresAt, r.releaseExpiresAt, r.revokedAt);
+    const approved = status === "approved";
     return {
-      id: r.id, status: r.status, companyNote: r.companyNote, adminNote: r.adminNote,
+       id: r.id, status, companyNote: r.companyNote, adminNote: r.adminNote,
       jobId: r.jobId, createdAt: r.createdAt, respondedAt: r.respondedAt,
       jobTitle: r.jobId ? jobMap.get(r.jobId) ?? null : null,
       conversationId: r.conversationId,
@@ -193,6 +257,7 @@ router.get("/admin/interest-requests", async (req, res): Promise<void> => {
 
   const enriched = rows.map(r => ({
     ...r,
+    status: activeStatus(r.status, r.expiresAt, r.releaseExpiresAt, r.revokedAt),
     company: companyMap.get(r.companyProfileId) ?? null,
     candidate: candidateMap.get(r.candidateProfileId) ?? null,
     jobTitle: r.jobId ? jobMap.get(r.jobId) ?? null : null,
@@ -222,14 +287,15 @@ router.post("/admin/interest-requests/:id/approve", async (req, res): Promise<vo
 
   const [ireq] = await db.select().from(interestRequestsTable).where(eq(interestRequestsTable.id, id)).limit(1);
   if (!ireq) { res.status(404).json({ error: "Interest request not found" }); return; }
-  if (ireq.status !== "pending") { res.status(400).json({ error: `Request is already ${ireq.status}` }); return; }
+   if (!["pending", "pending_hmr"].includes(ireq.status)) { res.status(400).json({ error: `Request is already ${ireq.status}` }); return; }
   // Legacy approve calls are now treated as an HMR route. Identity release and
   // conversation creation must only happen after the candidate's explicit approval.
   const [routed] = await db.update(interestRequestsTable).set({
     status: "pending_candidate",
     adminNote: adminNote ? String(adminNote).slice(0, 1000) : null,
-  }).where(and(eq(interestRequestsTable.id, id), eq(interestRequestsTable.status, "pending"))).returning();
-  await db.insert(hmrAuditEventsTable).values({ interestRequestId: id, actorRole: "hmr", event: "route_to_candidate", metadata: {} });
+   }).where(and(eq(interestRequestsTable.id, id), inArray(interestRequestsTable.status, ["pending", "pending_hmr"]))).returning();
+   if (!routed) { res.status(409).json({ error: "Request was already decided" }); return; }
+   await db.insert(hmrAuditEventsTable).values({ interestRequestId: id, actorRole: "hmr", event: "route_to_candidate", metadata: adminMetadata(req) });
   await db.insert(notificationsTable).values({ recipientProfileId: ireq.candidateProfileId, actorProfileId: ireq.companyProfileId, type: "system", message: "You have a new professional introduction request to review" });
   res.json(routed);
 });
@@ -262,7 +328,7 @@ router.post("/admin/interest-requests/:id/decline", async (req, res): Promise<vo
     return;
   }
 
-  await db.insert(hmrAuditEventsTable).values({ interestRequestId: updated.id, actorRole: "hmr", event: "hmr_decline", metadata: {} });
+   await db.insert(hmrAuditEventsTable).values({ interestRequestId: updated.id, actorRole: "hmr", event: "hmr_decline", metadata: adminMetadata(req) });
   await db.insert(notificationsTable).values({
     recipientProfileId: updated.companyProfileId, actorProfileId: updated.companyProfileId,
     type: "system", message: "Your professional introduction request was declined by HMR",
@@ -276,10 +342,11 @@ router.post("/admin/interest-requests/:id/route", async (req, res): Promise<void
   const id = Number(req.params.id);
   const [updated] = await db.update(interestRequestsTable).set({
     status: "pending_candidate",
-    adminNote: req.body?.adminNote ? String(req.body.adminNote).slice(0, 1000) : null,
+   adminNote: req.body?.adminNote ? String(req.body.adminNote).slice(0, 1000) : null,
+   expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
   }).where(and(eq(interestRequestsTable.id, id), eq(interestRequestsTable.status, "pending_hmr"))).returning();
   if (!updated) { res.status(404).json({ error: "Request not found or already routed" }); return; }
-  await db.insert(hmrAuditEventsTable).values({ interestRequestId: id, actorRole: "hmr", event: "route_to_candidate", metadata: {} });
+   await db.insert(hmrAuditEventsTable).values({ interestRequestId: id, actorRole: "hmr", event: "route_to_candidate", metadata: adminMetadata(req) });
   await db.insert(notificationsTable).values({
     recipientProfileId: updated.candidateProfileId, actorProfileId: updated.companyProfileId, type: "system",
     message: "You have a new professional introduction request to review",
@@ -293,20 +360,40 @@ router.get("/interest-requests/candidate", async (req, res): Promise<void> => {
   const rows = await db.select({
     id: interestRequestsTable.id, status: interestRequestsTable.status, roleTitle: interestRequestsTable.roleTitle,
     companyNote: interestRequestsTable.companyNote, jobId: interestRequestsTable.jobId, createdAt: interestRequestsTable.createdAt,
+    expiresAt: interestRequestsTable.expiresAt, releaseExpiresAt: interestRequestsTable.releaseExpiresAt, revokedAt: interestRequestsTable.revokedAt,
   }).from(interestRequestsTable).where(and(eq(interestRequestsTable.candidateProfileId, candidateId), eq(interestRequestsTable.status, "pending_candidate"))).orderBy(desc(interestRequestsTable.createdAt));
-  res.json({ requests: rows });
+  res.json({ requests: rows.filter(row => activeStatus(row.status, row.expiresAt, row.releaseExpiresAt, row.revokedAt) === "pending_candidate") });
 });
 
 router.post("/interest-requests/:id/approve", async (req, res): Promise<void> => {
   const candidateId = Number(req.session?.profileId);
   if (!candidateId) { res.status(401).json({ error: "Authentication required" }); return; }
   const id = Number(req.params.id);
-  const scope = Array.isArray(req.body?.releaseScope) ? req.body.releaseScope.map(String).filter((s: string) => ["identity", "contact", "currentEmployer", "socialLinks", "portfolio", "experience", "education", "skills"].includes(s)) : [];
+   const requestedScope = Array.isArray(req.body?.releaseScope) ? req.body.releaseScope.map(String).filter((s: string) => ["identity", "contact", "currentEmployer", "socialLinks", "portfolio", "experience", "education", "skills"].includes(s)) : [];
+   if (!["direct", "hmr_managed"].includes(req.body?.handlingMode)) {
+     res.status(400).json({ error: "handlingMode must be direct or hmr_managed" });
+     return;
+   }
+   const hmrManaged = req.body.handlingMode === "hmr_managed";
+   // HMR-managed handling is deliberately anonymous to the company. Skills are
+   // the only field category that cannot directly identify the professional.
+   const scope = hmrManaged ? requestedScope.filter((field: string) => field === "skills") : requestedScope;
+   // A direct conversation is an ongoing relationship and necessarily shows
+   // participant identity in message history. Profile-field release expiry or
+   // revocation does not erase that accepted conversation.
+   if (!hmrManaged && !scope.includes("identity")) {
+     res.status(400).json({ error: "Identity release is required to open a direct conversation. Choose HMR-managed handling to remain anonymous." });
+     return;
+   }
   const result = await db.transaction(async (tx) => {
-    const [updated] = await tx.update(interestRequestsTable).set({ status: "approved", releaseScope: scope, respondedAt: new Date() }).where(and(eq(interestRequestsTable.id, id), eq(interestRequestsTable.candidateProfileId, candidateId), eq(interestRequestsTable.status, "pending_candidate"))).returning();
+     const [updated] = await tx.update(interestRequestsTable).set({ status: "approved", releaseScope: scope, handlingMode: hmrManaged ? "hmr_managed" : "direct", releaseExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), respondedAt: new Date() }).where(and(eq(interestRequestsTable.id, id), eq(interestRequestsTable.candidateProfileId, candidateId), eq(interestRequestsTable.status, "pending_candidate"))).returning();
     if (!updated) return null;
     const [p1, p2] = orderedPair(updated.companyProfileId, candidateId);
-    let [conv] = await tx.select().from(conversationsTable).where(and(eq(conversationsTable.participant1Id, p1), eq(conversationsTable.participant2Id, p2), eq(conversationsTable.type, "direct"))).limit(1);
+     if (hmrManaged) {
+       await tx.insert(hmrAuditEventsTable).values({ interestRequestId: id, actorProfileId: candidateId, actorRole: "candidate", event: "candidate_approve_hmr_managed", metadata: { releaseScope: scope, directConversation: false } });
+       return updated;
+     }
+     let [conv] = await tx.select().from(conversationsTable).where(and(eq(conversationsTable.participant1Id, p1), eq(conversationsTable.participant2Id, p2), eq(conversationsTable.type, "direct"))).limit(1);
     if (!conv) [conv] = await tx.insert(conversationsTable).values({ participant1Id: p1, participant2Id: p2, type: "direct" }).returning();
     if (!conv.lastMessageAt) {
       const introMessage = [
@@ -325,13 +412,37 @@ router.post("/interest-requests/:id/approve", async (req, res): Promise<void> =>
       }).where(eq(conversationsTable.id, conv.id));
     }
     await tx.update(interestRequestsTable).set({ conversationId: conv.id }).where(eq(interestRequestsTable.id, id));
-    await tx.insert(hmrAuditEventsTable).values({ interestRequestId: id, actorProfileId: candidateId, actorRole: "candidate", event: "candidate_approve", metadata: { releaseScope: scope } });
-    await tx.insert(hmrAuditEventsTable).values({ interestRequestId: id, actorProfileId: candidateId, actorRole: "candidate", event: "identity_release", metadata: { releaseScope: scope } });
+    await tx.insert(hmrAuditEventsTable).values({ interestRequestId: id, actorProfileId: candidateId, actorRole: "candidate", event: "candidate_approve", metadata: { releaseScope: scope, directConversation: true, conversationPersistsAfterProfileRelease: true } });
+    await tx.insert(hmrAuditEventsTable).values({ interestRequestId: id, actorProfileId: candidateId, actorRole: "candidate", event: "identity_release", metadata: { releaseScope: scope, directConversation: true } });
     await tx.insert(notificationsTable).values({ recipientProfileId: updated.companyProfileId, actorProfileId: candidateId, type: "system", conversationId: conv.id, message: "A professional accepted your introduction request" });
     return { ...updated, conversationId: conv.id };
   });
   if (!result) { res.status(409).json({ error: "Request was already decided" }); return; }
   res.json(result);
+});
+
+router.post("/admin/interest-requests/:id/expire", async (req, res): Promise<void> => {
+  if (!requireAdmin(req, res)) return;
+  const [updated] = await db.update(interestRequestsTable).set({ status: "expired", expiresAt: new Date(), respondedAt: new Date() })
+    .where(and(eq(interestRequestsTable.id, Number(req.params.id)), inArray(interestRequestsTable.status, ["pending", "pending_hmr", "pending_candidate", "approved"]))).returning();
+  if (!updated) { res.status(404).json({ error: "Request not found or already closed" }); return; }
+  await db.insert(hmrAuditEventsTable).values({ interestRequestId: updated.id, actorRole: "hmr", event: "admin_expire", metadata: adminMetadata(req) });
+  res.json(updated);
+});
+
+router.post("/admin/interest-requests/:id/revoke", async (req, res): Promise<void> => {
+  if (!requireAdmin(req, res)) return;
+  const [updated] = await db.update(interestRequestsTable).set({ status: "revoked", revokedAt: new Date(), releaseExpiresAt: new Date() })
+    .where(and(eq(interestRequestsTable.id, Number(req.params.id)), eq(interestRequestsTable.status, "approved"))).returning();
+  if (!updated) { res.status(404).json({ error: "Approved request not found" }); return; }
+  await db.insert(hmrAuditEventsTable).values({ interestRequestId: updated.id, actorRole: "hmr", event: "admin_revoke", metadata: adminMetadata(req) });
+  res.json(updated);
+});
+
+router.get("/admin/interest-requests/:id/audit", async (req, res): Promise<void> => {
+  if (!requireAdmin(req, res)) return;
+  const events = await db.select().from(hmrAuditEventsTable).where(eq(hmrAuditEventsTable.interestRequestId, Number(req.params.id))).orderBy(desc(hmrAuditEventsTable.createdAt));
+  res.json({ events });
 });
 
 router.post("/interest-requests/:id/decline", async (req, res): Promise<void> => {

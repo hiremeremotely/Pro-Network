@@ -13,6 +13,10 @@ export const interestRequestsTable = pgTable("interest_requests", {
   adminNote: text("admin_note"),
   releaseScope: jsonb("release_scope").$type<string[]>().notNull().default([]),
   conversationId: integer("conversation_id"),
+  handlingMode: varchar("handling_mode", { length: 20 }).notNull().default("direct"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  releaseExpiresAt: timestamp("release_expires_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   respondedAt: timestamp("responded_at", { withTimezone: true }),
 });

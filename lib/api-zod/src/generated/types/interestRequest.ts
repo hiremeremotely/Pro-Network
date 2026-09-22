@@ -5,11 +5,15 @@
  * ProConnect professional networking and remote jobs platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { InterestRequestHandlingMode } from './interestRequestHandlingMode';
 import type { InterestRequestStatus } from './interestRequestStatus';
 
 export interface InterestRequest {
   id?: number;
   status?: InterestRequestStatus;
+  handlingMode?: InterestRequestHandlingMode;
+  expiresAt?: Date | null;
+  releaseExpiresAt?: Date | null;
   roleTitle?: string | null;
   conversationId?: number | null;
 }

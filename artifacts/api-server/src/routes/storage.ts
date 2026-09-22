@@ -9,6 +9,7 @@ import {
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
 import { logger } from "../lib/logger";
+import { canViewProfile, companyReleaseScope } from "../lib/privacyProjection";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -125,7 +126,13 @@ router.get("/storage/portfolio/:id", async (req: Request, res: Response) => {
       res.status(404).json({ error: "Portfolio file not found" });
       return;
     }
-    if (item.visibility !== "public" && req.session.profileId !== item.profileId) {
+    if (!(await canViewProfile(req, item.profileId))) {
+      res.status(404).json({ error: "Portfolio file not found" });
+      return;
+    }
+    const scope = await companyReleaseScope(req, item.profileId);
+    const ownerOrAdmin = Number(req.session?.profileId) === item.profileId || req.session?.isAdmin === true;
+    if (!ownerOrAdmin && (!scope.has("portfolio") || item.visibility !== "public")) {
       res.status(403).json({ error: "This portfolio file is private" });
       return;
     }
@@ -165,7 +172,7 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const objectPath = `/objects/${wildcardPath}`;
     const [ticket] = await db.select({ profileId: portfolioUploadTicketsTable.profileId })
       .from(portfolioUploadTicketsTable).where(eq(portfolioUploadTicketsTable.objectPath, objectPath));
-    if (ticket && req.session.profileId !== ticket.profileId) {
+    if (!ticket || req.session.profileId !== ticket.profileId) {
       res.status(403).json({ error: "You do not have access to this uploaded object" });
       return;
     }

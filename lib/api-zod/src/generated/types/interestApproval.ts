@@ -5,7 +5,9 @@
  * ProConnect professional networking and remote jobs platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { InterestApprovalHandlingMode } from './interestApprovalHandlingMode';
 
 export interface InterestApproval {
   releaseScope: string[];
+  handlingMode: InterestApprovalHandlingMode;
 }

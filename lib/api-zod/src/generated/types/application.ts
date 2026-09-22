@@ -15,6 +15,9 @@ export interface Application {
   coverLetter?: string | null;
   status: string;
   appliedAt: string;
+  consentToShare: boolean;
+  consentScope: string[];
+  consentedAt?: Date | null;
   profile: Profile;
   job: Job;
 }

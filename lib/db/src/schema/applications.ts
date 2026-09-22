@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { profilesTable } from "./profiles";
@@ -11,8 +11,11 @@ export const applicationsTable = pgTable("applications", {
   coverLetter: text("cover_letter"),
   status: text("status").notNull().default("pending"),
   appliedAt: timestamp("applied_at", { withTimezone: true }).notNull().defaultNow(),
+  consentToShare: boolean("consent_to_share").notNull().default(false),
+  consentScope: jsonb("consent_scope").$type<string[]>().notNull().default([]),
+  consentedAt: timestamp("consented_at", { withTimezone: true }),
 });
 
-export const insertApplicationSchema = createInsertSchema(applicationsTable).omit({ id: true, appliedAt: true });
+export const insertApplicationSchema = createInsertSchema(applicationsTable).omit({ id: true, appliedAt: true, consentedAt: true });
 export type InsertApplication = z.infer<typeof insertApplicationSchema>;
 export type Application = typeof applicationsTable.$inferSelect;

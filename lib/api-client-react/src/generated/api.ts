@@ -57,6 +57,7 @@ import type {
   ListCompanyInterestRequests200,
   ListExternalApplications200,
   ListExternalApplicationsParams,
+  ListInterestRequestAudit200,
   ListJobs200,
   ListJobsParams,
   ListProfiles200,
@@ -4784,4 +4785,211 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getDeclineInterestRequestMutationOptions(options));
+    }
+
+export const getExpireInterestRequestUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/interest-requests/${id}/expire`
+}
+
+export const expireInterestRequest = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<InterestRequest> => {
+
+  return customFetch<InterestRequest>(getExpireInterestRequestUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getExpireInterestRequestMutationKey = () => ['expireInterestRequest'] as const;
+
+export const getExpireInterestRequestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof expireInterestRequest>>, TError,ExpireInterestRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof expireInterestRequest>>, TError,ExpireInterestRequestMutationVariables, TContext> => {
+
+const mutationKey = getExpireInterestRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof expireInterestRequest>>, ExpireInterestRequestMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  expireInterestRequest(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExpireInterestRequestMutationResult = NonNullable<Awaited<ReturnType<typeof expireInterestRequest>>>
+
+    export type ExpireInterestRequestMutationError = ErrorType<unknown>
+    export type ExpireInterestRequestMutationVariables = {id: number}
+
+    export const useExpireInterestRequest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof expireInterestRequest>>, TError,ExpireInterestRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof expireInterestRequest>>,
+        TError,
+        ExpireInterestRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getExpireInterestRequestMutationOptions(options));
+    }
+
+export const getListInterestRequestAuditUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/interest-requests/${id}/audit`
+}
+
+export const listInterestRequestAudit = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ListInterestRequestAudit200> => {
+
+  return customFetch<ListInterestRequestAudit200>(getListInterestRequestAuditUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListInterestRequestAuditQueryKey = (id: number,) => {
+    return [
+    `/api/admin/interest-requests/${id}/audit`
+    ] as const;
+    }
+
+
+export const getListInterestRequestAuditQueryOptions = <TData = Awaited<ReturnType<typeof listInterestRequestAudit>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInterestRequestAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListInterestRequestAuditQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listInterestRequestAudit>>> = ({ signal }) => listInterestRequestAudit(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listInterestRequestAudit>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListInterestRequestAuditQueryResult = NonNullable<Awaited<ReturnType<typeof listInterestRequestAudit>>>
+export type ListInterestRequestAuditQueryError = ErrorType<unknown>
+
+
+
+export function useListInterestRequestAudit<TData = Awaited<ReturnType<typeof listInterestRequestAudit>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInterestRequestAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListInterestRequestAuditQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRevokeInterestRequestUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/interest-requests/${id}/revoke`
+}
+
+export const revokeInterestRequest = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<InterestRequest> => {
+
+  return customFetch<InterestRequest>(getRevokeInterestRequestUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRevokeInterestRequestMutationKey = () => ['revokeInterestRequest'] as const;
+
+export const getRevokeInterestRequestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeInterestRequest>>, TError,RevokeInterestRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeInterestRequest>>, TError,RevokeInterestRequestMutationVariables, TContext> => {
+
+const mutationKey = getRevokeInterestRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeInterestRequest>>, RevokeInterestRequestMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  revokeInterestRequest(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeInterestRequestMutationResult = NonNullable<Awaited<ReturnType<typeof revokeInterestRequest>>>
+
+    export type RevokeInterestRequestMutationError = ErrorType<unknown>
+    export type RevokeInterestRequestMutationVariables = {id: number}
+
+    export const useRevokeInterestRequest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeInterestRequest>>, TError,RevokeInterestRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revokeInterestRequest>>,
+        TError,
+        RevokeInterestRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRevokeInterestRequestMutationOptions(options));
     }

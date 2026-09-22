@@ -932,6 +932,9 @@ export const ListApplicationsResponseItem = zod.object({
   "coverLetter": zod.string().nullish(),
   "status": zod.string(),
   "appliedAt": zod.string(),
+  "consentToShare": zod.boolean(),
+  "consentScope": zod.array(zod.string()),
+  "consentedAt": zod.coerce.date().nullish(),
   "profile": zod.object({
   "id": zod.int(),
   "name": zod.string(),
@@ -985,7 +988,8 @@ export const ApplyToJobParams = zod.object({
 })
 
 export const ApplyToJobBody = zod.object({
-  "coverLetter": zod.string().nullish()
+  "coverLetter": zod.string().nullish(),
+  "consentToShare": zod.boolean().describe('Consent to share identity, contact, profile, and cover letter with the job company.')
 })
 
 export const ApplyToJobResponse = zod.object({
@@ -995,6 +999,9 @@ export const ApplyToJobResponse = zod.object({
   "coverLetter": zod.string().nullish(),
   "status": zod.string(),
   "appliedAt": zod.string(),
+  "consentToShare": zod.boolean(),
+  "consentScope": zod.array(zod.string()),
+  "consentedAt": zod.coerce.date().nullish(),
   "profile": zod.object({
   "id": zod.int(),
   "name": zod.string(),
@@ -1053,6 +1060,9 @@ export const ListProfileApplicationsResponseItem = zod.object({
   "coverLetter": zod.string().nullish(),
   "status": zod.string(),
   "appliedAt": zod.string(),
+  "consentToShare": zod.boolean(),
+  "consentScope": zod.array(zod.string()),
+  "consentedAt": zod.coerce.date().nullish(),
   "profile": zod.object({
   "id": zod.int(),
   "name": zod.string(),
@@ -1514,7 +1524,10 @@ export const SubmitInterestRequestBody = zod.object({
 
 export const SubmitInterestRequestResponse = zod.object({
   "id": zod.int().optional(),
-  "status": zod.enum(['pending', 'pending_hmr', 'pending_candidate', 'approved', 'declined', 'declined_hmr', 'declined_candidate']).optional(),
+  "status": zod.enum(['pending', 'pending_hmr', 'pending_candidate', 'approved', 'declined', 'declined_hmr', 'declined_candidate', 'expired', 'revoked']).optional(),
+  "handlingMode": zod.enum(['direct', 'hmr_managed']).optional(),
+  "expiresAt": zod.coerce.date().nullish(),
+  "releaseExpiresAt": zod.coerce.date().nullish(),
   "roleTitle": zod.string().nullish(),
   "conversationId": zod.int().nullish()
 })
@@ -1523,7 +1536,10 @@ export const SubmitInterestRequestResponse = zod.object({
 export const ListCandidateInterestRequestsResponse = zod.object({
   "requests": zod.array(zod.object({
   "id": zod.int().optional(),
-  "status": zod.enum(['pending', 'pending_hmr', 'pending_candidate', 'approved', 'declined', 'declined_hmr', 'declined_candidate']).optional(),
+  "status": zod.enum(['pending', 'pending_hmr', 'pending_candidate', 'approved', 'declined', 'declined_hmr', 'declined_candidate', 'expired', 'revoked']).optional(),
+  "handlingMode": zod.enum(['direct', 'hmr_managed']).optional(),
+  "expiresAt": zod.coerce.date().nullish(),
+  "releaseExpiresAt": zod.coerce.date().nullish(),
   "roleTitle": zod.string().nullish(),
   "conversationId": zod.int().nullish()
 })).optional()
@@ -1533,7 +1549,10 @@ export const ListCandidateInterestRequestsResponse = zod.object({
 export const ListCompanyInterestRequestsResponse = zod.object({
   "requests": zod.array(zod.object({
   "id": zod.int().optional(),
-  "status": zod.enum(['pending', 'pending_hmr', 'pending_candidate', 'approved', 'declined', 'declined_hmr', 'declined_candidate']).optional(),
+  "status": zod.enum(['pending', 'pending_hmr', 'pending_candidate', 'approved', 'declined', 'declined_hmr', 'declined_candidate', 'expired', 'revoked']).optional(),
+  "handlingMode": zod.enum(['direct', 'hmr_managed']).optional(),
+  "expiresAt": zod.coerce.date().nullish(),
+  "releaseExpiresAt": zod.coerce.date().nullish(),
   "roleTitle": zod.string().nullish(),
   "conversationId": zod.int().nullish()
 }).and(zod.object({
@@ -1554,12 +1573,16 @@ export const ApproveInterestRequestParams = zod.object({
 })
 
 export const ApproveInterestRequestBody = zod.object({
-  "releaseScope": zod.array(zod.string())
+  "releaseScope": zod.array(zod.string()),
+  "handlingMode": zod.enum(['direct', 'hmr_managed'])
 })
 
 export const ApproveInterestRequestResponse = zod.object({
   "id": zod.int().optional(),
-  "status": zod.enum(['pending', 'pending_hmr', 'pending_candidate', 'approved', 'declined', 'declined_hmr', 'declined_candidate']).optional(),
+  "status": zod.enum(['pending', 'pending_hmr', 'pending_candidate', 'approved', 'declined', 'declined_hmr', 'declined_candidate', 'expired', 'revoked']).optional(),
+  "handlingMode": zod.enum(['direct', 'hmr_managed']).optional(),
+  "expiresAt": zod.coerce.date().nullish(),
+  "releaseExpiresAt": zod.coerce.date().nullish(),
   "roleTitle": zod.string().nullish(),
   "conversationId": zod.int().nullish()
 })
@@ -1571,7 +1594,49 @@ export const DeclineInterestRequestParams = zod.object({
 
 export const DeclineInterestRequestResponse = zod.object({
   "id": zod.int().optional(),
-  "status": zod.enum(['pending', 'pending_hmr', 'pending_candidate', 'approved', 'declined', 'declined_hmr', 'declined_candidate']).optional(),
+  "status": zod.enum(['pending', 'pending_hmr', 'pending_candidate', 'approved', 'declined', 'declined_hmr', 'declined_candidate', 'expired', 'revoked']).optional(),
+  "handlingMode": zod.enum(['direct', 'hmr_managed']).optional(),
+  "expiresAt": zod.coerce.date().nullish(),
+  "releaseExpiresAt": zod.coerce.date().nullish(),
+  "roleTitle": zod.string().nullish(),
+  "conversationId": zod.int().nullish()
+})
+
+
+export const ExpireInterestRequestParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const ExpireInterestRequestResponse = zod.object({
+  "id": zod.int().optional(),
+  "status": zod.enum(['pending', 'pending_hmr', 'pending_candidate', 'approved', 'declined', 'declined_hmr', 'declined_candidate', 'expired', 'revoked']).optional(),
+  "handlingMode": zod.enum(['direct', 'hmr_managed']).optional(),
+  "expiresAt": zod.coerce.date().nullish(),
+  "releaseExpiresAt": zod.coerce.date().nullish(),
+  "roleTitle": zod.string().nullish(),
+  "conversationId": zod.int().nullish()
+})
+
+
+export const ListInterestRequestAuditParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const ListInterestRequestAuditResponse = zod.object({
+  "events": zod.array(zod.record(zod.string(), zod.unknown())).optional()
+})
+
+
+export const RevokeInterestRequestParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const RevokeInterestRequestResponse = zod.object({
+  "id": zod.int().optional(),
+  "status": zod.enum(['pending', 'pending_hmr', 'pending_candidate', 'approved', 'declined', 'declined_hmr', 'declined_candidate', 'expired', 'revoked']).optional(),
+  "handlingMode": zod.enum(['direct', 'hmr_managed']).optional(),
+  "expiresAt": zod.coerce.date().nullish(),
+  "releaseExpiresAt": zod.coerce.date().nullish(),
   "roleTitle": zod.string().nullish(),
   "conversationId": zod.int().nullish()
 })

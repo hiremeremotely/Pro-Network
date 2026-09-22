@@ -9,7 +9,7 @@ import {
   DeleteExperienceParams,
   ListExperienceParams,
 } from "@workspace/api-zod";
-import { companyReleaseScope } from "../lib/privacyProjection";
+import { canViewProfile, companyReleaseScope, projectExperienceForScope } from "../lib/privacyProjection";
 
 const router: IRouter = Router();
 
@@ -19,10 +19,10 @@ router.get("/profiles/:profileId/experience", async (req, res): Promise<void> =>
     res.status(400).json({ error: params.error.message });
     return;
   }
+  if (!(await canViewProfile(req, params.data.profileId))) { res.status(404).json({ error: "Profile not found" }); return; }
   const scope = await companyReleaseScope(req, params.data.profileId);
-  if (scope && !scope.has("experience")) { res.json([]); return; }
   const rows = await db.select().from(experienceTable).where(eq(experienceTable.profileId, params.data.profileId));
-  res.json(rows);
+  res.json(projectExperienceForScope(rows, scope));
 });
 
 router.post("/profiles/:profileId/experience", async (req, res): Promise<void> => {
@@ -31,6 +31,7 @@ router.post("/profiles/:profileId/experience", async (req, res): Promise<void> =
     res.status(400).json({ error: params.error.message });
     return;
   }
+  if (Number(req.session?.profileId) !== params.data.profileId) { res.status(403).json({ error: "You may only modify your own experience." }); return; }
   const parsed = CreateExperienceBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -46,6 +47,7 @@ router.put("/profiles/:profileId/experience/:id", async (req, res): Promise<void
     res.status(400).json({ error: params.error.message });
     return;
   }
+  if (Number(req.session?.profileId) !== params.data.profileId) { res.status(403).json({ error: "You may only modify your own experience." }); return; }
   const parsed = UpdateExperienceBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -68,6 +70,7 @@ router.delete("/profiles/:profileId/experience/:id", async (req, res): Promise<v
     res.status(400).json({ error: params.error.message });
     return;
   }
+  if (Number(req.session?.profileId) !== params.data.profileId) { res.status(403).json({ error: "You may only modify your own experience." }); return; }
   await db.delete(experienceTable).where(and(eq(experienceTable.id, params.data.id), eq(experienceTable.profileId, params.data.profileId)));
   res.sendStatus(204);
 });

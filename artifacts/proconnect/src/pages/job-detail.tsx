@@ -147,6 +147,7 @@ export default function JobDetail() {
   const [applyOpen, setApplyOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const [coverLetter, setCoverLetter] = useState("");
+  const [consentToShare, setConsentToShare] = useState(false);
 
   const { data: job, isLoading, error, refetch } = useGetJob(id, {
     query: { enabled: !!id, queryKey: getGetJobQueryKey(id) }
@@ -179,12 +180,13 @@ export default function JobDetail() {
   function handleApply() {
     if (!currentProfileId) return;
     applyMutation.mutate(
-      { jobId: id, data: { coverLetter: coverLetter || null } },
+       { jobId: id, data: { coverLetter: coverLetter || null, consentToShare } },
       {
         onSuccess: () => {
           toast({ title: "Application submitted!", description: "Your application has been sent successfully." });
           setApplyOpen(false);
           setCoverLetter("");
+           setConsentToShare(false);
           queryClient.invalidateQueries({ queryKey: getListProfileApplicationsQueryKey(currentProfileId) });
         },
         onError: () => {
@@ -391,10 +393,14 @@ export default function JobDetail() {
                 data-testid="textarea-cover-letter"
               />
             </div>
+            <label className="flex items-start gap-2 rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-sm text-indigo-900">
+              <input type="checkbox" checked={consentToShare} onChange={e => setConsentToShare(e.target.checked)} className="mt-1" />
+              <span>I consent to share my identity, contact details, profile, and this cover letter with {job.company} to evaluate my application.</span>
+            </label>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setApplyOpen(false)}>Cancel</Button>
-            <Button onClick={handleApply} disabled={applyMutation.isPending} data-testid="button-submit-application">
+             <Button onClick={handleApply} disabled={applyMutation.isPending || !consentToShare} data-testid="button-submit-application">
               {applyMutation.isPending ? "Submitting..." : "Submit Application"}
             </Button>
           </DialogFooter>

@@ -36,8 +36,17 @@ export interface InterestRequestInput {
   companyNote?: string;
 }
 
+export type InterestApprovalHandlingMode = typeof InterestApprovalHandlingMode[keyof typeof InterestApprovalHandlingMode];
+
+
+export const InterestApprovalHandlingMode = {
+  direct: 'direct',
+  hmr_managed: 'hmr_managed',
+} as const;
+
 export interface InterestApproval {
   releaseScope: string[];
+  handlingMode: InterestApprovalHandlingMode;
 }
 
 export type InterestRequestStatus = typeof InterestRequestStatus[keyof typeof InterestRequestStatus];
@@ -51,11 +60,24 @@ export const InterestRequestStatus = {
   declined: 'declined',
   declined_hmr: 'declined_hmr',
   declined_candidate: 'declined_candidate',
+  expired: 'expired',
+  revoked: 'revoked',
+} as const;
+
+export type InterestRequestHandlingMode = typeof InterestRequestHandlingMode[keyof typeof InterestRequestHandlingMode];
+
+
+export const InterestRequestHandlingMode = {
+  direct: 'direct',
+  hmr_managed: 'hmr_managed',
 } as const;
 
 export interface InterestRequest {
   id?: number;
   status?: InterestRequestStatus;
+  handlingMode?: InterestRequestHandlingMode;
+  expiresAt?: string | null;
+  releaseExpiresAt?: string | null;
   roleTitle?: string | null;
   conversationId?: number | null;
 }
@@ -408,12 +430,17 @@ export interface Application {
   coverLetter?: string | null;
   status: string;
   appliedAt: string;
+  consentToShare: boolean;
+  consentScope: string[];
+  consentedAt?: string | null;
   profile: Profile;
   job: Job;
 }
 
 export interface CreateApplicationBody {
   coverLetter?: string | null;
+  /** Consent to share identity, contact, profile, and cover letter with the job company. */
+  consentToShare: boolean;
 }
 
 export type FeedStatsTopCategoriesItem = {
@@ -783,4 +810,10 @@ export type ListCandidateInterestRequests200 = {
 
 export type ListCompanyInterestRequests200 = {
   requests?: CompanyInterestRequest[];
+};
+
+export type ListInterestRequestAudit200EventsItem = { [key: string]: unknown };
+
+export type ListInterestRequestAudit200 = {
+  events?: ListInterestRequestAudit200EventsItem[];
 };

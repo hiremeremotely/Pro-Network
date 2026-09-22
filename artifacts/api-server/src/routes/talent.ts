@@ -78,9 +78,6 @@ router.get("/talent/recommended", async (req, res): Promise<void> => {
   res.json({
     profiles: matched.slice(0, 50).map(p => ({
       id: p.id,
-      headline: p.headline,
-      industry: p.industry,
-      location: p.location,
       openToWork: p.openToWork,
       // Discovery is deliberately anonymous until the candidate approves.
       candidateLabel: "Available professional",

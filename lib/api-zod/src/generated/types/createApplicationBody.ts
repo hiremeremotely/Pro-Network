@@ -8,4 +8,6 @@
 
 export interface CreateApplicationBody {
   coverLetter?: string | null;
+  /** Consent to share identity, contact, profile, and cover letter with the job company. */
+  consentToShare: boolean;
 }
