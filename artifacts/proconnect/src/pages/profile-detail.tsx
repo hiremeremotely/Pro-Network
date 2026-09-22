@@ -28,6 +28,7 @@ import {
   UserCheckIcon, UserPlusIcon, MessageSquareIcon, BuildingIcon, UsersIcon,
   ArrowRightIcon, DollarSignIcon, ClockIcon, StarIcon,
   ThumbsUpIcon, ActivityIcon, TrendingUpIcon, EyeIcon, FileTextIcon,
+  LinkIcon, ShareIcon, CopyIcon, ExternalLinkIcon
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useListJobs, getListJobsQueryKey } from "@workspace/api-client-react";
@@ -593,29 +594,46 @@ function CompanyProfileView({ profile, id, isOwn, onEditInfo, avatarInputRef, av
   );
 }
 
-// ── Section Header ────────────────────────────────────────────────────────────
-function SectionHeader({ title, icon: Icon, isOwn, onAdd, onEdit }: { title: string; icon: any; isOwn: boolean; onAdd?: () => void; onEdit?: () => void }) {
-  return (
-    <div className="flex items-center justify-between mb-4">
-      <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-        <Icon className="w-4 h-4 text-primary" />{title}
-      </h2>
-      {isOwn && (
-        <div className="flex items-center gap-1">
-          {onEdit && (
-            <button onClick={onEdit} className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
-              <PencilIcon className="w-3.5 h-3.5" />
-            </button>
-          )}
-          {onAdd && (
-            <button onClick={onAdd} className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
-              <PlusIcon className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
+function getProviderDetails(provider: string) {
+  const p = provider.toLowerCase();
+  if (p === "github") return { icon: GithubIcon, name: "GitHub" };
+  if (p === "linkedin") return { icon: LinkedinIcon, name: "LinkedIn" };
+  if (p === "twitter" || p === "x") return { icon: TwitterIcon, name: "X" };
+  if (p === "website") return { icon: GlobeIcon, name: "Website" };
+  if (p === "behance") return { icon: GlobeIcon, name: "Behance" };
+  if (p === "dribbble") return { icon: GlobeIcon, name: "Dribbble" };
+  if (p === "framer") return { icon: GlobeIcon, name: "Framer" };
+  if (p === "personal") return { icon: GlobeIcon, name: "Website" };
+  if (p === "upload") return { icon: FileTextIcon, name: "Document" };
+  if (p === "custom") return { icon: LinkIcon, name: "External Link" };
+  return { icon: BriefcaseIcon, name: "Portfolio" };
+}
+
+function providerFromUrl(url: string | null | undefined, fallback: string) {
+  if (!url) return fallback;
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    if (host === "github.com" || host.endsWith(".github.com")) return "github";
+    if (host === "linkedin.com" || host.endsWith(".linkedin.com")) return "linkedin";
+    if (host === "behance.net" || host.endsWith(".behance.net")) return "behance";
+    if (host === "dribbble.com" || host.endsWith(".dribbble.com")) return "dribbble";
+    if (host === "framer.com" || host.endsWith(".framer.com") || host.endsWith(".framer.website")) return "framer";
+    if (host === "x.com" || host === "twitter.com") return "twitter";
+  } catch {
+    return fallback;
+  }
+  return fallback;
+}
+
+function safeHubUrl(url: string | null | undefined) {
+  if (!url) return null;
+  if (url.startsWith(import.meta.env.BASE_URL)) return url;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : null;
+  } catch {
+    return null;
+  }
 }
 
 // ── Main Profile Page ─────────────────────────────────────────────────────────
@@ -755,6 +773,94 @@ export default function ProfileDetail() {
   const isOwn = user?.id === id;
   const isCompany = profile.accountType === "company";
   const initials = profile.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().substring(0, 2);
+
+  const hubUrls = new Set<string>();
+  const normalizeUrl = (u: string) => {
+    try {
+      const parsed = new URL(u);
+      const pathname = parsed.pathname === "/" ? "" : parsed.pathname.replace(/\/$/, "");
+      return `${parsed.hostname.toLowerCase()}${pathname}${parsed.search}${parsed.hash}`;
+    } catch {
+      return u.toLowerCase().trim().replace(/\/$/, "");
+    }
+  };
+
+  const hubItems: any[] = [];
+
+  [...((profile.portfolio ?? []) as any[])]
+    .sort((a, b) => Number(Boolean(b.featured)) - Number(Boolean(a.featured)))
+    .forEach((p: any) => {
+    if (p.visibility === "private" && !isOwn) return;
+    const url = safeHubUrl(p.projectUrl || p.canonicalUrl || (p.mimeType ? `${BASE}api/storage/portfolio/${p.id}` : null));
+    if (url) {
+      const normalized = normalizeUrl(url);
+      if (hubUrls.has(normalized)) return;
+      hubUrls.add(normalized);
+    }
+    const media = p.imageUrl || (p.mimeType?.startsWith("image/") ? url : null);
+    hubItems.push({
+      type: "portfolio",
+      id: `port-${p.id}`,
+      title: p.title,
+      description: p.description,
+      imageUrl: media,
+      url,
+      provider: providerFromUrl(url, p.source || "portfolio"),
+      tags: p.tags || [],
+      featured: p.featured,
+      isPdf: p.mimeType === "application/pdf"
+    });
+    });
+
+  const addLink = (url: string | null | undefined, provider: string, title: string) => {
+    const safeUrl = safeHubUrl(url);
+    if (!safeUrl) return;
+    const norm = normalizeUrl(safeUrl);
+    if (hubUrls.has(norm)) return;
+    hubUrls.add(norm);
+    hubItems.push({
+      type: "link",
+      id: `link-${provider}-${norm}`,
+      title,
+      url: safeUrl,
+      provider: providerFromUrl(safeUrl, provider),
+      featured: false,
+    });
+  };
+
+  addLink(profile.website, "website", "Website");
+  addLink(profile.linkedinUrl, "linkedin", "LinkedIn");
+  addLink(profile.githubUrl, "github", "GitHub");
+  addLink(profile.twitterUrl, "twitter", "X");
+  ((profile.customLinks ?? []) as any[]).forEach((c: any) => {
+    addLink(c.url, "custom", c.label || "Link");
+  });
+
+  hubItems.sort((a, b) => {
+    if (a.featured && !b.featured) return -1;
+    if (!a.featured && b.featured) return 1;
+    return 0;
+  });
+
+  async function shareProfile() {
+    const canonicalUrl = new URL(`${BASE}profiles/${id}`, window.location.origin).href;
+    const shareData = {
+      title: `${profile!.name} — professional profile`,
+      text: profile!.headline || `View ${profile!.name}'s professional profile`,
+      url: canonicalUrl,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+      await navigator.clipboard.writeText(shareData.url);
+      toast({ title: "Profile link copied!" });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      toast({ title: "Could not share profile", variant: "destructive" });
+    }
+  }
 
   const profileJsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
@@ -909,40 +1015,53 @@ export default function ProfileDetail() {
 
                   <div className="flex items-center gap-2 pt-14 flex-wrap justify-end">
                     {isOwn ? (
-                      <Button variant="outline" size="sm" onClick={() => setModal("info")} className="rounded-full h-9 px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
-                        <PencilIcon className="w-3.5 h-3.5" /> Edit profile
-                      </Button>
+                      <>
+                        <Button variant="outline" size="sm" onClick={shareProfile} className="rounded-full h-9 px-4 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
+                          <CopyIcon className="w-3.5 h-3.5" /> Share
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => setModal("info")} className="rounded-full h-9 px-5 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
+                          <PencilIcon className="w-3.5 h-3.5" /> Edit profile
+                        </Button>
+                      </>
                     ) : user?.accountType === "company" ? (
-                      interestStatus === "pending" ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled
-                          className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5 border-amber-300 text-amber-600 opacity-100 cursor-not-allowed"
-                        >
-                          <ClockIcon className="w-3.5 h-3.5" /> Interest Sent
+                      <>
+                        <Button variant="outline" size="sm" onClick={shareProfile} className="rounded-full h-9 px-4 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
+                          <ShareIcon className="w-3.5 h-3.5" /> Share
                         </Button>
-                      ) : interestStatus === "approved" ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled
-                          className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5 border-emerald-300 text-emerald-600 opacity-100 cursor-not-allowed"
-                        >
-                          <CheckIcon className="w-3.5 h-3.5" /> Contacted
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="default"
-                          onClick={() => setModal("interest")}
-                          className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5"
-                        >
-                          <UserPlusIcon className="w-3.5 h-3.5" /> Express Interest
-                        </Button>
-                      )
+                        {interestStatus === "pending" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled
+                            className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5 border-amber-300 text-amber-600 opacity-100 cursor-not-allowed"
+                          >
+                            <ClockIcon className="w-3.5 h-3.5" /> Interest Sent
+                          </Button>
+                        ) : interestStatus === "approved" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled
+                            className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5 border-emerald-300 text-emerald-600 opacity-100 cursor-not-allowed"
+                          >
+                            <CheckIcon className="w-3.5 h-3.5" /> Contacted
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => setModal("interest")}
+                            className="rounded-full h-9 px-5 text-sm font-semibold gap-1.5"
+                          >
+                            <UserPlusIcon className="w-3.5 h-3.5" /> Express Interest
+                          </Button>
+                        )}
+                      </>
                     ) : (
                       <>
+                        <Button variant="outline" size="sm" onClick={shareProfile} className="rounded-full h-9 px-4 text-sm font-semibold border-gray-700 text-gray-700 hover:bg-gray-50 gap-1.5">
+                          <ShareIcon className="w-3.5 h-3.5" /> Share
+                        </Button>
                         {isConnected(id) ? (
                           <Button
                             size="sm"
@@ -1011,46 +1130,113 @@ export default function ProfileDetail() {
                       </Link>
                     )}
                   </div>
-
-                  {/* Social links */}
-                  {(profile.website || profile.githubUrl || profile.linkedinUrl || profile.twitterUrl) && (
-                    <div className="flex items-center gap-3 pt-2 flex-wrap">
-                      {profile.website && (
-                        <a href={profile.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline font-medium">
-                          <GlobeIcon className="w-3 h-3" /> {profile.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
-                        </a>
-                      )}
-                      {profile.githubUrl && (
-                        <a href={profile.githubUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline font-medium">
-                          <GithubIcon className="w-3 h-3" /> GitHub
-                        </a>
-                      )}
-                      {profile.linkedinUrl && (
-                        <a href={profile.linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline font-medium">
-                          <LinkedinIcon className="w-3 h-3" /> LinkedIn
-                        </a>
-                      )}
-                      {profile.twitterUrl && (
-                        <a href={profile.twitterUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary hover:underline font-medium">
-                          <TwitterIcon className="w-3 h-3" /> X
-                        </a>
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
 
+            {/* Featured Work & Links Hub */}
+            {(hubItems.length > 0 || isOwn) && (
+              <div className="bg-white rounded-2xl border border-gray-200 px-6 py-5 shadow-sm">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h2 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+                      <StarIcon className="w-5 h-5 text-primary" />
+                      Featured work & links
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-0.5">Explore projects, websites, and external profiles</p>
+                  </div>
+                  {isOwn && (
+                    <Link href="/profile/edit">
+                      <Button variant="ghost" size="sm" className="text-xs gap-1 h-8 rounded-full border border-gray-200 hover:border-gray-300">
+                        <PencilIcon className="w-3.5 h-3.5" /> Manage hub
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+
+                {hubItems.length === 0 ? (
+                  <div className="py-10 text-center border-2 border-dashed border-gray-100 rounded-xl">
+                    <FileTextIcon className="w-10 h-10 text-gray-200 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-gray-800">Your hub is empty</p>
+                    <p className="text-xs text-gray-500 mt-1 mb-4">Add your best projects, websites, and social links to stand out.</p>
+                    <Link href="/profile/edit">
+                      <Button size="sm" className="rounded-full h-9">Build your hub</Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {hubItems.map(item => {
+                      const { icon: ProviderIcon, name: providerName } = getProviderDetails(item.provider);
+                      return (
+                        <a
+                          key={item.id}
+                          href={item.url || "#"}
+                          target={item.url ? "_blank" : undefined}
+                          rel={item.url ? "noopener noreferrer" : undefined}
+                          className={`group flex flex-col justify-between rounded-xl border border-gray-200 bg-white p-4 transition-all hover:border-primary/30 hover:shadow-sm ${!item.url ? "cursor-default" : ""}`}
+                        >
+                          <div>
+                            <div className="flex items-start justify-between gap-2 mb-3">
+                              <div className="flex items-center gap-1.5 text-gray-500">
+                                <ProviderIcon className="w-4 h-4" />
+                                <span className="text-[11px] font-bold uppercase tracking-wider">{providerName}</span>
+                              </div>
+                              {item.featured && <StarIcon className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0" />}
+                            </div>
+
+                            {item.imageUrl && (
+                              <div className="mb-3 h-32 w-full rounded-lg bg-gray-50 overflow-hidden border border-gray-100">
+                                <img src={item.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                              </div>
+                            )}
+
+                            <h3 className="font-semibold text-gray-900 group-hover:text-primary transition-colors leading-snug">
+                              {item.title}
+                            </h3>
+                            {item.description && (
+                              <p className="text-sm text-gray-500 mt-1.5 line-clamp-2 leading-relaxed">
+                                {item.description}
+                              </p>
+                            )}
+
+                            {item.tags?.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mt-3">
+                                {item.tags.slice(0, 3).map((tag: string) => (
+                                  <Badge key={tag} variant="secondary" className="bg-gray-100 text-gray-600 text-[10px] font-medium border-0 px-2 rounded-md">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                                {item.tags.length > 3 && (
+                                  <span className="text-[10px] text-gray-400 flex items-center font-medium">+{item.tags.length - 3}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-4 pt-3 border-t border-gray-50 flex items-center justify-between text-xs font-semibold text-gray-400 group-hover:text-primary transition-colors">
+                            <span>
+                              {item.isPdf ? "View PDF" : item.url ? (item.type === "link" ? "Visit link" : "View project") : "No link"}
+                            </span>
+                            {item.url && <ExternalLinkIcon className="w-3.5 h-3.5" />}
+                          </div>
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Analytics strip — own profile only */}
             {isOwn && (
-              <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4">
+              <div className="bg-transparent border-t border-gray-200 pt-6 px-2">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-                    <TrendingUpIcon className="w-4 h-4 text-primary" /> Profile analytics
+                  <h2 className="font-semibold text-gray-700 flex items-center gap-2">
+                    <TrendingUpIcon className="w-4 h-4 text-gray-400" /> Profile analytics
                   </h2>
                   <Link href="/analytics">
-                    <span className="text-xs text-primary font-semibold hover:underline cursor-pointer flex items-center gap-1">
-                      See all analytics <ArrowRightIcon className="w-3 h-3" />
+                    <span className="text-xs text-gray-500 font-semibold hover:underline cursor-pointer flex items-center gap-1">
+                      See all <ArrowRightIcon className="w-3 h-3" />
                     </span>
                   </Link>
                 </div>
@@ -1090,14 +1276,14 @@ export default function ProfileDetail() {
 
             {/* Activity section */}
             {(profilePosts.length > 0 || isOwn) && (
-              <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4">
+              <div className="bg-transparent border-t border-gray-200 pt-6 px-2 mt-2">
                 <div className="flex items-center justify-between mb-1">
-                  <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-                    <ActivityIcon className="w-4 h-4 text-primary" /> Activity
+                  <h2 className="font-semibold text-gray-700 flex items-center gap-2">
+                    <ActivityIcon className="w-4 h-4 text-gray-400" /> Activity
                   </h2>
                   <Link href="/feed">
-                    <span className="text-xs text-primary font-semibold hover:underline cursor-pointer flex items-center gap-1">
-                      See all posts <ArrowRightIcon className="w-3 h-3" />
+                    <span className="text-xs text-gray-500 font-semibold hover:underline cursor-pointer flex items-center gap-1">
+                      See all <ArrowRightIcon className="w-3 h-3" />
                     </span>
                   </Link>
                 </div>
@@ -1158,8 +1344,17 @@ export default function ProfileDetail() {
 
             {/* About */}
             {(profile.bio || isOwn) && (
-              <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4">
-                <SectionHeader title="About" icon={UserCheckIcon} isOwn={isOwn} onEdit={() => setModal("info")} />
+              <div className="bg-transparent border-t border-gray-200 pt-6 px-2 mt-2">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-base font-semibold text-gray-700 flex items-center gap-2">
+                    <UserCheckIcon className="w-4 h-4 text-gray-400" /> About
+                  </h2>
+                  {isOwn && (
+                    <button onClick={() => setModal("info")} className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                      <PencilIcon className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
                 {profile.bio ? (
                   <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{profile.bio}</p>
                 ) : (
@@ -1168,34 +1363,18 @@ export default function ProfileDetail() {
               </div>
             )}
 
-            {/* Public portfolio */}
-            {((profile.portfolio ?? []) as any[]).length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-200 px-6 py-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-semibold text-gray-900 flex items-center gap-2"><FileTextIcon className="w-4 h-4 text-primary" /> Portfolio</h2>
-                  {isOwn && <Link href="/profile/edit"><Button variant="ghost" size="sm" className="text-xs gap-1"><PencilIcon className="w-3 h-3" /> Manage</Button></Link>}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {((profile.portfolio ?? []) as any[]).sort((a, b) => Number(b.featured) - Number(a.featured)).map((item: any) => {
-                    const fileUrl = item.mimeType ? `${BASE}api/storage/portfolio/${item.id}` : null;
-                    const media = item.imageUrl || (item.mimeType?.startsWith("image/") ? fileUrl : null);
-                    return <article key={item.id} className="rounded-xl border border-gray-100 overflow-hidden hover:border-primary/30 transition-colors">
-                      <div className="h-28 bg-gradient-to-br from-indigo-50 to-gray-50 flex items-center justify-center overflow-hidden">{media ? <img src={media} alt={`${item.title} preview`} className="w-full h-full object-cover" /> : <FileTextIcon className="w-8 h-8 text-indigo-300" />}</div>
-                      <div className="p-3"><div className="flex items-start justify-between gap-2"><h3 className="text-sm font-semibold text-gray-900">{item.title}</h3>{item.featured && <StarIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" />}</div>
-                        <div className="flex items-center gap-1.5 mt-1"><Badge variant="outline" className="text-[10px]">{item.source === "github" ? "GitHub" : item.source === "linkedin" ? "LinkedIn" : item.source === "upload" ? "Upload" : item.source || "Portfolio"}</Badge>{item.mimeType === "application/pdf" && <span className="text-[10px] text-gray-400">PDF</span>}</div>
-                        {item.description && <p className="text-xs text-gray-500 line-clamp-2 mt-2">{item.description}</p>}
-                        {!!item.tags?.length && <div className="flex flex-wrap gap-1 mt-2">{item.tags.slice(0, 4).map((tag: string) => <span key={tag} className="text-[10px] bg-gray-50 rounded-full px-2 py-0.5 text-gray-500">{tag}</span>)}</div>}
-                        {(item.projectUrl || item.canonicalUrl || fileUrl) && <a href={item.projectUrl || item.canonicalUrl || fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline inline-block mt-2">{fileUrl && !item.projectUrl && !item.canonicalUrl ? "View file" : "View project"} ↗</a>}
-                      </div>
-                    </article>;
-                  })}
-                </div>
-              </div>
-            )}
-
             {/* Experience */}
-            <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4">
-              <SectionHeader title="Experience" icon={BriefcaseIcon} isOwn={isOwn} onAdd={() => setModal("exp")} />
+            <div className="bg-transparent border-t border-gray-200 pt-6 px-2 mt-2">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-gray-700 flex items-center gap-2">
+                  <BriefcaseIcon className="w-4 h-4 text-gray-400" /> Experience
+                </h2>
+                {isOwn && (
+                  <button onClick={() => setModal("exp")} className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                    <PlusIcon className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
               {(experience as any[]).length === 0 ? (
                 <p className="text-sm text-gray-400 italic">{isOwn ? "Add your work experience." : "No experience listed."}</p>
               ) : (
@@ -1235,8 +1414,17 @@ export default function ProfileDetail() {
             </div>
 
             {/* Education */}
-            <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4">
-              <SectionHeader title="Education" icon={GraduationCapIcon} isOwn={isOwn} onAdd={() => setModal("edu")} />
+            <div className="bg-transparent border-t border-gray-200 pt-6 px-2 mt-2">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-gray-700 flex items-center gap-2">
+                  <GraduationCapIcon className="w-4 h-4 text-gray-400" /> Education
+                </h2>
+                {isOwn && (
+                  <button onClick={() => setModal("edu")} className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                    <PlusIcon className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
               {(education as any[]).length === 0 ? (
                 <p className="text-sm text-gray-400 italic">{isOwn ? "Add your education history." : "No education listed."}</p>
               ) : (
@@ -1271,8 +1459,17 @@ export default function ProfileDetail() {
             </div>
 
             {/* Skills */}
-            <div className="bg-white rounded-2xl border border-gray-200 px-6 py-4">
-              <SectionHeader title="Skills" icon={ZapIcon} isOwn={isOwn} onAdd={() => setModal("skill")} />
+            <div className="bg-transparent border-t border-gray-200 pt-6 px-2 mt-2">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold text-gray-700 flex items-center gap-2">
+                  <ZapIcon className="w-4 h-4 text-gray-400" /> Skills
+                </h2>
+                {isOwn && (
+                  <button onClick={() => setModal("skill")} className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                    <PlusIcon className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
               {(skills as any[]).length === 0 ? (
                 <p className="text-sm text-gray-400 italic">{isOwn ? "Add skills to showcase your expertise." : "No skills listed."}</p>
               ) : (
@@ -1300,12 +1497,12 @@ export default function ProfileDetail() {
 
             {/* Open to work */}
             {profile.openToWork && (
-              <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
+              <div className="bg-transparent border border-gray-200/60 rounded-2xl px-5 py-4">
                 <div className="flex items-center gap-2 mb-1.5">
                   <div className="w-8 h-8 bg-green-50 rounded-full flex items-center justify-center flex-shrink-0">
                     <BriefcaseIcon className="w-4 h-4 text-green-600" />
                   </div>
-                  <p className="text-sm font-semibold text-gray-900">Open to work</p>
+                  <p className="text-sm font-semibold text-gray-700">Open to work</p>
                 </div>
                 <p className="text-xs text-gray-500 leading-relaxed">
                   {isOwn ? "You are visible to recruiters as open to new opportunities." : `${profile.name.split(" ")[0]} is actively exploring remote roles.`}
@@ -1314,18 +1511,18 @@ export default function ProfileDetail() {
             )}
 
             {/* Network stats */}
-            <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
-                <UsersIcon className="w-4 h-4 text-primary" /> Network
+            <div className="bg-transparent border border-gray-200/60 rounded-2xl px-5 py-4">
+              <h3 className="text-sm font-semibold text-gray-600 mb-3 flex items-center gap-1.5">
+                <UsersIcon className="w-4 h-4 text-gray-400" /> Network
               </h3>
               <div className="space-y-3">
                 <div className="flex flex-col gap-0.5">
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-xl font-bold text-gray-700">
                     {connectionCount}
-                    <span className="text-sm font-normal text-gray-400 ml-1">connection{connectionCount !== 1 ? "s" : ""}</span>
+                    <span className="text-xs font-medium text-gray-400 ml-1">connection{connectionCount !== 1 ? "s" : ""}</span>
                   </p>
                   {followingCount > 0 && (
-                    <p className="text-sm text-gray-500">
+                    <p className="text-xs text-gray-500">
                       {followingCount} <span className="text-gray-400">following</span>
                     </p>
                   )}
@@ -1337,7 +1534,7 @@ export default function ProfileDetail() {
               </div>
               {isOwn && (
                 <Link href="/profiles?tab=discover">
-                  <Button variant="outline" size="sm" className="mt-4 w-full rounded-full text-xs gap-1.5">
+                  <Button variant="outline" size="sm" className="mt-4 w-full rounded-full text-xs gap-1.5 text-gray-500 hover:text-gray-700">
                     <UsersIcon className="w-3.5 h-3.5" /> Grow my network
                   </Button>
                 </Link>
@@ -1346,13 +1543,13 @@ export default function ProfileDetail() {
 
             {/* Top skills */}
             {(skills as any[]).length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
-                  <ZapIcon className="w-4 h-4 text-primary" /> Top skills
+              <div className="bg-transparent border border-gray-200/60 rounded-2xl px-5 py-4">
+                <h3 className="text-sm font-semibold text-gray-600 mb-3 flex items-center gap-1.5">
+                  <ZapIcon className="w-4 h-4 text-gray-400" /> Top skills
                 </h3>
                 <div className="flex flex-wrap gap-1.5">
                   {(skills as any[]).slice(0, 6).map((skill: any) => (
-                    <span key={skill.id} className="bg-primary/10 text-primary text-xs font-medium px-2.5 py-1 rounded-full border border-primary/20">
+                    <span key={skill.id} className="bg-gray-100 text-gray-600 text-[11px] font-medium px-2.5 py-1 rounded-full">
                       {skill.name}
                     </span>
                   ))}
@@ -1362,21 +1559,21 @@ export default function ProfileDetail() {
 
             {/* Latest experience */}
             {(experience as any[]).length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
-                  <BriefcaseIcon className="w-4 h-4 text-primary" /> Current role
+              <div className="bg-transparent border border-gray-200/60 rounded-2xl px-5 py-4">
+                <h3 className="text-sm font-semibold text-gray-600 mb-3 flex items-center gap-1.5">
+                  <BriefcaseIcon className="w-4 h-4 text-gray-400" /> Current role
                 </h3>
                 {(() => {
                   const current = (experience as any[]).find((e: any) => e.current) ?? (experience as any[])[0];
                   return (
                     <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
-                        <BriefcaseIcon className="w-4 h-4 text-gray-400" />
+                      <div className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center flex-shrink-0">
+                        <BriefcaseIcon className="w-3.5 h-3.5 text-gray-400" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-gray-900">{current.title}</p>
-                        <p className="text-xs text-primary font-medium">{current.company}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{current.current ? "Present" : fmtDate(current.endDate || "")}</p>
+                        <p className="text-xs font-semibold text-gray-700">{current.title}</p>
+                        <p className="text-[11px] text-gray-500 font-medium mt-0.5">{current.company}</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">{current.current ? "Present" : fmtDate(current.endDate || "")}</p>
                       </div>
                     </div>
                   );
@@ -1386,21 +1583,21 @@ export default function ProfileDetail() {
 
             {/* Latest education */}
             {(education as any[]).length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
-                  <GraduationCapIcon className="w-4 h-4 text-primary" /> Education
+              <div className="bg-transparent border border-gray-200/60 rounded-2xl px-5 py-4">
+                <h3 className="text-sm font-semibold text-gray-600 mb-3 flex items-center gap-1.5">
+                  <GraduationCapIcon className="w-4 h-4 text-gray-400" /> Education
                 </h3>
                 {(() => {
                   const latest = (education as any[])[0];
                   return (
                     <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
-                        <GraduationCapIcon className="w-4 h-4 text-gray-400" />
+                      <div className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center flex-shrink-0">
+                        <GraduationCapIcon className="w-3.5 h-3.5 text-gray-400" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-gray-900">{latest.school}</p>
-                        {latest.degree && <p className="text-xs text-primary font-medium">{latest.degree}</p>}
-                        <p className="text-xs text-gray-400 mt-0.5">{latest.startYear} – {latest.endYear ?? "Present"}</p>
+                        <p className="text-xs font-semibold text-gray-700">{latest.school}</p>
+                        {latest.degree && <p className="text-[11px] text-gray-500 font-medium mt-0.5">{latest.degree}</p>}
+                        <p className="text-[10px] text-gray-400 mt-0.5">{latest.startYear} – {latest.endYear ?? "Present"}</p>
                       </div>
                     </div>
                   );
