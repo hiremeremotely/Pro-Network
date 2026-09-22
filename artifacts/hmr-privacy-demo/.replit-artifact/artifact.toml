@@ -1,4 +1,5 @@
 kind = "video"
+videoAspectRatio = "16:9"
 previewPath = "/hmr-privacy-demo/"
 title = "HMR Privacy Demo"
 version = "1.0.0"
