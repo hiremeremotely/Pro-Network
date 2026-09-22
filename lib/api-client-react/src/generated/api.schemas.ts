@@ -5,6 +5,85 @@
  * ProConnect professional networking and remote jobs platform API
  * OpenAPI spec version: 0.1.0
  */
+export type ProfilePrivacyPrivacySettings = {[key: string]: 'public' | 'hmr' | 'private'};
+
+export type ProfilePrivacySourceMetadata = {[key: string]: {
+  connected?: boolean;
+  url?: string;
+  label?: string;
+}};
+
+export interface ProfilePrivacy {
+  privacySettings: ProfilePrivacyPrivacySettings;
+  discoveryEnabled: boolean;
+  sourceMetadata: ProfilePrivacySourceMetadata;
+}
+
+export type ProfilePrivacyUpdateSourceMetadata = {[key: string]: { [key: string]: unknown }};
+
+export interface PrivacySettings {[key: string]: 'public' | 'hmr' | 'private'}
+
+export interface ProfilePrivacyUpdate {
+  privacySettings?: PrivacySettings;
+  discoveryEnabled?: boolean;
+  sourceMetadata?: ProfilePrivacyUpdateSourceMetadata;
+}
+
+export interface InterestRequestInput {
+  candidateProfileId: number;
+  jobId?: number;
+  roleTitle: string;
+  companyNote?: string;
+}
+
+export interface InterestApproval {
+  releaseScope: string[];
+}
+
+export type InterestRequestStatus = typeof InterestRequestStatus[keyof typeof InterestRequestStatus];
+
+
+export const InterestRequestStatus = {
+  pending: 'pending',
+  pending_hmr: 'pending_hmr',
+  pending_candidate: 'pending_candidate',
+  approved: 'approved',
+  declined: 'declined',
+  declined_hmr: 'declined_hmr',
+  declined_candidate: 'declined_candidate',
+} as const;
+
+export interface InterestRequest {
+  id?: number;
+  status?: InterestRequestStatus;
+  roleTitle?: string | null;
+  conversationId?: number | null;
+}
+
+export type CompanyInterestRequestCandidate = {
+  id?: number;
+  name?: string;
+  headline?: string;
+  avatarUrl?: string | null;
+  label?: string;
+};
+
+export type CompanyInterestRequest = InterestRequest & ({
+  conversationId?: number | null;
+  candidate?: CompanyInterestRequestCandidate;
+});
+
+export type AnonymousTalentResponseProfilesItem = {
+  id?: number;
+  candidateLabel?: string;
+  headline?: string;
+  industry?: string | null;
+};
+
+export interface AnonymousTalentResponse {
+  profiles?: AnonymousTalentResponseProfilesItem[];
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -696,4 +775,12 @@ error?: string;
 
 export type DisconnectEmailIntegration200 = {
   disconnected: boolean;
+};
+
+export type ListCandidateInterestRequests200 = {
+  requests?: InterestRequest[];
+};
+
+export type ListCompanyInterestRequests200 = {
+  requests?: CompanyInterestRequest[];
 };

@@ -25,6 +25,12 @@ export const profilesTable = pgTable("profiles", {
   wellfoundUrl: text("wellfound_url"),
   angellistUrl: text("angellist_url"),
   customLinks: jsonb("custom_links").$type<Array<{ label: string; url: string }>>().notNull().default([]),
+  privacySettings: jsonb("privacy_settings").$type<Record<string, "public" | "hmr" | "private">>().notNull().default({
+    identity: "public", contact: "private", currentEmployer: "hmr", socialLinks: "public",
+    portfolio: "public", experience: "public", education: "public", skills: "public",
+  }),
+  discoveryEnabled: boolean("discovery_enabled").notNull().default(true),
+  sourceMetadata: jsonb("source_metadata").$type<Record<string, { connected: boolean; url?: string; label?: string }>>().notNull().default({}),
   gmailConnected: boolean("gmail_connected").notNull().default(false),
   outlookConnected: boolean("outlook_connected").notNull().default(false),
   gmailToken: text("gmail_token"),

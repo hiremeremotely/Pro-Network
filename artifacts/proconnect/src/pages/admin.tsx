@@ -751,7 +751,7 @@ function SubscriptionsSection() {
 
 type AdminInterest = {
   id: number;
-  status: "pending" | "approved" | "declined";
+  status: "pending" | "pending_hmr" | "pending_candidate" | "approved" | "declined" | "declined_hmr" | "declined_candidate";
   companyNote: string | null;
   adminNote: string | null;
   jobTitle: string | null;
@@ -787,12 +787,12 @@ function ApproveDialog({ req, onClose, onDone }: { req: AdminInterest; onClose: 
   async function submit() {
     setBusy(true); setErr(null);
     try {
-      const res = await fetch(`${BASE}api/admin/interest-requests/${req.id}/approve`, {
+      const res = await fetch(`${BASE}api/admin/interest-requests/${req.id}/route`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ introMessage: msg }),
+        body: JSON.stringify({ adminNote: msg }),
       });
       if (!res.ok) { setErr((await res.json()).error || "Failed"); return; }
       onDone();
@@ -803,12 +803,12 @@ function ApproveDialog({ req, onClose, onDone }: { req: AdminInterest; onClose: 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-base font-bold text-gray-900">Approve & introduce</h2>
+          <h2 className="text-base font-bold text-gray-900">Route to professional</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><XIcon className="w-5 h-5" /></button>
         </div>
         <div className="px-6 py-5 space-y-3">
           <p className="text-xs text-gray-500">
-            This sends a message from <span className="font-semibold">{req.company?.name}</span> to <span className="font-semibold">{req.candidate?.name}</span> and opens a conversation between them.
+            HMR does not reveal identity or open a conversation here. Routing notifies the professional, who can choose the exact release scope before connecting.
           </p>
           <textarea
             value={msg}
@@ -820,7 +820,7 @@ function ApproveDialog({ req, onClose, onDone }: { req: AdminInterest; onClose: 
         </div>
         <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2 bg-gray-50">
           <Button variant="ghost" onClick={onClose} className="rounded-full">Cancel</Button>
-          <Button onClick={submit} disabled={busy || !msg.trim()} className="rounded-full">{busy ? "Sending…" : "Approve & send"}</Button>
+          <Button onClick={submit} disabled={busy || !msg.trim()} className="rounded-full">{busy ? "Routing…" : "Route to professional"}</Button>
         </div>
       </div>
     </div>
@@ -871,7 +871,7 @@ function DeclineDialog({ req, onClose, onDone }: { req: AdminInterest; onClose: 
 }
 
 function InterestsSection() {
-  const [filter, setFilter] = useState<"pending" | "approved" | "declined" | "all">("pending");
+  const [filter, setFilter] = useState<"pending_hmr" | "pending" | "pending_candidate" | "approved" | "declined_hmr" | "declined_candidate" | "all">("pending_hmr");
   const { data, isLoading, error, refetch } = useAdminInterests(filter);
   const [approving, setApproving] = useState<AdminInterest | null>(null);
   const [declining, setDeclining] = useState<AdminInterest | null>(null);
@@ -884,7 +884,7 @@ function InterestsSection() {
       <Header title="Interest Requests" subtitle="Company → candidate intros mediated by HMR" />
       <div className="px-8 py-6 space-y-6">
         <div className="flex items-center gap-2 flex-wrap">
-          {(["pending","approved","declined","all"] as const).map((f) => (
+          {(["pending_hmr","pending","pending_candidate","approved","declined_hmr","declined_candidate","all"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -949,13 +949,13 @@ function InterestsSection() {
                     }`}>{r.status}</Badge>
 
                     {/* actions */}
-                    {r.status === "pending" && (
+                    {(r.status === "pending" || r.status === "pending_hmr") && (
                       <div className="flex items-center gap-2">
                         <Button size="sm" variant="outline" onClick={() => setDeclining(r)} className="rounded-full h-8 px-3 text-xs">
                           <XIcon className="w-3.5 h-3.5 mr-1" /> Decline
                         </Button>
-                        <Button size="sm" onClick={() => setApproving(r)} className="rounded-full h-8 px-3 text-xs">
-                          <CheckIcon className="w-3.5 h-3.5 mr-1" /> Approve & intro
+                          <Button size="sm" onClick={() => setApproving(r)} className="rounded-full h-8 px-3 text-xs">
+                            <CheckIcon className="w-3.5 h-3.5 mr-1" /> Route to professional
                         </Button>
                       </div>
                     )}

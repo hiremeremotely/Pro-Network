@@ -1463,3 +1463,115 @@ export const DisconnectEmailIntegrationBody = zod.object({
 export const DisconnectEmailIntegrationResponse = zod.object({
   "disconnected": zod.boolean()
 })
+
+
+export const GetMyPrivacyResponse = zod.object({
+  "privacySettings": zod.record(zod.string(), zod.enum(['public', 'hmr', 'private'])),
+  "discoveryEnabled": zod.boolean(),
+  "sourceMetadata": zod.record(zod.string(), zod.object({
+  "connected": zod.boolean().optional(),
+  "url": zod.string().optional(),
+  "label": zod.string().optional()
+}))
+})
+
+
+export const UpdateMyPrivacyBody = zod.object({
+  "privacySettings": zod.record(zod.string(), zod.enum(['public', 'hmr', 'private'])).optional(),
+  "discoveryEnabled": zod.boolean().optional(),
+  "sourceMetadata": zod.record(zod.string(), zod.looseObject({
+
+})).optional()
+})
+
+export const UpdateMyPrivacyResponse = zod.object({
+  "privacySettings": zod.record(zod.string(), zod.enum(['public', 'hmr', 'private'])),
+  "discoveryEnabled": zod.boolean(),
+  "sourceMetadata": zod.record(zod.string(), zod.object({
+  "connected": zod.boolean().optional(),
+  "url": zod.string().optional(),
+  "label": zod.string().optional()
+}))
+})
+
+
+export const GetAnonymousTalentResponse = zod.object({
+  "profiles": zod.array(zod.object({
+  "id": zod.int().optional(),
+  "candidateLabel": zod.string().optional(),
+  "headline": zod.string().optional(),
+  "industry": zod.string().nullish()
+})).optional()
+})
+
+
+export const SubmitInterestRequestBody = zod.object({
+  "candidateProfileId": zod.int(),
+  "jobId": zod.int().optional(),
+  "roleTitle": zod.string(),
+  "companyNote": zod.string().optional()
+})
+
+export const SubmitInterestRequestResponse = zod.object({
+  "id": zod.int().optional(),
+  "status": zod.enum(['pending', 'pending_hmr', 'pending_candidate', 'approved', 'declined', 'declined_hmr', 'declined_candidate']).optional(),
+  "roleTitle": zod.string().nullish(),
+  "conversationId": zod.int().nullish()
+})
+
+
+export const ListCandidateInterestRequestsResponse = zod.object({
+  "requests": zod.array(zod.object({
+  "id": zod.int().optional(),
+  "status": zod.enum(['pending', 'pending_hmr', 'pending_candidate', 'approved', 'declined', 'declined_hmr', 'declined_candidate']).optional(),
+  "roleTitle": zod.string().nullish(),
+  "conversationId": zod.int().nullish()
+})).optional()
+})
+
+
+export const ListCompanyInterestRequestsResponse = zod.object({
+  "requests": zod.array(zod.object({
+  "id": zod.int().optional(),
+  "status": zod.enum(['pending', 'pending_hmr', 'pending_candidate', 'approved', 'declined', 'declined_hmr', 'declined_candidate']).optional(),
+  "roleTitle": zod.string().nullish(),
+  "conversationId": zod.int().nullish()
+}).and(zod.object({
+  "conversationId": zod.int().nullish(),
+  "candidate": zod.object({
+  "id": zod.int().optional(),
+  "name": zod.string().optional(),
+  "headline": zod.string().optional(),
+  "avatarUrl": zod.string().nullish(),
+  "label": zod.string().optional()
+}).optional()
+}))).optional()
+})
+
+
+export const ApproveInterestRequestParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const ApproveInterestRequestBody = zod.object({
+  "releaseScope": zod.array(zod.string())
+})
+
+export const ApproveInterestRequestResponse = zod.object({
+  "id": zod.int().optional(),
+  "status": zod.enum(['pending', 'pending_hmr', 'pending_candidate', 'approved', 'declined', 'declined_hmr', 'declined_candidate']).optional(),
+  "roleTitle": zod.string().nullish(),
+  "conversationId": zod.int().nullish()
+})
+
+
+export const DeclineInterestRequestParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const DeclineInterestRequestResponse = zod.object({
+  "id": zod.int().optional(),
+  "status": zod.enum(['pending', 'pending_hmr', 'pending_candidate', 'approved', 'declined', 'declined_hmr', 'declined_candidate']).optional(),
+  "roleTitle": zod.string().nullish(),
+  "conversationId": zod.int().nullish()
+})

@@ -7,3 +7,5 @@ export * from "zod";
 // runtime validation semantics.
 export const int = () => zod.number().int();
 export const url = () => zod.string().url();
+// Orval uses this Zod 4 helper for objects with additional properties.
+export const looseObject = (shape: zod.ZodRawShape) => zod.object(shape).passthrough();

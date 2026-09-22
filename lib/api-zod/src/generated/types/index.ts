@@ -6,7 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './anonymousTalentResponse';
+export * from './anonymousTalentResponseProfilesItem';
 export * from './application';
+export * from './companyInterestRequest';
+export * from './companyInterestRequestCandidate';
 export * from './confirmImportBody';
 export * from './confirmImportResponse';
 export * from './createApplicationBody';
@@ -44,8 +48,14 @@ export * from './importPortfolioBody';
 export * from './initiateEmailBody';
 export * from './initiateEmailBodyProvider';
 export * from './initiateEmailResponse';
+export * from './interestApproval';
+export * from './interestRequest';
+export * from './interestRequestInput';
+export * from './interestRequestStatus';
 export * from './job';
 export * from './jobTrackerResponse';
+export * from './listCandidateInterestRequests200';
+export * from './listCompanyInterestRequests200';
 export * from './listExternalApplications200';
 export * from './listExternalApplicationsParams';
 export * from './listExternalApplicationsSource';
@@ -57,9 +67,15 @@ export * from './listProfilesParams';
 export * from './platformLinks';
 export * from './portfolioProject';
 export * from './portfolioProjectVisibility';
+export * from './privacySettings';
 export * from './profile';
 export * from './profileCustomLinksItem';
 export * from './profileFull';
+export * from './profilePrivacy';
+export * from './profilePrivacyPrivacySettings';
+export * from './profilePrivacySourceMetadata';
+export * from './profilePrivacyUpdate';
+export * from './profilePrivacyUpdateSourceMetadata';
 export * from './reorderPortfolio200';
 export * from './reorderPortfolioBody';
 export * from './skill';

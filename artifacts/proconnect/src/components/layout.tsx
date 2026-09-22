@@ -541,6 +541,7 @@ export function Layout({ children }: LayoutProps) {
         { href: "/jobs",         label: "Jobs",        icon: BriefcaseIcon      },
         { href: "/job-tracker",  label: "Job Tracker", icon: KanbanSquareIcon   },
         { href: "/messaging",    label: "Messaging",   icon: MessageSquareIcon  },
+        { href: "/professional-requests", label: "Introductions", icon: UserPlusIcon },
       ];
 
   return (

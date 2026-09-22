@@ -14,8 +14,55 @@ import {
   DeleteProfileParams,
   ListProfilesQueryParams,
 } from "@workspace/api-zod";
+import { companyReleaseScope, anonymizedCandidate } from "../lib/privacyProjection";
 
 const router: IRouter = Router();
+
+function ownerId(req: any): number | null {
+  return req.session?.profileId ? Number(req.session.profileId) : null;
+}
+
+// Privacy and import-source state are intentionally owner-only. Source metadata
+// contains URLs and labels, never provider credentials or access tokens.
+router.get("/profiles/me/privacy", async (req, res): Promise<void> => {
+  const id = ownerId(req);
+  if (!id) { res.status(401).json({ error: "Authentication required" }); return; }
+  const [profile] = await db.select({
+    privacySettings: profilesTable.privacySettings,
+    discoveryEnabled: profilesTable.discoveryEnabled,
+    sourceMetadata: profilesTable.sourceMetadata,
+  }).from(profilesTable).where(eq(profilesTable.id, id));
+  if (!profile) { res.status(404).json({ error: "Profile not found" }); return; }
+  res.json(profile);
+});
+
+router.put("/profiles/me/privacy", async (req, res): Promise<void> => {
+  const id = ownerId(req);
+  if (!id) { res.status(401).json({ error: "Authentication required" }); return; }
+  const allowed = new Set(["public", "hmr", "private"]);
+  const settings = req.body?.privacySettings;
+  if (settings && (typeof settings !== "object" || Object.entries(settings).some(([key, value]) =>
+    !["identity", "contact", "currentEmployer", "socialLinks", "portfolio", "experience", "education", "skills"].includes(key) ||
+    !allowed.has(String(value))
+  ))) {
+    res.status(400).json({ error: "privacySettings contains an invalid field or visibility" }); return;
+  }
+  const sources = req.body?.sourceMetadata;
+  if (sources !== undefined && (typeof sources !== "object" || Array.isArray(sources))) {
+    res.status(400).json({ error: "sourceMetadata must be an object" }); return;
+  }
+  const [updated] = await db.update(profilesTable).set({
+    ...(settings ? { privacySettings: settings } : {}),
+    ...(typeof req.body?.discoveryEnabled === "boolean" ? { discoveryEnabled: req.body.discoveryEnabled } : {}),
+    ...(sources ? { sourceMetadata: sources } : {}),
+    updatedAt: new Date(),
+  }).where(eq(profilesTable.id, id)).returning({
+    privacySettings: profilesTable.privacySettings,
+    discoveryEnabled: profilesTable.discoveryEnabled,
+    sourceMetadata: profilesTable.sourceMetadata,
+  });
+  res.json(updated);
+});
 
 // Columns that are safe to return in any profile response.
 // Sensitive auth fields (passwordHash, tokens, etc.) are deliberately excluded.
@@ -122,7 +169,15 @@ router.get("/profiles", async (req, res): Promise<void> => {
     db.select({ count: sql<number>`count(*)` }).from(profilesTable).where(whereClause),
   ]);
 
-  res.json({ profiles, total: Number(countResult[0]?.count ?? 0) });
+  const [viewer] = req.session.profileId
+    ? await db.select({ accountType: profilesTable.accountType }).from(profilesTable).where(eq(profilesTable.id, Number(req.session.profileId)))
+    : [];
+  const responseProfiles = viewer?.accountType === "company"
+    ? profiles.map((p) => p.accountType === "individual"
+      ? { ...anonymizedCandidate(p.id, p.headline, p.industry, p.location), accountType: p.accountType, openToWork: p.openToWork }
+      : p)
+    : profiles;
+  res.json({ profiles: responseProfiles, total: Number(countResult[0]?.count ?? 0) });
 });
 
 router.post("/profiles", async (req, res): Promise<void> => {
@@ -151,6 +206,7 @@ router.get("/profiles/:id", async (req, res): Promise<void> => {
   }
 
   const isOwner = req.session.profileId === params.data.id;
+  const scope = await companyReleaseScope(req, params.data.id);
   const [education, experience, portfolio, skills] = await Promise.all([
     db.select().from(educationTable).where(eq(educationTable.profileId, params.data.id)),
     db.select().from(experienceTable).where(eq(experienceTable.profileId, params.data.id)),
@@ -162,6 +218,20 @@ router.get("/profiles/:id", async (req, res): Promise<void> => {
     db.select().from(skillsTable).where(eq(skillsTable.profileId, params.data.id)),
   ]);
 
+  if (scope) {
+    const candidate = anonymizedCandidate(profile.id, profile.headline, profile.industry, profile.location);
+    res.json({
+      ...candidate,
+      ...(scope.has("identity") ? { name: profile.name, avatarUrl: profile.avatarUrl } : {}),
+      ...(scope.has("contact") ? { email: null } : {}),
+      education: scope.has("education") ? education : [],
+      experience: scope.has("experience") ? experience : [],
+      skills: scope.has("skills") ? skills : [],
+      portfolio: scope.has("portfolio") ? portfolio.map((item) => { const { objectPath: _objectPath, ...safe } = item; return safe; }) : [],
+      ...(scope.has("socialLinks") ? { website: profile.website, linkedinUrl: profile.linkedinUrl, githubUrl: profile.githubUrl, twitterUrl: profile.twitterUrl } : {}),
+    });
+    return;
+  }
   res.json({
     ...profile, education, experience,
     portfolio: portfolio.map((item) => {

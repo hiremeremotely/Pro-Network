@@ -7,6 +7,7 @@ import {
   DeleteProfileSkillParams,
   ListProfileSkillsParams,
 } from "@workspace/api-zod";
+import { companyReleaseScope } from "../lib/privacyProjection";
 
 const router: IRouter = Router();
 
@@ -16,6 +17,8 @@ router.get("/profiles/:profileId/skills", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
+  const scope = await companyReleaseScope(req, params.data.profileId);
+  if (scope && !scope.has("skills")) { res.json([]); return; }
   const rows = await db.select().from(skillsTable).where(eq(skillsTable.profileId, params.data.profileId));
   res.json(rows);
 });

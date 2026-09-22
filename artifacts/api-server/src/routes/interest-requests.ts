@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, interestRequestsTable, profilesTable, jobsTable, conversationsTable, messagesTable, notificationsTable } from "@workspace/db";
+import { db, interestRequestsTable, profilesTable, jobsTable, conversationsTable, messagesTable, notificationsTable, hmrAuditEventsTable } from "@workspace/db";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -21,11 +21,11 @@ function orderedPair(a: number, b: number): [number, number] {
 // ── POST /api/interest-requests ──────────────────────────────────────────────
 // Body: { companyProfileId, candidateProfileId, jobId?, companyNote? }
 router.post("/interest-requests", async (req, res): Promise<void> => {
-  const { companyProfileId, candidateProfileId, jobId, companyNote } = req.body ?? {};
-  const companyId = Number(companyProfileId);
+  const { candidateProfileId, jobId, roleTitle, companyNote } = req.body ?? {};
+  const companyId = Number(req.session?.profileId);
   const candidateId = Number(candidateProfileId);
-  if (!companyId || !candidateId) {
-    res.status(400).json({ error: "companyProfileId and candidateProfileId required" });
+  if (!companyId || !candidateId || !roleTitle) {
+    res.status(400).json({ error: "candidateProfileId and roleTitle required" });
     return;
   }
 
@@ -40,12 +40,16 @@ router.post("/interest-requests", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Interest can only be expressed in individual candidates." });
     return;
   }
+  if (jobId) {
+    const [job] = await db.select({ companyProfileId: jobsTable.companyProfileId }).from(jobsTable).where(eq(jobsTable.id, Number(jobId)));
+    if (!job || job.companyProfileId !== companyId) { res.status(403).json({ error: "You may only reference your own jobs" }); return; }
+  }
 
   // Rate limit: cap pending interests per company
   const [{ pendingCount }] = await db
     .select({ pendingCount: sql<number>`count(*)` })
     .from(interestRequestsTable)
-    .where(and(eq(interestRequestsTable.companyProfileId, companyId), eq(interestRequestsTable.status, "pending")));
+    .where(and(eq(interestRequestsTable.companyProfileId, companyId), inArray(interestRequestsTable.status, ["pending", "pending_hmr", "pending_candidate"])));
   if (Number(pendingCount) >= MAX_PENDING_PER_COMPANY) {
     res.status(429).json({ error: `You have ${MAX_PENDING_PER_COMPANY} pending interest requests. Please wait for HMR to review them before sending more.` });
     return;
@@ -58,7 +62,7 @@ router.post("/interest-requests", async (req, res): Promise<void> => {
     .where(and(
       eq(interestRequestsTable.companyProfileId, companyId),
       eq(interestRequestsTable.candidateProfileId, candidateId),
-      eq(interestRequestsTable.status, "pending"),
+       inArray(interestRequestsTable.status, ["pending", "pending_hmr", "pending_candidate"]),
     ))
     .limit(1);
   if (duplicate) {
@@ -72,10 +76,13 @@ router.post("/interest-requests", async (req, res): Promise<void> => {
       companyProfileId: companyId,
       candidateProfileId: candidateId,
       jobId: jobId ? Number(jobId) : null,
+      roleTitle: String(roleTitle).trim().slice(0, 200),
       companyNote: companyNote ? String(companyNote).trim().slice(0, 500) : null,
+      status: "pending_hmr",
     })
     .returning();
 
+  await db.insert(hmrAuditEventsTable).values({ interestRequestId: created.id, actorProfileId: companyId, actorRole: "company", event: "submission", metadata: {} });
   res.status(201).json(created);
 });
 
@@ -104,8 +111,10 @@ router.get("/interest-requests/status", async (req, res): Promise<void> => {
 
 // ── GET /api/interest-requests/by-company?companyProfileId= ───────────────────
 router.get("/interest-requests/by-company", async (req, res): Promise<void> => {
-  const companyId = Number(req.query.companyProfileId);
-  if (!companyId) { res.status(400).json({ error: "companyProfileId required" }); return; }
+  const companyId = Number(req.session?.profileId);
+  if (!companyId) { res.status(401).json({ error: "Authentication required" }); return; }
+  const [viewer] = await db.select({ accountType: profilesTable.accountType }).from(profilesTable).where(eq(profilesTable.id, companyId));
+  if (viewer?.accountType !== "company") { res.status(403).json({ error: "Company account required" }); return; }
 
   const rows = await db
     .select({
@@ -116,6 +125,8 @@ router.get("/interest-requests/by-company", async (req, res): Promise<void> => {
       jobId: interestRequestsTable.jobId,
       createdAt: interestRequestsTable.createdAt,
       respondedAt: interestRequestsTable.respondedAt,
+      conversationId: interestRequestsTable.conversationId,
+      releaseScope: interestRequestsTable.releaseScope,
       candidateId: profilesTable.id,
       candidateName: profilesTable.name,
       candidateHeadline: profilesTable.headline,
@@ -133,7 +144,19 @@ router.get("/interest-requests/by-company", async (req, res): Promise<void> => {
     : [];
   const jobMap = new Map(jobs.map(j => [j.id, j.title]));
 
-  res.json(rows.map(r => ({ ...r, jobTitle: r.jobId ? jobMap.get(r.jobId) ?? null : null })));
+  res.json(rows.map(r => {
+    const approved = r.status === "approved";
+    return {
+      id: r.id, status: r.status, companyNote: r.companyNote, adminNote: r.adminNote,
+      jobId: r.jobId, createdAt: r.createdAt, respondedAt: r.respondedAt,
+      jobTitle: r.jobId ? jobMap.get(r.jobId) ?? null : null,
+      conversationId: r.conversationId,
+      candidate: approved ? {
+        ...(r.releaseScope.includes("identity") ? { id: r.candidateId, name: r.candidateName, avatarUrl: r.candidateAvatarUrl } : { label: "Professional candidate" }),
+        ...(r.releaseScope.includes("identity") ? { headline: r.candidateHeadline } : {}),
+      } : { label: "Professional candidate" },
+    };
+  }));
 });
 
 // ── GET /api/admin/interest-requests ─────────────────────────────────────────
@@ -188,79 +211,27 @@ router.get("/admin/interest-requests", async (req, res): Promise<void> => {
 });
 
 // ── POST /api/admin/interest-requests/:id/approve ────────────────────────────
-// Body: { introMessage, adminNote? }
-// Creates a conversation between candidate and company, posts the intro message
-// from the company, and marks the request approved.
+// Legacy alias retained for old clients. It now performs the same HMR routing
+// step as /route and never creates a conversation or releases identity.
 router.post("/admin/interest-requests/:id/approve", async (req, res): Promise<void> => {
   if (!requireAdmin(req, res)) return;
   const id = Number(req.params.id);
   if (!id) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const { introMessage, adminNote } = req.body ?? {};
-  const msg = typeof introMessage === "string" ? introMessage.trim() : "";
-  if (!msg) { res.status(400).json({ error: "introMessage required" }); return; }
+  const { adminNote } = req.body ?? {};
 
   const [ireq] = await db.select().from(interestRequestsTable).where(eq(interestRequestsTable.id, id)).limit(1);
   if (!ireq) { res.status(404).json({ error: "Interest request not found" }); return; }
   if (ireq.status !== "pending") { res.status(400).json({ error: `Request is already ${ireq.status}` }); return; }
-
-  // Get or create a direct conversation between company and candidate.
-  // (Bypasses the company→individual policy guard — this is an HMR-approved intro.)
-  const [p1, p2] = orderedPair(ireq.companyProfileId, ireq.candidateProfileId);
-  let [conv] = await db
-    .select()
-    .from(conversationsTable)
-    .where(and(
-      eq(conversationsTable.participant1Id, p1),
-      eq(conversationsTable.participant2Id, p2),
-      eq(conversationsTable.type, "direct"),
-    ))
-    .limit(1);
-
-  if (!conv) {
-    const [created] = await db
-      .insert(conversationsTable)
-      .values({ participant1Id: p1, participant2Id: p2, type: "direct" })
-      .returning();
-    conv = created;
-  }
-
-  // Post the intro message from the company
-  await db.insert(messagesTable).values({
-    conversationId: conv.id,
-    senderProfileId: ireq.companyProfileId,
-    content: msg.slice(0, 4000),
-  });
-
-  // Update conversation preview
-  await db
-    .update(conversationsTable)
-    .set({ lastMessageAt: new Date(), lastMessagePreview: msg.slice(0, 80) })
-    .where(eq(conversationsTable.id, conv.id));
-
-  // Notify the candidate
-  const [company] = await db.select({ name: profilesTable.name }).from(profilesTable).where(eq(profilesTable.id, ireq.companyProfileId)).limit(1);
-  await db.insert(notificationsTable).values({
-    recipientProfileId: ireq.candidateProfileId,
-    actorProfileId: ireq.companyProfileId,
-    type: "new_message",
-    conversationId: conv.id,
-    message: `${company?.name ?? "A company"} sent you a message`,
-  });
-
-  // Mark request approved — conditional on still being pending, so concurrent
-  // approvals are idempotent (only the first one wins).
-  const [updated] = await db
-    .update(interestRequestsTable)
-    .set({
-      status: "approved",
-      adminNote: adminNote ? String(adminNote).slice(0, 1000) : null,
-      respondedAt: new Date(),
-    })
-    .where(and(eq(interestRequestsTable.id, id), eq(interestRequestsTable.status, "pending")))
-    .returning();
-
-  res.json({ ...(updated ?? ireq), conversationId: conv.id });
+  // Legacy approve calls are now treated as an HMR route. Identity release and
+  // conversation creation must only happen after the candidate's explicit approval.
+  const [routed] = await db.update(interestRequestsTable).set({
+    status: "pending_candidate",
+    adminNote: adminNote ? String(adminNote).slice(0, 1000) : null,
+  }).where(and(eq(interestRequestsTable.id, id), eq(interestRequestsTable.status, "pending"))).returning();
+  await db.insert(hmrAuditEventsTable).values({ interestRequestId: id, actorRole: "hmr", event: "route_to_candidate", metadata: {} });
+  await db.insert(notificationsTable).values({ recipientProfileId: ireq.candidateProfileId, actorProfileId: ireq.companyProfileId, type: "system", message: "You have a new professional introduction request to review" });
+  res.json(routed);
 });
 
 // ── POST /api/admin/interest-requests/:id/decline ────────────────────────────
@@ -277,11 +248,11 @@ router.post("/admin/interest-requests/:id/decline", async (req, res): Promise<vo
   const [updated] = await db
     .update(interestRequestsTable)
     .set({
-      status: "declined",
+      status: "declined_hmr",
       adminNote: adminNote ? String(adminNote).slice(0, 1000) : null,
       respondedAt: new Date(),
     })
-    .where(and(eq(interestRequestsTable.id, id), eq(interestRequestsTable.status, "pending")))
+    .where(and(eq(interestRequestsTable.id, id), inArray(interestRequestsTable.status, ["pending", "pending_hmr"])))
     .returning();
 
   if (!updated) {
@@ -291,7 +262,90 @@ router.post("/admin/interest-requests/:id/decline", async (req, res): Promise<vo
     return;
   }
 
+  await db.insert(hmrAuditEventsTable).values({ interestRequestId: updated.id, actorRole: "hmr", event: "hmr_decline", metadata: {} });
+  await db.insert(notificationsTable).values({
+    recipientProfileId: updated.companyProfileId, actorProfileId: updated.companyProfileId,
+    type: "system", message: "Your professional introduction request was declined by HMR",
+  });
   res.json(updated);
+});
+
+// HMR routes a request without opening a conversation or exposing candidate identity.
+router.post("/admin/interest-requests/:id/route", async (req, res): Promise<void> => {
+  if (!requireAdmin(req, res)) return;
+  const id = Number(req.params.id);
+  const [updated] = await db.update(interestRequestsTable).set({
+    status: "pending_candidate",
+    adminNote: req.body?.adminNote ? String(req.body.adminNote).slice(0, 1000) : null,
+  }).where(and(eq(interestRequestsTable.id, id), eq(interestRequestsTable.status, "pending_hmr"))).returning();
+  if (!updated) { res.status(404).json({ error: "Request not found or already routed" }); return; }
+  await db.insert(hmrAuditEventsTable).values({ interestRequestId: id, actorRole: "hmr", event: "route_to_candidate", metadata: {} });
+  await db.insert(notificationsTable).values({
+    recipientProfileId: updated.candidateProfileId, actorProfileId: updated.companyProfileId, type: "system",
+    message: "You have a new professional introduction request to review",
+  });
+  res.json({ id: updated.id, status: updated.status });
+});
+
+router.get("/interest-requests/candidate", async (req, res): Promise<void> => {
+  const candidateId = Number(req.session?.profileId);
+  if (!candidateId) { res.status(401).json({ error: "Authentication required" }); return; }
+  const rows = await db.select({
+    id: interestRequestsTable.id, status: interestRequestsTable.status, roleTitle: interestRequestsTable.roleTitle,
+    companyNote: interestRequestsTable.companyNote, jobId: interestRequestsTable.jobId, createdAt: interestRequestsTable.createdAt,
+  }).from(interestRequestsTable).where(and(eq(interestRequestsTable.candidateProfileId, candidateId), eq(interestRequestsTable.status, "pending_candidate"))).orderBy(desc(interestRequestsTable.createdAt));
+  res.json({ requests: rows });
+});
+
+router.post("/interest-requests/:id/approve", async (req, res): Promise<void> => {
+  const candidateId = Number(req.session?.profileId);
+  if (!candidateId) { res.status(401).json({ error: "Authentication required" }); return; }
+  const id = Number(req.params.id);
+  const scope = Array.isArray(req.body?.releaseScope) ? req.body.releaseScope.map(String).filter((s: string) => ["identity", "contact", "currentEmployer", "socialLinks", "portfolio", "experience", "education", "skills"].includes(s)) : [];
+  const result = await db.transaction(async (tx) => {
+    const [updated] = await tx.update(interestRequestsTable).set({ status: "approved", releaseScope: scope, respondedAt: new Date() }).where(and(eq(interestRequestsTable.id, id), eq(interestRequestsTable.candidateProfileId, candidateId), eq(interestRequestsTable.status, "pending_candidate"))).returning();
+    if (!updated) return null;
+    const [p1, p2] = orderedPair(updated.companyProfileId, candidateId);
+    let [conv] = await tx.select().from(conversationsTable).where(and(eq(conversationsTable.participant1Id, p1), eq(conversationsTable.participant2Id, p2), eq(conversationsTable.type, "direct"))).limit(1);
+    if (!conv) [conv] = await tx.insert(conversationsTable).values({ participant1Id: p1, participant2Id: p2, type: "direct" }).returning();
+    if (!conv.lastMessageAt) {
+      const introMessage = [
+        `HMR introduction approved${updated.roleTitle ? ` for ${updated.roleTitle}` : ""}.`,
+        updated.companyNote,
+      ].filter(Boolean).join(" ");
+      const now = new Date();
+      await tx.insert(messagesTable).values({
+        conversationId: conv.id,
+        senderProfileId: updated.companyProfileId,
+        content: introMessage.slice(0, 4000),
+      });
+      await tx.update(conversationsTable).set({
+        lastMessageAt: now,
+        lastMessagePreview: introMessage.slice(0, 80),
+      }).where(eq(conversationsTable.id, conv.id));
+    }
+    await tx.update(interestRequestsTable).set({ conversationId: conv.id }).where(eq(interestRequestsTable.id, id));
+    await tx.insert(hmrAuditEventsTable).values({ interestRequestId: id, actorProfileId: candidateId, actorRole: "candidate", event: "candidate_approve", metadata: { releaseScope: scope } });
+    await tx.insert(hmrAuditEventsTable).values({ interestRequestId: id, actorProfileId: candidateId, actorRole: "candidate", event: "identity_release", metadata: { releaseScope: scope } });
+    await tx.insert(notificationsTable).values({ recipientProfileId: updated.companyProfileId, actorProfileId: candidateId, type: "system", conversationId: conv.id, message: "A professional accepted your introduction request" });
+    return { ...updated, conversationId: conv.id };
+  });
+  if (!result) { res.status(409).json({ error: "Request was already decided" }); return; }
+  res.json(result);
+});
+
+router.post("/interest-requests/:id/decline", async (req, res): Promise<void> => {
+  const candidateId = Number(req.session?.profileId);
+  if (!candidateId) { res.status(401).json({ error: "Authentication required" }); return; }
+  const result = await db.transaction(async (tx) => {
+    const [updated] = await tx.update(interestRequestsTable).set({ status: "declined_candidate", respondedAt: new Date() }).where(and(eq(interestRequestsTable.id, Number(req.params.id)), eq(interestRequestsTable.candidateProfileId, candidateId), eq(interestRequestsTable.status, "pending_candidate"))).returning();
+    if (!updated) return null;
+    await tx.insert(hmrAuditEventsTable).values({ interestRequestId: updated.id, actorProfileId: candidateId, actorRole: "candidate", event: "candidate_decline", metadata: {} });
+    await tx.insert(notificationsTable).values({ recipientProfileId: updated.companyProfileId, actorProfileId: updated.candidateProfileId, type: "system", message: "Your professional introduction request was declined" });
+    return updated;
+  });
+  if (!result) { res.status(409).json({ error: "Request was already decided" }); return; }
+  res.json(result);
 });
 
 export default router;

@@ -1,15 +1,17 @@
 import { Router, type IRouter } from "express";
 import { eq, and, or, sql, desc, notInArray } from "drizzle-orm";
-import { db, profilesTable, jobsTable } from "@workspace/db";
+import { db, profilesTable, jobsTable, interestRequestsTable, hmrAuditEventsTable, notificationsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
 router.get("/talent/recommended", async (req, res): Promise<void> => {
-  const companyProfileId = parseInt(req.query.companyProfileId as string, 10);
+  const companyProfileId = Number(req.session?.profileId);
   if (!companyProfileId) {
     res.status(400).json({ error: "companyProfileId required" });
     return;
   }
+  const [viewer] = await db.select({ accountType: profilesTable.accountType }).from(profilesTable).where(eq(profilesTable.id, companyProfileId));
+  if (viewer?.accountType !== "company") { res.status(403).json({ error: "Company account required" }); return; }
 
   const companyJobs = await db
     .select()
@@ -20,7 +22,7 @@ router.get("/talent/recommended", async (req, res): Promise<void> => {
   const categories = [...new Set(companyJobs.map(j => j.category).filter(Boolean))] as string[];
   const tags       = [...new Set(companyJobs.flatMap(j => (j.tags ?? []) as string[]))];
 
-  const baseWhere = eq(profilesTable.accountType, "individual");
+  const baseWhere = and(eq(profilesTable.accountType, "individual"), eq(profilesTable.discoveryEnabled, true));
 
   let matched: typeof profilesTable.$inferSelect[] = [];
 
@@ -74,7 +76,15 @@ router.get("/talent/recommended", async (req, res): Promise<void> => {
   }
 
   res.json({
-    profiles: matched.slice(0, 50),
+    profiles: matched.slice(0, 50).map(p => ({
+      id: p.id,
+      headline: p.headline,
+      industry: p.industry,
+      location: p.location,
+      openToWork: p.openToWork,
+      // Discovery is deliberately anonymous until the candidate approves.
+      candidateLabel: "Available professional",
+    })),
     matchedByRole: companyJobs.length > 0,
     roleCategories: categories,
   });

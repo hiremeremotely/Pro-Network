@@ -9,6 +9,7 @@ import {
   DeleteExperienceParams,
   ListExperienceParams,
 } from "@workspace/api-zod";
+import { companyReleaseScope } from "../lib/privacyProjection";
 
 const router: IRouter = Router();
 
@@ -18,6 +19,8 @@ router.get("/profiles/:profileId/experience", async (req, res): Promise<void> =>
     res.status(400).json({ error: params.error.message });
     return;
   }
+  const scope = await companyReleaseScope(req, params.data.profileId);
+  if (scope && !scope.has("experience")) { res.json([]); return; }
   const rows = await db.select().from(experienceTable).where(eq(experienceTable.profileId, params.data.profileId));
   res.json(rows);
 });

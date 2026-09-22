@@ -29,6 +29,7 @@ import { useAppAuth } from "@/contexts/app-auth";
 import { useLocation } from "wouter";
 import { Layout } from "@/components/layout";
 import { PortfolioManager } from "@/components/portfolio-manager";
+import { ProfessionalPrivacy } from "@/components/professional-privacy";
 
 export default function ProfileEdit() {
   const { user, logout, updateUser } = useAppAuth();
@@ -598,7 +599,8 @@ export default function ProfileEdit() {
           <TabsTrigger value="experience" className="gap-2"><BriefcaseIcon className="w-4 h-4" /> Experience</TabsTrigger>
           <TabsTrigger value="education" className="gap-2"><GraduationCapIcon className="w-4 h-4" /> Education</TabsTrigger>
           <TabsTrigger value="portfolio" className="gap-2"><FolderIcon className="w-4 h-4" /> Portfolio</TabsTrigger>
-          <TabsTrigger value="skills" className="gap-2"><ZapIcon className="w-4 h-4" /> Skills</TabsTrigger>
+           <TabsTrigger value="skills" className="gap-2"><ZapIcon className="w-4 h-4" /> Skills</TabsTrigger>
+           <TabsTrigger value="privacy" className="gap-2"><Settings2Icon className="w-4 h-4" /> Hub & privacy</TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -829,6 +831,9 @@ export default function ProfileEdit() {
             </CardContent>
           </Card>
         </TabsContent>
+         <TabsContent value="privacy">
+           <ProfessionalPrivacy profile={profile} />
+         </TabsContent>
       </Tabs>
     </div>
     </Layout>

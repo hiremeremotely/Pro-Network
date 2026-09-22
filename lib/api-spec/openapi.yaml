@@ -1303,8 +1303,172 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /profiles/me/privacy:
+    get:
+      operationId: getMyPrivacy
+      tags: [profiles]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Owner privacy and source state
+          content: { application/json: { schema: { $ref: "#/components/schemas/ProfilePrivacy" } } }
+    put:
+      operationId: updateMyPrivacy
+      tags: [profiles]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ProfilePrivacyUpdate" } } }
+      responses:
+        "200":
+          description: Updated privacy state
+          content: { application/json: { schema: { $ref: "#/components/schemas/ProfilePrivacy" } } }
+  /talent/recommended:
+    get:
+      operationId: getAnonymousTalent
+      tags: [profiles]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Anonymous candidate discovery
+          content: { application/json: { schema: { $ref: "#/components/schemas/AnonymousTalentResponse" } } }
+  /interest-requests:
+    post:
+      operationId: submitInterestRequest
+      tags: [interest]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/InterestRequestInput" } } }
+      responses:
+        "201":
+          description: Submitted to HMR
+          content: { application/json: { schema: { $ref: "#/components/schemas/InterestRequest" } } }
+  /interest-requests/candidate:
+    get:
+      operationId: listCandidateInterestRequests
+      tags: [interest]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Routed requests
+          content: { application/json: { schema: { type: object, properties: { requests: { type: array, items: { $ref: "#/components/schemas/InterestRequest" } } } } } }
+  /interest-requests/by-company:
+    get:
+      operationId: listCompanyInterestRequests
+      tags: [interest]
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Company interest requests with privacy-safe candidate DTOs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requests:
+                    type: array
+                    items: { $ref: "#/components/schemas/CompanyInterestRequest" }
+  /interest-requests/{id}/approve:
+    post:
+      operationId: approveInterestRequest
+      tags: [interest]
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/InterestApproval" } } }
+      responses:
+        "200":
+          description: Approved and conversation opened
+          content: { application/json: { schema: { $ref: "#/components/schemas/InterestRequest" } } }
+  /interest-requests/{id}/decline:
+    post:
+      operationId: declineInterestRequest
+      tags: [interest]
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]
+      responses:
+        "200":
+          description: Declined
+          content: { application/json: { schema: { $ref: "#/components/schemas/InterestRequest" } } }
+
 components:
   schemas:
+    ProfilePrivacy:
+      type: object
+      required: [privacySettings, discoveryEnabled, sourceMetadata]
+      properties:
+        privacySettings:
+          type: object
+          additionalProperties: { type: string, enum: [public, hmr, private] }
+        discoveryEnabled: { type: boolean }
+        sourceMetadata:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              connected: { type: boolean }
+              url: { type: string }
+              label: { type: string }
+    ProfilePrivacyUpdate:
+      type: object
+      properties:
+        privacySettings: { $ref: "#/components/schemas/PrivacySettings" }
+        discoveryEnabled: { type: boolean }
+        sourceMetadata: { type: object, additionalProperties: { type: object } }
+    PrivacySettings:
+      type: object
+      additionalProperties: { type: string, enum: [public, hmr, private] }
+    InterestRequestInput:
+      type: object
+      required: [candidateProfileId, roleTitle]
+      properties:
+        candidateProfileId: { type: integer }
+        jobId: { type: integer }
+        roleTitle: { type: string }
+        companyNote: { type: string }
+    InterestApproval:
+      type: object
+      required: [releaseScope]
+      properties:
+        releaseScope:
+          type: array
+          items: { type: string }
+    InterestRequest:
+      type: object
+      properties:
+        id: { type: integer }
+        status: { type: string, enum: [pending, pending_hmr, pending_candidate, approved, declined, declined_hmr, declined_candidate] }
+        roleTitle: { type: string, nullable: true }
+        conversationId: { type: integer, nullable: true }
+    CompanyInterestRequest:
+      allOf:
+        - $ref: "#/components/schemas/InterestRequest"
+        - type: object
+          properties:
+            conversationId: { type: integer, nullable: true }
+            candidate:
+              type: object
+              properties:
+                id: { type: integer }
+                name: { type: string }
+                headline: { type: string }
+                avatarUrl: { type: string, nullable: true }
+                label: { type: string }
+    AnonymousTalentResponse:
+      type: object
+      properties:
+        profiles:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              candidateLabel: { type: string }
+              headline: { type: string }
+              industry: { type: string, nullable: true }
+
     HealthStatus:
       type: object
       properties:

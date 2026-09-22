@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AnonymousTalentResponse,
   Application,
   ConfirmImportBody,
   ConfirmImportResponse,
@@ -47,8 +48,13 @@ import type {
   ImportPortfolioBody,
   InitiateEmailBody,
   InitiateEmailResponse,
+  InterestApproval,
+  InterestRequest,
+  InterestRequestInput,
   Job,
   JobTrackerResponse,
+  ListCandidateInterestRequests200,
+  ListCompanyInterestRequests200,
   ListExternalApplications200,
   ListExternalApplicationsParams,
   ListJobs200,
@@ -59,6 +65,8 @@ import type {
   PortfolioProject,
   Profile,
   ProfileFull,
+  ProfilePrivacy,
+  ProfilePrivacyUpdate,
   ReorderPortfolio200,
   ReorderPortfolioBody,
   Skill,
@@ -4177,4 +4185,603 @@ export const useDisconnectEmailIntegration = <TError = ErrorType<ErrorEnvelope>,
         TContext
       > => {
       return useMutation(getDisconnectEmailIntegrationMutationOptions(options));
+    }
+
+export const getGetMyPrivacyUrl = () => {
+
+
+
+
+  return `/api/profiles/me/privacy`
+}
+
+export const getMyPrivacy = async ( options?: Parameters<typeof customFetch>[1]): Promise<ProfilePrivacy> => {
+
+  return customFetch<ProfilePrivacy>(getGetMyPrivacyUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMyPrivacyQueryKey = () => {
+    return [
+    `/api/profiles/me/privacy`
+    ] as const;
+    }
+
+
+export const getGetMyPrivacyQueryOptions = <TData = Awaited<ReturnType<typeof getMyPrivacy>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyPrivacy>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMyPrivacyQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyPrivacy>>> = ({ signal }) => getMyPrivacy({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMyPrivacy>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMyPrivacyQueryResult = NonNullable<Awaited<ReturnType<typeof getMyPrivacy>>>
+export type GetMyPrivacyQueryError = ErrorType<unknown>
+
+
+
+export function useGetMyPrivacy<TData = Awaited<ReturnType<typeof getMyPrivacy>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyPrivacy>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMyPrivacyQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateMyPrivacyUrl = () => {
+
+
+
+
+  return `/api/profiles/me/privacy`
+}
+
+export const updateMyPrivacy = async (profilePrivacyUpdate: ProfilePrivacyUpdate, options?: Parameters<typeof customFetch>[1]): Promise<ProfilePrivacy> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) { const out: Record<string, string> = {}; h.forEach((value, key) => { out[key] = value; }); return out; }
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ProfilePrivacy>(getUpdateMyPrivacyUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(profilePrivacyUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateMyPrivacyMutationKey = () => ['updateMyPrivacy'] as const;
+
+export const getUpdateMyPrivacyMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMyPrivacy>>, TError,UpdateMyPrivacyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateMyPrivacy>>, TError,UpdateMyPrivacyMutationVariables, TContext> => {
+
+const mutationKey = getUpdateMyPrivacyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMyPrivacy>>, UpdateMyPrivacyMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateMyPrivacy(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateMyPrivacyMutationResult = NonNullable<Awaited<ReturnType<typeof updateMyPrivacy>>>
+    export type UpdateMyPrivacyMutationBody = BodyType<ProfilePrivacyUpdate>
+    export type UpdateMyPrivacyMutationError = ErrorType<unknown>
+    export type UpdateMyPrivacyMutationVariables = {data: BodyType<ProfilePrivacyUpdate>}
+
+    export const useUpdateMyPrivacy = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMyPrivacy>>, TError,UpdateMyPrivacyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateMyPrivacy>>,
+        TError,
+        UpdateMyPrivacyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateMyPrivacyMutationOptions(options));
+    }
+
+export const getGetAnonymousTalentUrl = () => {
+
+
+
+
+  return `/api/talent/recommended`
+}
+
+export const getAnonymousTalent = async ( options?: Parameters<typeof customFetch>[1]): Promise<AnonymousTalentResponse> => {
+
+  return customFetch<AnonymousTalentResponse>(getGetAnonymousTalentUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAnonymousTalentQueryKey = () => {
+    return [
+    `/api/talent/recommended`
+    ] as const;
+    }
+
+
+export const getGetAnonymousTalentQueryOptions = <TData = Awaited<ReturnType<typeof getAnonymousTalent>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAnonymousTalent>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAnonymousTalentQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAnonymousTalent>>> = ({ signal }) => getAnonymousTalent({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAnonymousTalent>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAnonymousTalentQueryResult = NonNullable<Awaited<ReturnType<typeof getAnonymousTalent>>>
+export type GetAnonymousTalentQueryError = ErrorType<unknown>
+
+
+
+export function useGetAnonymousTalent<TData = Awaited<ReturnType<typeof getAnonymousTalent>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAnonymousTalent>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAnonymousTalentQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSubmitInterestRequestUrl = () => {
+
+
+
+
+  return `/api/interest-requests`
+}
+
+export const submitInterestRequest = async (interestRequestInput: InterestRequestInput, options?: Parameters<typeof customFetch>[1]): Promise<InterestRequest> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) { const out: Record<string, string> = {}; h.forEach((value, key) => { out[key] = value; }); return out; }
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<InterestRequest>(getSubmitInterestRequestUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(interestRequestInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitInterestRequestMutationKey = () => ['submitInterestRequest'] as const;
+
+export const getSubmitInterestRequestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitInterestRequest>>, TError,SubmitInterestRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitInterestRequest>>, TError,SubmitInterestRequestMutationVariables, TContext> => {
+
+const mutationKey = getSubmitInterestRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitInterestRequest>>, SubmitInterestRequestMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  submitInterestRequest(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitInterestRequestMutationResult = NonNullable<Awaited<ReturnType<typeof submitInterestRequest>>>
+    export type SubmitInterestRequestMutationBody = BodyType<InterestRequestInput>
+    export type SubmitInterestRequestMutationError = ErrorType<unknown>
+    export type SubmitInterestRequestMutationVariables = {data: BodyType<InterestRequestInput>}
+
+    export const useSubmitInterestRequest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitInterestRequest>>, TError,SubmitInterestRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitInterestRequest>>,
+        TError,
+        SubmitInterestRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSubmitInterestRequestMutationOptions(options));
+    }
+
+export const getListCandidateInterestRequestsUrl = () => {
+
+
+
+
+  return `/api/interest-requests/candidate`
+}
+
+export const listCandidateInterestRequests = async ( options?: Parameters<typeof customFetch>[1]): Promise<ListCandidateInterestRequests200> => {
+
+  return customFetch<ListCandidateInterestRequests200>(getListCandidateInterestRequestsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCandidateInterestRequestsQueryKey = () => {
+    return [
+    `/api/interest-requests/candidate`
+    ] as const;
+    }
+
+
+export const getListCandidateInterestRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listCandidateInterestRequests>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCandidateInterestRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCandidateInterestRequestsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCandidateInterestRequests>>> = ({ signal }) => listCandidateInterestRequests({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCandidateInterestRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCandidateInterestRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listCandidateInterestRequests>>>
+export type ListCandidateInterestRequestsQueryError = ErrorType<unknown>
+
+
+
+export function useListCandidateInterestRequests<TData = Awaited<ReturnType<typeof listCandidateInterestRequests>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCandidateInterestRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCandidateInterestRequestsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCompanyInterestRequestsUrl = () => {
+
+
+
+
+  return `/api/interest-requests/by-company`
+}
+
+export const listCompanyInterestRequests = async ( options?: Parameters<typeof customFetch>[1]): Promise<ListCompanyInterestRequests200> => {
+
+  return customFetch<ListCompanyInterestRequests200>(getListCompanyInterestRequestsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCompanyInterestRequestsQueryKey = () => {
+    return [
+    `/api/interest-requests/by-company`
+    ] as const;
+    }
+
+
+export const getListCompanyInterestRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listCompanyInterestRequests>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCompanyInterestRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCompanyInterestRequestsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCompanyInterestRequests>>> = ({ signal }) => listCompanyInterestRequests({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCompanyInterestRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCompanyInterestRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listCompanyInterestRequests>>>
+export type ListCompanyInterestRequestsQueryError = ErrorType<unknown>
+
+
+
+export function useListCompanyInterestRequests<TData = Awaited<ReturnType<typeof listCompanyInterestRequests>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCompanyInterestRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCompanyInterestRequestsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getApproveInterestRequestUrl = (id: number,) => {
+
+
+
+
+  return `/api/interest-requests/${id}/approve`
+}
+
+export const approveInterestRequest = async (id: number,
+    interestApproval: InterestApproval, options?: Parameters<typeof customFetch>[1]): Promise<InterestRequest> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) { const out: Record<string, string> = {}; h.forEach((value, key) => { out[key] = value; }); return out; }
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<InterestRequest>(getApproveInterestRequestUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(interestApproval)
+  }
+);}
+
+
+
+
+
+export const getApproveInterestRequestMutationKey = () => ['approveInterestRequest'] as const;
+
+export const getApproveInterestRequestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveInterestRequest>>, TError,ApproveInterestRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveInterestRequest>>, TError,ApproveInterestRequestMutationVariables, TContext> => {
+
+const mutationKey = getApproveInterestRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveInterestRequest>>, ApproveInterestRequestMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  approveInterestRequest(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveInterestRequestMutationResult = NonNullable<Awaited<ReturnType<typeof approveInterestRequest>>>
+    export type ApproveInterestRequestMutationBody = BodyType<InterestApproval>
+    export type ApproveInterestRequestMutationError = ErrorType<unknown>
+    export type ApproveInterestRequestMutationVariables = {id: number;data: BodyType<InterestApproval>}
+
+    export const useApproveInterestRequest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveInterestRequest>>, TError,ApproveInterestRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveInterestRequest>>,
+        TError,
+        ApproveInterestRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getApproveInterestRequestMutationOptions(options));
+    }
+
+export const getDeclineInterestRequestUrl = (id: number,) => {
+
+
+
+
+  return `/api/interest-requests/${id}/decline`
+}
+
+export const declineInterestRequest = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<InterestRequest> => {
+
+  return customFetch<InterestRequest>(getDeclineInterestRequestUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeclineInterestRequestMutationKey = () => ['declineInterestRequest'] as const;
+
+export const getDeclineInterestRequestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof declineInterestRequest>>, TError,DeclineInterestRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof declineInterestRequest>>, TError,DeclineInterestRequestMutationVariables, TContext> => {
+
+const mutationKey = getDeclineInterestRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof declineInterestRequest>>, DeclineInterestRequestMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  declineInterestRequest(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeclineInterestRequestMutationResult = NonNullable<Awaited<ReturnType<typeof declineInterestRequest>>>
+
+    export type DeclineInterestRequestMutationError = ErrorType<unknown>
+    export type DeclineInterestRequestMutationVariables = {id: number}
+
+    export const useDeclineInterestRequest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof declineInterestRequest>>, TError,DeclineInterestRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof declineInterestRequest>>,
+        TError,
+        DeclineInterestRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeclineInterestRequestMutationOptions(options));
     }

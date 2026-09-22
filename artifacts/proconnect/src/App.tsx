@@ -30,6 +30,7 @@ import SalaryEstimator from "@/pages/salary-estimator";
 import MyWork from "@/pages/my-work";
 import JobTracker from "@/pages/job-tracker";
 import CompanyInterests from "@/pages/company-interests";
+import ProfessionalRequests from "@/pages/professional-requests";
 import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
 import VerifyEmail from "@/pages/verify-email";
@@ -246,6 +247,7 @@ function Router() {
               <Route path="/job-tracker">
                 <RequireIndividual><JobTracker /></RequireIndividual>
               </Route>
+              <Route path="/professional-requests"><RequireIndividual><ProfessionalRequests /></RequireIndividual></Route>
               <Route path="/company/interests" component={CompanyInterests} />
               <Route component={NotFound} />
             </Switch>

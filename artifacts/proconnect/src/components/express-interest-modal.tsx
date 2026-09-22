@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { getListCompanyInterestRequestsQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { XIcon, CheckCircle2Icon } from "lucide-react";
+import { XIcon, CheckCircle2Icon, ShieldCheckIcon } from "lucide-react";
 
 export function ExpressInterestModal({
   candidateId,
@@ -22,6 +23,7 @@ export function ExpressInterestModal({
   const qc = useQueryClient();
   const { toast } = useToast();
   const [note, setNote] = useState("");
+  const [roleTitle, setRoleTitle] = useState("");
   const [sent, setSent] = useState(false);
 
   const mutate = useMutation({
@@ -29,10 +31,11 @@ export function ExpressInterestModal({
       const res = await fetch(`${BASE}api/interest-requests`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
-          companyProfileId,
           candidateProfileId: candidateId,
-          companyNote: note.trim() || null,
+          roleTitle: roleTitle.trim() || "Professional introduction",
+          ...(note.trim() ? { companyNote: note.trim() } : {}),
         }),
       });
       if (!res.ok) {
@@ -43,7 +46,9 @@ export function ExpressInterestModal({
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["interest-requests-by-company", companyProfileId] });
+      qc.invalidateQueries({ queryKey: getListCompanyInterestRequestsQueryKey() });
       setSent(true);
+      toast({ title: "Interest sent", description: "Your request is now with HMR for review." });
       onSent?.();
     },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
@@ -65,17 +70,22 @@ export function ExpressInterestModal({
           <div className="px-6 py-8 text-center space-y-3">
             <CheckCircle2Icon className="w-12 h-12 text-emerald-500 mx-auto" />
             <p className="text-sm text-gray-700">
-              Your interest has been sent to {candidateName}. You'll hear back if they'd like to connect.
+              Your request is with HMR for review. {candidateName}'s identity stays private until they approve an introduction.
             </p>
             <Button onClick={onClose} className="rounded-full mt-2">Got it</Button>
           </div>
         ) : (
           <>
             <div className="px-6 py-5 space-y-3">
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-900 flex gap-2"><ShieldCheckIcon className="w-4 h-4 shrink-0" /><span>HMR reviews this request first. The professional sees the role and your note, but their name, employer and direct links stay private until they approve.</span></div>
+              <div>
+                <label className="text-xs font-semibold text-gray-700 mb-1 block" htmlFor="interest-role">Role or opportunity</label>
+                <input id="interest-role" value={roleTitle} onChange={e => setRoleTitle(e.target.value.slice(0, 120))} placeholder="e.g. Senior Product Designer" className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </div>
               <Textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value.slice(0, 500))}
-                placeholder={`Add a short note for ${candidateName} — what role, what you liked about their profile, what makes this opportunity interesting. (optional)`}
+                placeholder="Share context: what you liked, what the opportunity involves, and why it may be a fit. (optional)"
                 rows={5}
                 className="text-sm resize-none"
               />

@@ -18,8 +18,10 @@ import {
   ClockIcon, CheckIcon, BellIcon,
 } from "lucide-react";
 import type { Profile } from "@workspace/api-client-react";
+import { getGetAnonymousTalentQueryKey, useGetAnonymousTalent } from "@workspace/api-client-react";
 import { formatDistanceToNow } from "date-fns";
 import { PageSEO } from "@/components/page-seo";
+import { ExpressInterestModal } from "@/components/express-interest-modal";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -260,6 +262,18 @@ function ProfileList({ profiles, view, isConnected, isPending, onConnect, onCanc
   );
 }
 
+function AnonymousTalentCard({ profile, index, onInterest, isSent }: { profile: any; index: number; onInterest: (profile: any) => void; isSent: boolean }) {
+  return <div className="rounded-2xl border border-indigo-100 bg-white p-5 shadow-sm">
+    <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-indigo-500">Candidate {String(index + 1).padStart(2, "0")}</p><h3 className="mt-2 text-base font-bold text-gray-900">{profile.candidateLabel || "Available professional"}</h3></div><span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">Open to work</span></div>
+    <p className="mt-3 text-sm font-medium text-gray-700">{profile.headline || "Experienced remote professional"}</p>
+    <div className="mt-3 flex flex-wrap gap-2">{profile.industry && <Badge variant="outline" className="text-[10px]">{profile.industry}</Badge>}{profile.location && <Badge variant="outline" className="text-[10px]">{profile.location}</Badge>}<Badge variant="outline" className="text-[10px] border-indigo-100 text-indigo-600">Proof available via HMR</Badge></div>
+    <p className="mt-4 text-xs leading-relaxed text-gray-500">Identity, employer, social links and direct profile URL stay hidden until this professional approves.</p>
+    <Button className="mt-4 w-full gap-2" disabled={isSent} onClick={() => onInterest(profile)}>
+      {isSent ? <><ClockIcon className="w-4 h-4" /> HMR review pending</> : "Express interest"}
+    </Button>
+  </div>;
+}
+
 // ── Incoming connection request card ──────────────────────────────────────────
 function RequestCard({ req, onAccept, onDecline }: {
   req: ConnectionRequest;
@@ -450,6 +464,8 @@ function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel
   const [industry, setIndustry] = useState("");
   const [location, setLocation] = useState("");
   const [skills, setSkills]     = useState("");
+  const [interestCandidate, setInterestCandidate] = useState<any | null>(null);
+  const [sentCandidateIds, setSentCandidateIds] = useState<Set<number>>(() => new Set());
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setSearch(initialSearch); setQuery(initialSearch); }, [initialSearch]);
@@ -461,27 +477,10 @@ function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel
   const hasFilters = isCompany && (!!industry || !!location || !!skills || !openToWork);
   const isFiltering = !!query || hasFilters;
 
-  // ── Company: filtered search ────────────────────────────────────────────────
-  const talentSearchParams = new URLSearchParams({ limit: "50", offset: "0", accountType: "individual" });
-  if (query) talentSearchParams.set("search", query);
-  if (openToWork) talentSearchParams.set("openToWork", "true");
-  if (industry) talentSearchParams.set("industry", industry);
-  if (location) talentSearchParams.set("location", location);
-  if (skills) talentSearchParams.set("skills", skills);
-
-  const { data: talentSearchData, isLoading: talentSearchLoading, isFetching: talentFetching } = useQuery<{ profiles: Profile[]; total: number }>({
-    queryKey: ["talent-search", query, openToWork, industry, location, skills],
-    queryFn: () => fetch(`${BASE}api/profiles?${talentSearchParams}`).then(r => r.json()),
-    enabled: isCompany && isFiltering,
-    staleTime: 30_000,
-  });
-
   // ── Company: role-matched recommendations ───────────────────────────────────
-  const { data: talentRecData, isLoading: talentRecLoading } = useQuery<{ profiles: Profile[]; matchedByRole: boolean; roleCategories: string[] }>({
-    queryKey: ["talent-recommended", userId],
-    queryFn: () => fetch(`${BASE}api/talent/recommended?companyProfileId=${userId}`).then(r => r.json()),
-    enabled: isCompany && !isFiltering && !!userId,
-    staleTime: 60_000,
+  const { data: talentRecData, isLoading: talentRecLoading, isFetching: talentFetching } = useGetAnonymousTalent({
+    query: { enabled: isCompany && !!userId, queryKey: getGetAnonymousTalentQueryKey(), staleTime: 60_000 },
+    request: { credentials: "include" },
   });
 
   // ── Individual: search ──────────────────────────────────────────────────────
@@ -510,14 +509,10 @@ function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel
   let isFetching = false;
 
   if (isCompany) {
-    if (isFiltering) {
-      profiles = talentSearchData?.profiles ?? [];
-      isLoading = talentSearchLoading;
-      isFetching = talentFetching;
-    } else {
-      profiles = talentRecData?.profiles ?? [];
-      isLoading = talentRecLoading;
-    }
+    const anonymous = (talentRecData?.profiles ?? []) as any[];
+    profiles = anonymous.filter(p => !query || `${p.candidateLabel ?? ""} ${p.headline ?? ""} ${p.industry ?? ""}`.toLowerCase().includes(query.toLowerCase())).filter(p => !industry || p.industry === industry).filter(p => !location || String(p.location ?? "").toLowerCase().includes(location.toLowerCase())).filter(p => !skills || `${p.headline ?? ""} ${p.industry ?? ""}`.toLowerCase().includes(skills.toLowerCase()));
+    isLoading = talentRecLoading;
+    isFetching = talentFetching;
   } else {
     if (query) {
       profiles = (searchData?.profiles ?? []).filter(p => !isConnected(p.id) && !isPending(p.id));
@@ -549,6 +544,7 @@ function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel
     </div>
   );
 
+  const anonymousProfiles = profiles.map((p, i) => ({ ...p, candidateLabel: (p as any).candidateLabel || "Available professional", __index: i }));
   return (
     <>
       {/* Search bar */}
@@ -646,14 +642,8 @@ function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel
               <SparklesIcon className="w-4 h-4 text-primary" />
               {isCompany ? (
                 <>
-                  <p className="text-sm font-semibold text-gray-700">
-                    {talentRecData?.matchedByRole ? "Matched to your open roles" : "Open to work"}
-                  </p>
-                  {talentRecData?.matchedByRole && talentRecData.roleCategories.length > 0 && (
-                    <span className="text-xs text-gray-400">
-                      · {talentRecData.roleCategories.slice(0, 2).join(", ")}
-                    </span>
-                  )}
+                  <p className="text-sm font-semibold text-gray-700">Privacy-safe talent pool</p>
+                  <span className="text-xs text-gray-400">· HMR-mediated discovery</span>
                 </>
               ) : (
                 <>
@@ -672,8 +662,8 @@ function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel
               {profiles.length} candidate{profiles.length !== 1 ? "s" : ""}{query ? ` for "${query}"` : ""}
             </p>
           )}
-          <ProfileList
-            profiles={profiles}
+          {isCompany ? <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{anonymousProfiles.map((profile, i) => <AnonymousTalentCard key={profile.id} profile={profile} index={i} isSent={sentCandidateIds.has(profile.id)} onInterest={setInterestCandidate} />)}</div> : <ProfileList
+             profiles={profiles}
             view={view}
             isConnected={isConnected}
             isPending={isPending}
@@ -683,7 +673,8 @@ function DiscoverTab({ userId, view, isConnected, isPending, onConnect, onCancel
             onMessage={onMessage}
             emptySlot={empty}
             hideConnect={hideConnect}
-          />
+           />}
+           {interestCandidate && userId && <ExpressInterestModal candidateId={interestCandidate.id} candidateName="this professional" companyProfileId={userId} onClose={() => setInterestCandidate(null)} onSent={() => { setSentCandidateIds(previous => new Set(previous).add(interestCandidate.id)); setInterestCandidate(null); }} />}
         </>
       )}
     </>

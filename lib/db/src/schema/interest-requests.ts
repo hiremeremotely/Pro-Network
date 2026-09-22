@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, timestamp, varchar, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -9,7 +9,10 @@ export const interestRequestsTable = pgTable("interest_requests", {
   jobId: integer("job_id"),
   status: varchar("status", { length: 20 }).notNull().default("pending"),
   companyNote: text("company_note"),
+  roleTitle: text("role_title"),
   adminNote: text("admin_note"),
+  releaseScope: jsonb("release_scope").$type<string[]>().notNull().default([]),
+  conversationId: integer("conversation_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   respondedAt: timestamp("responded_at", { withTimezone: true }),
 });
