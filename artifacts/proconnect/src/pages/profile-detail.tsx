@@ -1135,8 +1135,7 @@ export default function ProfileDetail() {
             </div>
 
             {/* Featured Work & Links Hub */}
-            {(hubItems.length > 0 || isOwn) && (
-              <div className="bg-white rounded-2xl border border-gray-200 px-6 py-5 shadow-sm">
+            <div className="bg-white rounded-2xl border border-gray-200 px-6 py-5 shadow-sm">
                 <div className="flex items-center justify-between mb-5">
                   <div>
                     <h2 className="font-bold text-gray-900 text-lg flex items-center gap-2">
@@ -1146,7 +1145,7 @@ export default function ProfileDetail() {
                     <p className="text-sm text-gray-500 mt-0.5">Explore projects, websites, and external profiles</p>
                   </div>
                   {isOwn && (
-                    <Link href="/profile/edit">
+                    <Link href="/profile/edit?tab=portfolio">
                       <Button variant="ghost" size="sm" className="text-xs gap-1 h-8 rounded-full border border-gray-200 hover:border-gray-300">
                         <PencilIcon className="w-3.5 h-3.5" /> Manage hub
                       </Button>
@@ -1157,11 +1156,15 @@ export default function ProfileDetail() {
                 {hubItems.length === 0 ? (
                   <div className="py-10 text-center border-2 border-dashed border-gray-100 rounded-xl">
                     <FileTextIcon className="w-10 h-10 text-gray-200 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-gray-800">Your hub is empty</p>
-                    <p className="text-xs text-gray-500 mt-1 mb-4">Add your best projects, websites, and social links to stand out.</p>
-                    <Link href="/profile/edit">
-                      <Button size="sm" className="rounded-full h-9">Build your hub</Button>
-                    </Link>
+                    <p className="text-sm font-medium text-gray-800">{isOwn ? "Your hub is ready to build" : "No work or links added yet"}</p>
+                    {isOwn && (
+                      <>
+                        <p className="text-xs text-gray-500 mt-1 mb-4">Add a project, website, or professional link to make this page yours.</p>
+                        <Link href="/profile/edit?tab=portfolio">
+                          <Button size="sm" className="rounded-full h-9">Add your first project or link</Button>
+                        </Link>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1224,8 +1227,7 @@ export default function ProfileDetail() {
                     })}
                   </div>
                 )}
-              </div>
-            )}
+            </div>
 
             {/* Analytics strip — own profile only */}
             {isOwn && (

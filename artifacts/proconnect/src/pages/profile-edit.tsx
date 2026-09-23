@@ -593,7 +593,7 @@ export default function ProfileEdit() {
         <p className="text-muted-foreground">Manage your professional presence on Hire Me Remotely.</p>
       </div>
 
-      <Tabs defaultValue="profile">
+      <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") === "portfolio" ? "portfolio" : "profile"}>
         <TabsList className="mb-8 flex-wrap h-auto gap-1">
           <TabsTrigger value="profile" className="gap-2"><UserIcon className="w-4 h-4" /> Profile</TabsTrigger>
           <TabsTrigger value="experience" className="gap-2"><BriefcaseIcon className="w-4 h-4" /> Experience</TabsTrigger>
@@ -648,6 +648,30 @@ export default function ProfileEdit() {
                   <Label>X URL</Label>
                   <Input value={profileForm.twitterUrl} onChange={e => setProfileForm(p => ({ ...p, twitterUrl: e.target.value }))} placeholder="https://x.com/..." />
                 </div>
+              </div>
+
+              <div className="space-y-3 rounded-xl border border-gray-200 p-4">
+                <div>
+                  <h3 className="font-medium text-sm">Other professional links</h3>
+                  <p className="text-xs text-muted-foreground">Add Behance, Framer, Dribbble, or any other website to your hub.</p>
+                </div>
+                {profileForm.customLinks.map((link, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-sm">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{link.label}</p>
+                      <p className="text-xs text-muted-foreground truncate">{link.url}</p>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" aria-label={`Remove ${link.label}`} onClick={() => removeCustomLink(idx)}>
+                      <XIcon className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input aria-label="Link label" placeholder="Label" value={newLink.label} onChange={e => setNewLink(v => ({ ...v, label: e.target.value }))} />
+                  <Input aria-label="Link URL" type="url" placeholder="https://..." value={newLink.url} onChange={e => setNewLink(v => ({ ...v, url: e.target.value }))} />
+                  <Button type="button" variant="outline" onClick={addCustomLink} disabled={!newLink.label.trim() || !/^https?:\/\//i.test(newLink.url.trim())}>Add link</Button>
+                </div>
+                <p className="text-xs text-muted-foreground">Save Profile below to publish changes to these links.</p>
               </div>
 
               <Separator />

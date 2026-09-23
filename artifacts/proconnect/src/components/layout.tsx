@@ -537,6 +537,7 @@ export function Layout({ children }: LayoutProps) {
       ]
     : [
         { href: "/feed",         label: "Home",        icon: HomeIcon           },
+        ...(user ? [{ href: `/profiles/${user.id}`, label: "My Hub", icon: UserIcon }] : []),
         { href: "/profiles",     label: "Network",     icon: UsersIcon          },
         { href: "/jobs",         label: "Jobs",        icon: BriefcaseIcon      },
         { href: "/job-tracker",  label: "Job Tracker", icon: KanbanSquareIcon   },
@@ -625,7 +626,7 @@ export function Layout({ children }: LayoutProps) {
               )}
               <DropdownMenuItem asChild>
                 <Link href={user ? `/profiles/${user.id}` : "/login"} className="flex items-center gap-2 cursor-pointer">
-                  <UserIcon className="w-4 h-4" /> View Profile
+                   <UserIcon className="w-4 h-4" /> {user?.accountType === "individual" ? "My Hub" : "View Profile"}
                 </Link>
               </DropdownMenuItem>
               {user?.accountType !== "company" && (
