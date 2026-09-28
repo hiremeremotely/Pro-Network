@@ -52,6 +52,7 @@ import { useBookmarks } from "@/hooks/use-bookmarks";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { PageSEO } from "@/components/page-seo";
+import { getProfileCompletion } from "@/lib/profile-completion";
 
 // ── Reaction definitions ─────────────────────────────────────────────────────
 const REACTIONS = [
@@ -1212,14 +1213,12 @@ export default function Home() {
     setProfileBannerDismissed(true);
   };
 
-  const completionSteps = user?.accountType === "individual" ? [
-    { label: "Add a profile photo", done: !!user?.avatarUrl, href: `/profiles/${user?.id}` },
-    { label: "Write your headline", done: !!(user?.headline && user.headline.trim().length > 0), href: `/profiles/${user?.id}` },
-    { label: "Add your location", done: !!(myFullProfile?.location), href: `/profiles/${user?.id}` },
-    { label: "Write your about section", done: !!(myFullProfile?.bio), href: `/profiles/${user?.id}` },
-    { label: "Add work experience", done: myExperience.length > 0, href: `/profiles/${user?.id}` },
-  ] : [];
-  const completionPct = completionSteps.length === 0 ? 100 : Math.round((completionSteps.filter(s => s.done).length / completionSteps.length) * 100);
+  const completionPct = getProfileCompletion({
+    avatarUrl: user?.avatarUrl,
+    headline: user?.headline,
+    location: myFullProfile?.location,
+    bio: myFullProfile?.bio,
+  }, myExperience.length).percentage;
   const showCompletionBanner = user?.accountType === "individual" && !profileBannerDismissed && completionPct < 100;
   const { data: featuredJobs, isLoading: featuredJobsLoading } = useListFeaturedJobs({ query: { queryKey: getListFeaturedJobsQueryKey() } });
   const { isConnected: isFeedConnected, isPending: isFeedPending, sendRequest: feedSendRequest, cancelRequest: feedCancelRequest, disconnect: feedDisconnect } = useConnections();

@@ -15,11 +15,13 @@ import {
 import { LoadingState, ErrorState } from "@/components/loading-state";
 import { useAppAuth } from "@/contexts/app-auth";
 import { useToast } from "@/hooks/use-toast";
+import { getGetProfileQueryKey, getListExperienceQueryKey, useGetProfile, useListExperience } from "@workspace/api-client-react";
+import { getProfileCompletion } from "@/lib/profile-completion";
 import {
   BriefcaseIcon, PlusIcon, ListIcon, LayoutGridIcon, ExternalLinkIcon,
   MailIcon, Trash2Icon, PencilIcon, XIcon, CheckCircleIcon, TrendingUpIcon,
   CalendarIcon, ChevronRightIcon, LinkIcon, RefreshCwIcon, BuildingIcon,
-  SparklesIcon, TableIcon, ChevronUpIcon, ChevronDownIcon, CheckIcon,
+  SparklesIcon, TableIcon, ChevronUpIcon, ChevronDownIcon, CheckIcon, UserIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -987,6 +989,16 @@ export default function JobTracker() {
   const [drawerApp, setDrawerApp] = useState<TrackedApp | null>(null);
 
   const authToken = user?.authToken ?? "";
+  const profileId = user?.id ?? 0;
+  const profileQuery = useGetProfile(profileId, {
+    query: { enabled: profileId > 0, queryKey: getGetProfileQueryKey(profileId) },
+  });
+  const experienceQuery = useListExperience(profileId, {
+    query: { enabled: profileId > 0, queryKey: getListExperienceQueryKey(profileId) },
+  });
+  const profileCompletion = profileQuery.data && experienceQuery.data
+    ? getProfileCompletion(profileQuery.data, experienceQuery.data.length)
+    : null;
 
   const { data, isLoading, error, refetch } = useQuery<TrackerData>({
     queryKey: ["job-tracker", user?.id],
@@ -1060,7 +1072,7 @@ export default function JobTracker() {
   return (
     <div className="container mx-auto px-4 py-8 pb-24 max-w-[1300px]">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <BriefcaseIcon className="w-7 h-7 text-primary" />
@@ -1068,9 +1080,53 @@ export default function JobTracker() {
           </div>
           <p className="text-sm text-gray-500">Your applications, professional hub, and introductions in one place</p>
         </div>
-        <Button onClick={() => setAddModal({ open: true })} className="gap-2 rounded-full px-5 shadow-sm">
-          <PlusIcon className="w-4 h-4" /> Add Application
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline" className="gap-2 rounded-full px-5" data-testid="button-view-profile">
+            <Link href={`/profiles/${user.id}`}><UserIcon className="w-4 h-4" /> View profile</Link>
+          </Button>
+          <Button onClick={() => setAddModal({ open: true })} className="gap-2 rounded-full px-5 shadow-sm">
+            <PlusIcon className="w-4 h-4" /> Add Application
+          </Button>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-5 mb-6" data-testid="card-profile-completion">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h2 className="font-semibold text-gray-900">Profile completion</h2>
+          {profileCompletion && <span className="font-bold text-primary" data-testid="text-profile-completion">{profileCompletion.percentage}%</span>}
+        </div>
+        {profileQuery.isPending || experienceQuery.isPending ? (
+          <p className="text-sm text-gray-500">Calculating profile completion…</p>
+        ) : profileQuery.isError || experienceQuery.isError || !profileCompletion ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-500">
+            <span>Couldn’t load profile progress.</span>
+            <Button variant="outline" size="sm" onClick={() => { profileQuery.refetch(); experienceQuery.refetch(); }} data-testid="button-retry-profile-completion">Retry</Button>
+          </div>
+        ) : (
+          <>
+            <div
+              role="progressbar"
+              aria-label="Profile completion"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={profileCompletion.percentage}
+              className="h-2.5 rounded-full bg-gray-100 overflow-hidden"
+              data-testid="progress-profile-completion"
+            >
+              <div className="h-full bg-primary rounded-full transition-[width]" style={{ width: `${profileCompletion.percentage}%` }} />
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 mt-3 text-sm">
+              <p className="text-gray-500">
+                {profileCompletion.nextStep
+                  ? `${profileCompletion.completed} of ${profileCompletion.total} complete · Next: ${profileCompletion.nextStep}`
+                  : "Your profile is complete."}
+              </p>
+              <Link href="/profile/edit" className="font-semibold text-primary hover:underline" data-testid="link-complete-profile">
+                {profileCompletion.nextStep ? "Complete profile" : "Edit profile"}
+              </Link>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="grid sm:grid-cols-3 gap-3 mb-6">
