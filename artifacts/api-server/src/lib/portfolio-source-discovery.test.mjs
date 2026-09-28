@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { blockedProvider, discoverSource, metadata, publicIpv4, robotsAllows, sourceUrl } from "./portfolio-source-discovery.ts";
+import { blockedProvider, discoverPersonalSource, discoverSource, metadata, publicIpv4, robotsAllows, sitemapLocations, sourceUrl } from "./portfolio-source-discovery.ts";
 
 test("only public, ordinary web addresses may be fetched", () => {
   for (const ip of ["127.0.0.1", "10.4.0.1", "172.16.0.1", "192.168.1.1", "169.254.169.254", "100.64.0.1", "198.18.0.1"]) {
@@ -50,4 +50,72 @@ test("robots wildcard disallow and more specific allow are honored", () => {
   assert.equal(robotsAllows("User-agent: *\nDisallow: /private/\nAllow: /private/", "/private/x"), true);
   assert.equal(robotsAllows("User-agent: *\nDisallow: /projects$\n", "/projects"), false);
   assert.equal(robotsAllows("User-agent: *\nDisallow: /projects$\n", "/projects/x"), true);
+});
+
+function fixture(pages, forbidden = []) {
+  const requested = [];
+  const load = async (url, xml = false) => {
+    requested.push([url.pathname, xml]);
+    if (forbidden.some((path) => url.pathname.startsWith(path))) throw new Error("This site does not permit HMR to read this page.");
+    const body = pages[url.pathname];
+    return { url, status: body === undefined ? 404 : 200, body: body ?? "", truncated: false };
+  };
+  return { requested, load };
+}
+
+test("sitemap parses same-origin entries and rejects private and foreign URLs", () => {
+  const result = sitemapLocations(`<urlset>
+    <url><loc>https://folio.example/launch&amp;learn</loc></url>
+    <url><loc>https://outside.example/other</loc></url>
+    <url><loc>http://127.0.0.1/secret</loc></url>
+  </urlset>`, new URL("https://folio.example/sitemap.xml"));
+  assert.deepEqual(result.pages.map((item) => item.href), ["https://folio.example/launch&learn"]);
+});
+
+test("sitemap-only unusual slugs become drafts only when the page identifies a project", async () => {
+  const { load, requested } = fixture({
+    "/": "<title>Portfolio</title>",
+    "/sitemap.xml": `<sitemapindex><sitemap><loc>https://folio.example/portfolio-map.xml</loc></sitemap></sitemapindex>`,
+    "/portfolio-map.xml": `<urlset><url><loc>https://folio.example/</loc></url><url><loc>https://folio.example/blue-orbit</loc></url><url><loc>https://folio.example/about</loc></url></urlset>`,
+    "/blue-orbit": `<script type="application/ld+json">{"@context":"https://schema.org","@type":"CreativeWork","name":"Blue Orbit","description":"A public project."}</script>`,
+    "/about": "<title>About me</title>",
+  });
+  const result = await discoverPersonalSource(new URL("https://folio.example/"), load);
+  assert.equal(result.status, "projects");
+  assert.deepEqual(result.candidates.map((item) => item.title), ["Blue Orbit"]);
+  assert.deepEqual(requested, [["/", false], ["/sitemap.xml", true], ["/portfolio-map.xml", true], ["/blue-orbit", false], ["/about", false]]);
+});
+
+test("structured project lists reveal unusual same-site slugs; forbidden pages remain excluded", async () => {
+  const { load, requested } = fixture({
+    "/": `<title>Portfolio</title><script type="application/ld+json">
+      {"@type":"ItemList","itemListElement":[{"url":"/atlas"},{"url":"/secret"},{"url":"https://other.example/foreign"}]}
+      </script>`,
+    "/atlas": `<title>Atlas</title><script type="application/ld+json">{"@type":"Project","url":"/atlas"}</script>`,
+    "/sitemap.xml": "",
+  }, ["/secret"]);
+  const result = await discoverPersonalSource(new URL("https://folio.example/"), load);
+  assert.equal(result.status, "projects");
+  assert.deepEqual(result.candidates.map((item) => item.title), ["Atlas"]);
+  assert.equal(requested.some(([path]) => path === "/foreign"), false);
+});
+
+test("uncorroborated sitemap pages remain a site preview and requests stay bounded", async () => {
+  const pages = { "/": "<title>My site</title>",
+    "/sitemap.xml": `<urlset>${Array.from({ length: 25 }, (_, i) => `<url><loc>https://folio.example/odd-${i}</loc></url>`).join("")}</urlset>` };
+  for (let i = 0; i < 25; i++) pages[`/odd-${i}`] = `<title>Generic page ${i}</title>`;
+  const { load, requested } = fixture(pages);
+  const result = await discoverPersonalSource(new URL("https://folio.example/"), load);
+  assert.equal(result.status, "site_preview");
+  assert.deepEqual(result.candidates.map((item) => item.title), ["My site"]);
+  assert.equal(requested.length, 6);
+  assert.match(result.message, /no individual project pages were confirmed/i);
+});
+
+test("a disallowed sitemap cannot turn the home page into a project", async () => {
+  const { load, requested } = fixture({ "/": "<title>My portfolio</title>" }, ["/sitemap.xml"]);
+  const result = await discoverPersonalSource(new URL("https://folio.example/"), load);
+  assert.equal(result.status, "site_preview");
+  assert.deepEqual(result.candidates.map((item) => item.title), ["My portfolio"]);
+  assert.deepEqual(requested, [["/", false], ["/sitemap.xml", true]]);
 });

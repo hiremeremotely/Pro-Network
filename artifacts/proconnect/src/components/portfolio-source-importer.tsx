@@ -107,7 +107,7 @@ export function PortfolioSourceImporter({
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-sm text-gray-600">Paste your own public work links, one per line. We check accessible project pages and GitHub repositories; LinkedIn, Behance, and Dribbble need details from you. Nothing is saved yet.</p>
+        <p className="text-sm text-gray-600">Paste your own public work links, one per line. We check accessible project pages, site sitemaps and project metadata, plus GitHub repositories; LinkedIn, Behance, and Dribbble need details from you. Nothing is saved yet.</p>
         <Textarea
           aria-label="Portfolio source URLs"
           value={urls} rows={4} placeholder={"https://github.com/yourname\nhttps://your-portfolio.com/projects"}
@@ -115,7 +115,7 @@ export function PortfolioSourceImporter({
           className="mt-3"
         />
         <div className="flex items-center justify-between mt-2 gap-3">
-          <span className="text-xs text-gray-500">Up to 18 links per check. Only public, permitted page metadata is used.</span>
+          <span className="text-xs text-gray-500">Up to 18 links per check; at most four linked pages per site. Only public, permitted page metadata is used.</span>
           <Button onClick={check} disabled={checking || busy}>{checking ? "Checking sources…" : "Find work"}</Button>
         </div>
         {error && <p role="alert" className="text-sm text-destructive mt-2">{error}</p>}
@@ -147,7 +147,7 @@ export function PortfolioSourceImporter({
         <div className="space-y-3 border-t pt-4">
           <div>
             <h4 className="font-semibold text-sm">Review suggested cards</h4>
-            <p className="text-xs text-gray-500 mt-1">These are page titles and descriptions, not verified claims about your work. Edit them before confirming. New cards are private unless you choose Public summary; source links stay private until an approved introduction.</p>
+            <p className="text-xs text-gray-500 mt-1">These are page titles and descriptions, not verified claims about your work. A site preview is not a confirmed project and is never preselected. Edit suggested cards before confirming. New cards are private unless you choose Public summary; source links stay private until an approved introduction.</p>
           </div>
           {entries.map((entry) => (
             <div key={entry.key} className="rounded-xl border bg-gray-50 p-3 space-y-2">
