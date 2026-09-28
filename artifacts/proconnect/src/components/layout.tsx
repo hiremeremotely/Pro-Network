@@ -545,7 +545,6 @@ export function Layout({ children }: LayoutProps) {
     ? navItems
     : [
         { href: "/feed", label: "Feed", icon: HomeIcon },
-        ...(user ? [{ href: `/profiles/${user.id}`, label: "My Hub", icon: UserIcon }] : []),
         ...navItems,
       ];
 
