@@ -23,105 +23,137 @@ id = "NujSn9VD15i0nlj8riwfT"
 uri = "file://.local/HMR-Revenue-Model.pdf"
 type = "pdf"
 title = "HMR Revenue Model & LinkedIn Comparison"
+logical_id = "2f66bd2d-5ccf-4f84-8520-9f77906fe457"
 
 [[outputs]]
 id = "3n5Bg1FklKqri0PgWCHM1"
 uri = "file://artifacts/hmr-extension/hmr-extension.zip"
 type = "unspecified"
 title = "Hire Me Remotely – Chrome Extension (v1.0.0)"
+logical_id = "8a1848f9-5ced-42b0-843b-189ab127648b"
 
 [[outputs]]
 id = "Ee6kAJ2WcsKRwU0vVf3pS"
 uri = "file://logo/icon-512.png"
 type = "image"
 title = "Icon — 512×512 (transparent bg)"
+logical_id = "2f678bb1-0564-4c7c-9be8-0deee4734dbc"
 
 [[outputs]]
 id = "ZZMdlBDyvkO7Ro4YFKPgU"
 uri = "file://logo/icon-192.png"
 type = "image"
 title = "Icon — 192×192"
+logical_id = "1417a32e-4ba6-424b-9ebd-ff8688952ce2"
 
 [[outputs]]
 id = "glIeG7nOgdr6TEZwM6_m0"
 uri = "file://logo/icon-128.png"
 type = "image"
 title = "Icon — 128×128 (extension / favicon)"
+logical_id = "94158fdc-ced5-46b2-9a4c-5b288b38d08d"
 
 [[outputs]]
 id = "Q08ef3DNxzPBGgqtbjjNf"
 uri = "file://logo/logo-horizontal.png"
 type = "image"
 title = "Horizontal lockup (transparent bg)"
+logical_id = "458c07bf-e840-4ec2-8730-52cfa6bb1880"
 
 [[outputs]]
 id = "3PHRM7jS_xzKqT4NjG-AT"
 uri = "file://logo/logo-horizontal-white.png"
 type = "image"
 title = "Horizontal lockup — white bg"
+logical_id = "e14fd29c-5e9a-46cb-a4dc-5197a0ffa31d"
 
 [[outputs]]
 id = "tVVPAn71ORrXmzgwyBVu1"
 uri = "file://logo/logo-horizontal-dark.png"
 type = "image"
 title = "Horizontal lockup — dark bg"
+logical_id = "39811428-419d-46e6-bd52-598c13dc2d6e"
 
 [[outputs]]
 id = "Vdl1owPzy9Iu4g8mON7hB"
 uri = "file://logo/logo-vertical.png"
 type = "image"
 title = "Vertical lockup (icon above wordmark)"
+logical_id = "6c75d3f9-a1bd-40e2-878f-712e4df4ddad"
 
 [[outputs]]
 id = "LgK0d0n-U0qAsYiwR8yws"
 uri = "file://logo/wordmark.png"
 type = "image"
 title = "Wordmark only — Hire Me Remotely"
+logical_id = "e2b894ac-4c8c-42e7-a6a7-c48b9c424769"
 
 [[outputs]]
 id = "1vbUiZl-c9AebPmuMCdDP"
 uri = "file://logo/traced/logo-traced-1024.png"
 type = "image"
 title = "Traced logo — 1024px wide (transparent bg)"
+logical_id = "ec772201-50a9-46c3-849f-9d8d81d3dd4f"
 
 [[outputs]]
 id = "6cmU1h0wVFjG99GiGLATW"
 uri = "file://logo/traced/logo-traced-1024-white.png"
 type = "image"
 title = "Traced logo — white background"
+logical_id = "2e87532d-cfc9-4e78-bd7d-1ce96d5efc45"
 
 [[outputs]]
 id = "GpeFYs2wKZQrL-_FvVW2J"
 uri = "file://logo/traced/logo-traced-1024-dark.png"
 type = "image"
 title = "Traced logo — dark background"
+logical_id = "e8662e96-310f-49f9-8ea1-3812df8879b1"
 
 [[outputs]]
 id = "vIJ4g69XxAsRIyj_CAAjJ"
 uri = "file://logo/traced/logo-traced-512.png"
 type = "image"
 title = "Traced logo — 512px wide"
+logical_id = "1b171323-59a7-495e-8174-6439c3b0baee"
 
 [[outputs]]
 id = "W9GqzmDS3AckaYLo62qM_"
 uri = "file://logo/traced/logo-traced.svg"
 type = "image"
 title = "Traced logo — SVG (infinitely scalable)"
+logical_id = "990fce31-38f8-413b-a09f-6db974216fab"
 
 [[outputs]]
 id = "N01gGHboH2fjnu2pSgnF1"
 uri = "file://.local/seo-plan.pdf"
 type = "pdf"
 title = "SEO Implementation Plan — Hire Me Remotely"
+logical_id = "c2c329e5-fc39-4aa3-a1a2-6bd0f14da0d5"
 
 [[outputs]]
 id = "86IvHv3s--zPobh5L8pi1"
 uri = "file://.local/hmr-revenue-model.pdf"
 type = "pdf"
 title = "Revenue Model — PDF"
+logical_id = "0f11cad1-17eb-4fbc-88ac-a12f3996847b"
 
 [[outputs]]
 id = "uF9ZuYPb2J4nbr4yYNdMF"
 uri = "file://.local/hmr-revenue-model.docx"
 type = "word_document"
 title = "Revenue Model — Word (.docx)"
+logical_id = "e5cbfd32-2559-4410-bd9e-323b6d77c17d"
+
+[[outputs]]
+id = "XDgo8ILmoVabQIQm7kaeA"
+uri = "file://documents/ProConnect-Product-Features.docx"
+type = "word_document"
+title = "ProConnect Product Feature Guide"
+description = "Editable Word document covering current features for professionals and businesses, plus privacy, integrations, and availability notes."
+logical_id = "a7f423a0-6b23-4e3b-aa52-8661b713aae6"
+content_hash = "sha256:f41a66da32d4f776ad63a8b226f0fa25688ea8d92536e73b38e5dfe2b28eeef8"
+size = 5082
+mtime_ms = 1790611105200
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:f660e5c3-5996-4f13-ba53-d9b6f0557c4b/a7f423a0-6b23-4e3b-aa52-8661b713aae6/9bba2c74-c314-42aa-9f9b-0d1cbc2fd99e"
+storage_version_token = "1790611130673006"
+content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
