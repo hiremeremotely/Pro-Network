@@ -541,6 +541,13 @@ export function Layout({ children }: LayoutProps) {
         { href: "/jobs",         label: "Jobs",        icon: BriefcaseIcon      },
         { href: "/messaging",    label: "Messaging",   icon: MessageSquareIcon  },
       ];
+  const topNavItems = isCompany
+    ? navItems
+    : [
+        { href: "/feed", label: "Feed", icon: HomeIcon },
+        ...(user ? [{ href: `/profiles/${user.id}`, label: "My Hub", icon: UserIcon }] : []),
+        ...navItems,
+      ];
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f3f2ef]">
@@ -556,7 +563,7 @@ export function Layout({ children }: LayoutProps) {
 
           {/* Center: nav items */}
           <nav className="hidden md:flex flex-1 items-stretch h-14 justify-center">
-            {navItems.map((item) => {
+            {topNavItems.map((item) => {
               const exactMatch = ["/feed", "/profiles", "/company-dashboard", "/applications"];
               const isActive = location === item.href || (!exactMatch.includes(item.href) && location.startsWith(item.href));
               const isMsgItem = item.href === "/messaging";
