@@ -9,7 +9,7 @@ import {
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
 import { logger } from "../lib/logger";
-import { canViewProfile, companyReleaseScope } from "../lib/privacyProjection";
+import { canViewProfile, companyReleaseScope, hasApprovedFieldRelease } from "../lib/privacyProjection";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -132,7 +132,8 @@ router.get("/storage/portfolio/:id", async (req: Request, res: Response) => {
     }
     const scope = await companyReleaseScope(req, item.profileId);
     const ownerOrAdmin = Number(req.session?.profileId) === item.profileId || req.session?.isAdmin === true;
-    if (!ownerOrAdmin && (!scope.has("portfolio") || item.visibility !== "public")) {
+    if (!ownerOrAdmin && (!scope.has("portfolio") || item.visibility !== "public" ||
+      !(await hasApprovedFieldRelease(req, item.profileId, ["identity", "portfolio"])))) {
       res.status(403).json({ error: "This portfolio file is private" });
       return;
     }

@@ -273,7 +273,7 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) navigate(user.accountType === "company" ? "/company-dashboard" : "/feed");
+    if (user) navigate(user.accountType === "company" ? "/company-dashboard" : "/job-tracker");
   }, [user, navigate]);
 
   const recommendedInterests = [

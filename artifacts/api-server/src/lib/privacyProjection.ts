@@ -27,11 +27,10 @@ export async function companyReleaseScope(req: any, candidateId: number): Promis
         and(eq(connectionsTable.followerId, candidateId), eq(connectionsTable.followingId, viewerId)),
       ),
     )).limit(1);
-  if (connection) return publicScope(candidate.privacySettings);
   const [viewer] = await db.select({ accountType: profilesTable.accountType })
     .from(profilesTable).where(eq(profilesTable.id, viewerId));
   if (viewer?.accountType !== "company") {
-    return new Set(RELEASE_FIELDS.filter((field) => candidate.privacySettings?.[field] === "public"));
+    return publicScope(candidate.privacySettings);
   }
   const [approved] = await db.select({ releaseScope: interestRequestsTable.releaseScope })
     .from(interestRequestsTable).where(and(
@@ -41,7 +40,26 @@ export async function companyReleaseScope(req: any, candidateId: number): Promis
       isNull(interestRequestsTable.revokedAt),
       gt(interestRequestsTable.releaseExpiresAt, new Date()),
     )).orderBy(desc(interestRequestsTable.respondedAt)).limit(1);
-  return new Set(approved?.releaseScope ?? []);
+  return approved ? new Set(approved.releaseScope ?? []) : connection ? publicScope(candidate.privacySettings) : new Set();
+}
+
+/** Source destinations require an active, explicit release; public privacy settings do not grant them. */
+export async function hasApprovedFieldRelease(req: any, candidateId: number, fields: ReleaseField[]): Promise<boolean> {
+  const viewerId = Number(req.session?.profileId);
+  if (viewerId === candidateId || req.session?.isAdmin === true) return true;
+  if (!viewerId) return false;
+  const [viewer] = await db.select({ accountType: profilesTable.accountType })
+    .from(profilesTable).where(eq(profilesTable.id, viewerId));
+  if (viewer?.accountType !== "company") return false;
+  const [approved] = await db.select({ releaseScope: interestRequestsTable.releaseScope })
+    .from(interestRequestsTable).where(and(
+      eq(interestRequestsTable.companyProfileId, viewerId),
+      eq(interestRequestsTable.candidateProfileId, candidateId),
+      eq(interestRequestsTable.status, "approved"),
+      isNull(interestRequestsTable.revokedAt),
+      gt(interestRequestsTable.releaseExpiresAt, new Date()),
+    )).orderBy(desc(interestRequestsTable.respondedAt)).limit(1);
+  return fields.every((field) => approved?.releaseScope?.includes(field));
 }
 
 export async function canViewProfile(req: any, candidateId: number): Promise<boolean> {
@@ -74,9 +92,9 @@ export function anonymizedCandidate(candidateId: number) {
   return { id: candidateId, name: "Available professional", candidateLabel: "Professional candidate" };
 }
 
-export function projectProfileForScope(profile: any, scope: Set<string>) {
+export function projectProfileForScope(profile: any, scope: Set<string>, approvedSourceLinks = false) {
   const identity = scope.has("identity");
-  const socialLinks = scope.has("socialLinks");
+  const socialLinks = scope.has("socialLinks") && (profile.accountType === "company" || approvedSourceLinks);
   return {
     id: profile.id,
     accountType: profile.accountType,

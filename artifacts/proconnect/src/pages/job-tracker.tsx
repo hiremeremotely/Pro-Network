@@ -1064,13 +1064,28 @@ export default function JobTracker() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <BriefcaseIcon className="w-7 h-7 text-primary" />
-            <h1 className="text-3xl font-bold text-gray-900">Job Tracker</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Your dashboard</h1>
           </div>
-          <p className="text-sm text-gray-500">Track every application across all platforms in one place</p>
+          <p className="text-sm text-gray-500">Your applications, professional hub, and introductions in one place</p>
         </div>
         <Button onClick={() => setAddModal({ open: true })} className="gap-2 rounded-full px-5 shadow-sm">
           <PlusIcon className="w-4 h-4" /> Add Application
         </Button>
+      </div>
+
+      <div className="grid sm:grid-cols-3 gap-3 mb-6">
+        <Link href="/profile/edit?tab=portfolio" className="rounded-xl border border-gray-200 bg-white p-4 hover:border-primary hover:shadow-sm transition-colors">
+          <p className="font-semibold text-gray-900">My hub</p>
+          <p className="text-xs text-gray-500 mt-1">Review imported work and manage your private source links</p>
+        </Link>
+        <Link href="/professional-requests" className="rounded-xl border border-gray-200 bg-white p-4 hover:border-primary hover:shadow-sm transition-colors">
+          <p className="font-semibold text-gray-900">Introductions</p>
+          <p className="text-xs text-gray-500 mt-1">Review requests and choose what to share</p>
+        </Link>
+        <Link href="/feed" className="rounded-xl border border-gray-200 bg-white p-4 hover:border-primary hover:shadow-sm transition-colors">
+          <p className="font-semibold text-gray-900">Feed</p>
+          <p className="text-xs text-gray-500 mt-1">Browse updates from your network</p>
+        </Link>
       </div>
 
       {isLoading && <LoadingState message="Loading your applications…" />}

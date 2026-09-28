@@ -14,7 +14,8 @@ import {
   DeleteProfileParams,
   ListProfilesQueryParams,
 } from "@workspace/api-zod";
-import { companyReleaseScope, canViewProfile, projectExperienceForScope, projectProfileForScope } from "../lib/privacyProjection";
+import { companyReleaseScope, canViewProfile, hasApprovedFieldRelease, projectExperienceForScope, projectProfileForScope } from "../lib/privacyProjection";
+import { rowsForPortfolioViewer } from "./portfolio-rules";
 
 const router: IRouter = Router();
 
@@ -226,6 +227,7 @@ router.get("/profiles/:id", async (req, res): Promise<void> => {
   const isOwner = req.session.profileId === params.data.id;
   const scope = await companyReleaseScope(req, params.data.id);
   const isOwnerOrAdmin = isOwner || req.session?.isAdmin === true;
+  const approvedSources = profile.accountType === "company" || await hasApprovedFieldRelease(req, params.data.id, ["identity", "socialLinks"]);
   const [education, experience, portfolio, skills] = await Promise.all([
     db.select().from(educationTable).where(eq(educationTable.profileId, params.data.id)),
     db.select().from(experienceTable).where(eq(experienceTable.profileId, params.data.id)),
@@ -238,14 +240,10 @@ router.get("/profiles/:id", async (req, res): Promise<void> => {
   ]);
 
   res.json({
-    ...projectProfileForScope(profile, scope),
+    ...projectProfileForScope(profile, scope, approvedSources),
     education: scope.has("education") ? education : [],
     experience: projectExperienceForScope(experience, scope),
-    portfolio: scope.has("portfolio") ? portfolio.map((item) => {
-      if (isOwner) return item;
-      const { objectPath: _objectPath, ...safe } = item;
-      return safe;
-    }) : [],
+    portfolio: scope.has("portfolio") ? rowsForPortfolioViewer(portfolio, isOwner, approvedSources && scope.has("portfolio")) : [],
     skills: scope.has("skills") ? skills : [],
   });
 });

@@ -525,7 +525,7 @@ export function Layout({ children }: LayoutProps) {
     navigate("/");
   }
 
-  const homeHref = user?.accountType === "company" ? "/company-dashboard" : "/feed";
+  const homeHref = user?.accountType === "company" ? "/company-dashboard" : "/job-tracker";
   const isCompany = user?.accountType === "company";
 
   const navItems = isCompany
@@ -536,13 +536,10 @@ export function Layout({ children }: LayoutProps) {
         { href: "/applications",      label: "Hiring",       icon: ClipboardListIcon  },
       ]
     : [
-        { href: "/feed",         label: "Home",        icon: HomeIcon           },
-        ...(user ? [{ href: `/profiles/${user.id}`, label: "My Hub", icon: UserIcon }] : []),
+        { href: "/job-tracker",  label: "Dashboard",   icon: HomeIcon           },
         { href: "/profiles",     label: "Network",     icon: UsersIcon          },
         { href: "/jobs",         label: "Jobs",        icon: BriefcaseIcon      },
-        { href: "/job-tracker",  label: "Job Tracker", icon: KanbanSquareIcon   },
         { href: "/messaging",    label: "Messaging",   icon: MessageSquareIcon  },
-        { href: "/professional-requests", label: "Introductions", icon: UserPlusIcon },
       ];
 
   return (
@@ -626,11 +623,16 @@ export function Layout({ children }: LayoutProps) {
               )}
               <DropdownMenuItem asChild>
                 <Link href={user ? `/profiles/${user.id}` : "/login"} className="flex items-center gap-2 cursor-pointer">
-                   <UserIcon className="w-4 h-4" /> {user?.accountType === "individual" ? "My Hub" : "View Profile"}
+                  <UserIcon className="w-4 h-4" /> {user?.accountType === "individual" ? "My Hub" : "View Profile"}
                 </Link>
               </DropdownMenuItem>
               {user?.accountType !== "company" && (
                 <>
+                  <DropdownMenuItem asChild>
+                    <Link href="/feed" className="flex items-center gap-2 cursor-pointer">
+                      <HomeIcon className="w-4 h-4" /> Feed
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href="/applications" className="flex items-center gap-2 cursor-pointer">
                       <BriefcaseIcon className="w-4 h-4" /> My Applications

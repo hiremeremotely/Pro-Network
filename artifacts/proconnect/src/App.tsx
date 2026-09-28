@@ -92,7 +92,7 @@ function ClerkBridge() {
           location.startsWith("/sign-in") ||
           location.startsWith("/sign-up");
         if (isAuthEntry) {
-          navigate(data.profile.accountType === "company" ? "/company-dashboard" : "/feed");
+          navigate(data.profile.accountType === "company" ? "/company-dashboard" : "/job-tracker");
         }
       })
       .catch(() => {
@@ -149,7 +149,7 @@ function RedirectIfAuth({ children }: { children: ReactNode }) {
 
   useLayoutEffect(() => {
     if (user) {
-      navigate(user.accountType === "company" ? "/company-dashboard" : "/feed");
+      navigate(user.accountType === "company" ? "/company-dashboard" : "/job-tracker");
     }
   }, [user, navigate]);
 

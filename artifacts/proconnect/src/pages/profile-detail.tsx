@@ -37,6 +37,7 @@ import { useConnections } from "@/hooks/use-connections";
 import { ConnectModal } from "@/components/connect-modal";
 import { DisconnectConfirmDialog } from "@/components/disconnect-confirm-dialog";
 import { ExpressInterestModal } from "@/components/express-interest-modal";
+import { buildHubItems, profileShareUrl } from "@/lib/professional-hub";
 
 // ── Modal wrapper ─────────────────────────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -609,33 +610,6 @@ function getProviderDetails(provider: string) {
   return { icon: BriefcaseIcon, name: "Portfolio" };
 }
 
-function providerFromUrl(url: string | null | undefined, fallback: string) {
-  if (!url) return fallback;
-  try {
-    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
-    if (host === "github.com" || host.endsWith(".github.com")) return "github";
-    if (host === "linkedin.com" || host.endsWith(".linkedin.com")) return "linkedin";
-    if (host === "behance.net" || host.endsWith(".behance.net")) return "behance";
-    if (host === "dribbble.com" || host.endsWith(".dribbble.com")) return "dribbble";
-    if (host === "framer.com" || host.endsWith(".framer.com") || host.endsWith(".framer.website")) return "framer";
-    if (host === "x.com" || host === "twitter.com") return "twitter";
-  } catch {
-    return fallback;
-  }
-  return fallback;
-}
-
-function safeHubUrl(url: string | null | undefined) {
-  if (!url) return null;
-  if (url.startsWith(import.meta.env.BASE_URL)) return url;
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : null;
-  } catch {
-    return null;
-  }
-}
-
 // ── Main Profile Page ─────────────────────────────────────────────────────────
 export default function ProfileDetail() {
   const { user } = useAppAuth();
@@ -774,76 +748,10 @@ export default function ProfileDetail() {
   const isCompany = profile.accountType === "company";
   const initials = profile.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().substring(0, 2);
 
-  const hubUrls = new Set<string>();
-  const normalizeUrl = (u: string) => {
-    try {
-      const parsed = new URL(u);
-      const pathname = parsed.pathname === "/" ? "" : parsed.pathname.replace(/\/$/, "");
-      return `${parsed.hostname.toLowerCase()}${pathname}${parsed.search}${parsed.hash}`;
-    } catch {
-      return u.toLowerCase().trim().replace(/\/$/, "");
-    }
-  };
-
-  const hubItems: any[] = [];
-
-  [...((profile.portfolio ?? []) as any[])]
-    .sort((a, b) => Number(Boolean(b.featured)) - Number(Boolean(a.featured)))
-    .forEach((p: any) => {
-    if (p.visibility === "private" && !isOwn) return;
-    const url = safeHubUrl(p.projectUrl || p.canonicalUrl || (p.mimeType ? `${BASE}api/storage/portfolio/${p.id}` : null));
-    if (url) {
-      const normalized = normalizeUrl(url);
-      if (hubUrls.has(normalized)) return;
-      hubUrls.add(normalized);
-    }
-    const media = p.imageUrl || (p.mimeType?.startsWith("image/") ? url : null);
-    hubItems.push({
-      type: "portfolio",
-      id: `port-${p.id}`,
-      title: p.title,
-      description: p.description,
-      imageUrl: media,
-      url,
-      provider: providerFromUrl(url, p.source || "portfolio"),
-      tags: p.tags || [],
-      featured: p.featured,
-      isPdf: p.mimeType === "application/pdf"
-    });
-    });
-
-  const addLink = (url: string | null | undefined, provider: string, title: string) => {
-    const safeUrl = safeHubUrl(url);
-    if (!safeUrl) return;
-    const norm = normalizeUrl(safeUrl);
-    if (hubUrls.has(norm)) return;
-    hubUrls.add(norm);
-    hubItems.push({
-      type: "link",
-      id: `link-${provider}-${norm}`,
-      title,
-      url: safeUrl,
-      provider: providerFromUrl(safeUrl, provider),
-      featured: false,
-    });
-  };
-
-  addLink(profile.website, "website", "Website");
-  addLink(profile.linkedinUrl, "linkedin", "LinkedIn");
-  addLink(profile.githubUrl, "github", "GitHub");
-  addLink(profile.twitterUrl, "twitter", "X");
-  ((profile.customLinks ?? []) as any[]).forEach((c: any) => {
-    addLink(c.url, "custom", c.label || "Link");
-  });
-
-  hubItems.sort((a, b) => {
-    if (a.featured && !b.featured) return -1;
-    if (!a.featured && b.featured) return 1;
-    return 0;
-  });
+  const hubItems = buildHubItems(profile, isOwn, BASE);
 
   async function shareProfile() {
-    const canonicalUrl = new URL(`${BASE}profiles/${id}`, window.location.origin).href;
+    const canonicalUrl = profileShareUrl(window.location.origin, BASE, id);
     const shareData = {
       title: `${profile!.name} — professional profile`,
       text: profile!.headline || `View ${profile!.name}'s professional profile`,
@@ -1135,14 +1043,15 @@ export default function ProfileDetail() {
             </div>
 
             {/* Featured Work & Links Hub */}
-            <div className="bg-white rounded-2xl border border-gray-200 px-6 py-5 shadow-sm">
+            {(hubItems.length > 0 || isOwn) && (
+              <div className="bg-white rounded-2xl border border-gray-200 px-6 py-5 shadow-sm">
                 <div className="flex items-center justify-between mb-5">
                   <div>
                     <h2 className="font-bold text-gray-900 text-lg flex items-center gap-2">
                       <StarIcon className="w-5 h-5 text-primary" />
-                      Featured work & links
+                      Professional work
                     </h2>
-                    <p className="text-sm text-gray-500 mt-0.5">Explore projects, websites, and external profiles</p>
+                    <p className="text-sm text-gray-500 mt-0.5">Reviewed work and projects. Source links remain private until explicitly released.</p>
                   </div>
                   {isOwn && (
                     <Link href="/profile/edit?tab=portfolio">
@@ -1156,15 +1065,11 @@ export default function ProfileDetail() {
                 {hubItems.length === 0 ? (
                   <div className="py-10 text-center border-2 border-dashed border-gray-100 rounded-xl">
                     <FileTextIcon className="w-10 h-10 text-gray-200 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-gray-800">{isOwn ? "Your hub is ready to build" : "No work or links added yet"}</p>
-                    {isOwn && (
-                      <>
-                        <p className="text-xs text-gray-500 mt-1 mb-4">Add a project, website, or professional link to make this page yours.</p>
-                        <Link href="/profile/edit?tab=portfolio">
-                          <Button size="sm" className="rounded-full h-9">Add your first project or link</Button>
-                        </Link>
-                      </>
-                    )}
+                    <p className="text-sm font-medium text-gray-800">Your hub is empty</p>
+                    <p className="text-xs text-gray-500 mt-1 mb-4">Add and review work from your sources to build your hub.</p>
+                    <Link href="/profile/edit?tab=portfolio">
+                      <Button size="sm" className="rounded-full h-9">Build your hub</Button>
+                    </Link>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1173,10 +1078,10 @@ export default function ProfileDetail() {
                       return (
                         <a
                           key={item.id}
-                          href={item.url || "#"}
+                          href={item.url || undefined}
                           target={item.url ? "_blank" : undefined}
                           rel={item.url ? "noopener noreferrer" : undefined}
-                          className={`group flex flex-col justify-between rounded-xl border border-gray-200 bg-white p-4 transition-all hover:border-primary/30 hover:shadow-sm ${!item.url ? "cursor-default" : ""}`}
+                          className={`group flex flex-col justify-between rounded-xl border border-gray-200 bg-white p-4 transition-all ${item.url ? "hover:border-primary/30 hover:shadow-sm" : "cursor-default"}`}
                         >
                           <div>
                             <div className="flex items-start justify-between gap-2 mb-3">
@@ -1218,7 +1123,7 @@ export default function ProfileDetail() {
 
                           <div className="mt-4 pt-3 border-t border-gray-50 flex items-center justify-between text-xs font-semibold text-gray-400 group-hover:text-primary transition-colors">
                             <span>
-                              {item.isPdf ? "View PDF" : item.url ? (item.type === "link" ? "Visit link" : "View project") : "No link"}
+                              {item.url ? (item.isPdf ? "View PDF" : item.type === "link" ? "Visit source" : "View source") : "Reviewed project summary"}
                             </span>
                             {item.url && <ExternalLinkIcon className="w-3.5 h-3.5" />}
                           </div>
@@ -1227,7 +1132,8 @@ export default function ProfileDetail() {
                     })}
                   </div>
                 )}
-            </div>
+              </div>
+            )}
 
             {/* Analytics strip — own profile only */}
             {isOwn && (

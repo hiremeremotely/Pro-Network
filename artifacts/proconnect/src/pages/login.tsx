@@ -38,7 +38,7 @@ export default function Login() {
         navigate("/company-dashboard");
       }
     } else {
-      navigate("/feed");
+      navigate("/job-tracker");
     }
   }, [user, navigate]);
 
@@ -52,7 +52,7 @@ export default function Login() {
     const result = await login(email, password, "individual");
     setLoading(false);
     if (result.ok) {
-      navigate("/feed");
+      navigate("/job-tracker");
     } else {
       if (result.unverified) setUnverified(true);
       setError(result.error ?? "Login failed.");

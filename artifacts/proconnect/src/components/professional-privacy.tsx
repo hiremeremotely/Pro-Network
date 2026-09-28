@@ -14,7 +14,7 @@ const fields = [
   ["identity", "Identity", "Name, headline and profile photo"],
   ["contact", "Contact", "Email and ways to reach you"],
   ["currentEmployer", "Current employer", "Your current workplace"],
-  ["socialLinks", "Social links", "LinkedIn, GitHub and website"],
+  ["socialLinks", "Source links", "LinkedIn, GitHub and websites; only with explicit identity and source-link release"],
   ["portfolio", "Portfolio", "Projects and imported proof"],
   ["experience", "Experience", "Work history and achievements"],
   ["education", "Education", "Schools, degrees and study"],
@@ -32,7 +32,9 @@ export function ProfessionalPrivacy({ profile, onOpenPortfolio }: { profile: any
 
   useEffect(() => {
     if (privacy.data) {
-      setSettings(privacy.data.privacySettings ?? {});
+      const next = { ...(privacy.data.privacySettings ?? {}) };
+      if (next.socialLinks === "public") next.socialLinks = "hmr";
+      setSettings(next);
       setDiscoveryEnabled(privacy.data.discoveryEnabled);
     }
   }, [privacy.data]);
@@ -85,18 +87,18 @@ export function ProfessionalPrivacy({ profile, onOpenPortfolio }: { profile: any
               </div>
             ))}
           </div>
-          <div className="rounded-xl bg-gray-50 p-4 text-xs leading-relaxed text-gray-600"><strong className="text-gray-800">Two source modes.</strong> Linked proof keeps the source URL visible. Imported or synced content is copied into your hub and follows the privacy rule you choose below. We do not scrape external profiles.</div>
+          <div className="rounded-xl bg-gray-50 p-4 text-xs leading-relaxed text-gray-600"><strong className="text-gray-800">Private sources, reviewed work.</strong> Your source URLs stay private. GitHub repository details can be imported for your review; website and LinkedIn links are kept as private proof, not scraped. A company can open source links only after you approve a direct introduction with both Identity and Source links.</div>
         </CardContent>
       </Card>
 
       <Card className="shadow-sm">
-        <CardHeader><CardTitle className="text-base">Field-level privacy</CardTitle><p className="text-sm text-gray-500">Choose what is public, shared with HMR after a request, or private.</p></CardHeader>
+        <CardHeader><CardTitle className="text-base">Field-level privacy</CardTitle><p className="text-sm text-gray-500">Choose what is public, shared with HMR after a request, or private. Source URLs are never public.</p></CardHeader>
         <CardContent className="space-y-2">
           {fields.map(([key, label, description]) => (
             <div key={key} className="grid gap-2 rounded-xl border border-gray-100 p-3 sm:grid-cols-[1fr_auto] sm:items-center">
               <div><Label className="text-sm font-semibold">{label}</Label><p className="text-xs text-gray-500">{description}</p></div>
               <div className="flex rounded-lg border bg-white p-0.5" role="group" aria-label={`${label} visibility`}>
-                {(["public", "hmr", "private"] as Visibility[]).map(value => (
+                {(key === "socialLinks" ? ["hmr", "private"] : ["public", "hmr", "private"] as Visibility[]).map((value: Visibility) => (
                   <button type="button" key={value} onClick={() => setSettings(current => ({ ...current, [key]: value }))} className={`rounded-md px-2.5 py-1.5 text-[11px] font-semibold capitalize focus:outline-none focus:ring-2 focus:ring-primary/40 ${((settings[key] ?? "hmr") === value) ? "bg-primary text-white" : "text-gray-500 hover:bg-gray-50"}`}>{value === "hmr" ? "HMR only" : value}</button>
                 ))}
               </div>

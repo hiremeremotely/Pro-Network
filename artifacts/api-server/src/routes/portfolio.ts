@@ -3,7 +3,8 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db, portfolioTable, portfolioUploadTicketsTable } from "@workspace/db";
 import { ObjectStorageService } from "../lib/objectStorage";
-import { canViewProfile, companyReleaseScope } from "../lib/privacyProjection";
+import { canViewProfile, companyReleaseScope, hasApprovedFieldRelease } from "../lib/privacyProjection";
+import { existingImport, importedItemIdentity, preservesImportedIdentity, rowsForPortfolioViewer, validProviderUrl } from "./portfolio-rules";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -33,27 +34,8 @@ const body = z.object({
   sortOrder: z.number().int().min(0).optional(),
 });
 const editBody = body.partial().refine((value) => Object.keys(value).length > 0);
-function validProviderUrl(source: string | undefined, value: string | null | undefined): boolean {
-  if (!source || !value || source === "manual" || source === "upload") return true;
-  try {
-    const host = new URL(value).hostname.toLowerCase().replace(/^www\./, "");
-    if (source === "github") return host === "github.com";
-    if (source === "behance") return host === "behance.net";
-    if (source === "dribbble") return host === "dribbble.com";
-    if (source === "linkedin") return host === "linkedin.com" && new URL(value).pathname.startsWith("/in/");
-    return true;
-  } catch { return false; }
-}
-
 function owns(req: any, profileId: number): boolean {
   return req.session?.profileId === profileId;
-}
-function publicRow(row: any) {
-  const { objectPath: _objectPath, ...safe } = row;
-  return safe;
-}
-function rowsForResponse(rows: any[], owner: boolean) {
-  return owner ? rows : rows.filter((row) => row.visibility === "public").map(publicRow);
 }
 async function validateUpload(profileId: number, objectPath: string, declaredMime?: string | null, declaredSize?: number | null) {
   const [ticket] = await db.select().from(portfolioUploadTicketsTable)
@@ -79,10 +61,11 @@ router.get("/profiles/:profileId/portfolio", async (req, res): Promise<void> => 
   const scope = await companyReleaseScope(req, parsed.data.profileId);
   if (!scope.has("portfolio")) { res.json([]); return; }
   const owner = owns(req, parsed.data.profileId) || req.session?.isAdmin === true;
+  const approvedSources = await hasApprovedFieldRelease(req, parsed.data.profileId, ["identity", "socialLinks"]);
   const rows = await db.select().from(portfolioTable)
     .where(owner ? eq(portfolioTable.profileId, parsed.data.profileId) : and(eq(portfolioTable.profileId, parsed.data.profileId), eq(portfolioTable.visibility, "public")))
     .orderBy(asc(portfolioTable.sortOrder), asc(portfolioTable.id));
-  res.json(rowsForResponse(rows, owner));
+  res.json(rowsForPortfolioViewer(rows, owner, approvedSources));
 });
 
 router.post("/profiles/:profileId/portfolio", async (req, res): Promise<void> => {
@@ -156,6 +139,10 @@ router.put("/profiles/:profileId/portfolio/:id", async (req, res): Promise<void>
     eq(portfolioTable.profileId, params.data.profileId),
   ));
   if (!current) { res.status(404).json({ error: "Portfolio project not found" }); return; }
+  if (!preservesImportedIdentity(current, parsed.data)) {
+    res.status(400).json({ error: "Imported portfolio source and external ID cannot be changed." });
+    return;
+  }
   const nextSource = parsed.data.source ?? current.source;
   const nextUrl = parsed.data.canonicalUrl ?? parsed.data.projectUrl ?? current.canonicalUrl ?? current.projectUrl;
   if (!validProviderUrl(nextSource, nextUrl)) {
@@ -213,8 +200,9 @@ router.post("/profiles/:profileId/portfolio/import", async (req, res): Promise<v
   const imported = [];
   for (const item of input.data.items) {
     if (item.source === "upload") { res.status(400).json({ error: "Bulk upload imports are not supported; attach uploads individually." }); return; }
-    const existing = item.externalId && item.source ? await db.select().from(portfolioTable).where(and(eq(portfolioTable.profileId, params.data.profileId), eq(portfolioTable.source, item.source), eq(portfolioTable.externalId, item.externalId))) : [];
-    if (existing[0]) { imported.push(existing[0]); continue; }
+    const existing = importedItemIdentity(item.source, item.externalId) ? await db.select().from(portfolioTable).where(and(eq(portfolioTable.profileId, params.data.profileId), eq(portfolioTable.source, item.source!), eq(portfolioTable.externalId, item.externalId!))) : [];
+    const matching = existingImport(existing, item.source, item.externalId);
+    if (matching) { imported.push(matching); continue; }
     const [row] = await db.insert(portfolioTable).values({ ...item, profileId: params.data.profileId, tags: item.tags ?? [] })
       .onConflictDoNothing({ target: [portfolioTable.profileId, portfolioTable.source, portfolioTable.externalId] }).returning();
     if (row) imported.push(row);

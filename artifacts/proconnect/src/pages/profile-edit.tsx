@@ -630,7 +630,8 @@ export default function ProfileEdit() {
               </div>
 
               <Separator />
-              <h3 className="font-medium text-sm">Links</h3>
+               <h3 className="font-medium text-sm">Private source links</h3>
+               <p className="text-xs text-muted-foreground">These URLs are kept in your profile as sources. They are not shown to other people unless you explicitly release your identity and social links in an introduction. Use the Portfolio tab to review work before it appears in your hub.</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-2">
                   <Label>Website</Label>

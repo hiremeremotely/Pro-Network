@@ -1,4 +1,4 @@
 - [connect-pg-simple esbuild issue](connect-pg-simple-esbuild.md) — createTableIfMissing fails in esbuild bundles; create sessions table manually instead.
 - [API codegen compatibility](api-zod-exports.md) — use the codegen script's post-processing; it keeps Orval 8 output compatible with Zod 3 and avoids duplicate exports.
 - [Gmail launch approval](gmail-launch-approval.md) — keep Gmail limited to test users until restricted-scope verification and any required security assessment are complete.
-- [Professional hub trust boundary](professional-hub-trust-boundary.md) — treat social profiles as linked proof, not scraped data; HMR mediates identity release before direct contact.
+- [Professional hub trust boundary](professional-hub-trust-boundary.md) — external URLs are private evidence, not public hub links; HMR mediates identity and source-link release.
