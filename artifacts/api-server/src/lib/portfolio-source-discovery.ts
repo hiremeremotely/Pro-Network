@@ -51,31 +51,20 @@ export function sourceUrl(value: string): URL {
   return url;
 }
 
-async function fetchPublic(
-  value: URL, remaining = 2, obeyRobots = false, robotsCache = new Map<string, string | null>(),
-  xml = false, sameOrigin?: string,
-): Promise<{ url: URL; status: number; body: string; truncated: boolean }> {
-  if (sameOrigin && value.origin !== sameOrigin) throw new Error("Discovery stays on the original website.");
-  if (blockedProvider(value.hostname) || value.hostname === "github.com") throw new Error("This provider does not allow public page extraction here.");
-  if (obeyRobots) {
-    if (!robotsCache.has(value.origin)) {
-      const rules = await fetchPublic(new URL("/robots.txt", value), 2, false, robotsCache, false, value.origin);
-      if (rules.url.origin !== value.origin || rules.truncated) throw new Error("Could not verify this site's access rules.");
-      robotsCache.set(value.origin, rules.status === 404 ? null : rules.body);
-    }
-    const rules = robotsCache.get(value.origin);
-    if (rules && !robotsAllows(rules, value.pathname + value.search)) throw new Error("This site does not permit HMR to read this page.");
-  }
-  const answers = await lookup(value.hostname, { all: true, verbatim: true });
-  const addresses = answers.filter((answer) => answer.family === 4);
-  if (!addresses.length || addresses.some((answer) => !publicIpv4(answer.address))) throw new Error("This address is not a public website.");
-  const { address, family } = addresses[0];
+type PublicAddress = { address: string; family: number };
+type PageResponse = { status: number; location?: string; contentType: string; body: string; truncated: boolean };
+export type DiscoveryNetwork = {
+  resolve: (hostname: string) => Promise<PublicAddress[]>;
+  request: (url: URL, pinned: PublicAddress, xml: boolean) => Promise<PageResponse>;
+};
+
+async function requestPage(value: URL, { address, family }: PublicAddress, xml: boolean): Promise<PageResponse> {
   const pinnedLookup = ((_host: string, options: { all?: boolean },
     callback: (err: NodeJS.ErrnoException | null, addresses: unknown, family?: number) => void) => {
     if (options.all) callback(null, [{ address, family }]);
     else callback(null, address, family);
   }) as LookupFunction;
-  const result = await new Promise<{ status: number; location?: string; contentType: string; body: string; truncated: boolean }>((resolve, reject) => {
+  return new Promise<PageResponse>((resolve, reject) => {
     const request = (value.protocol === "https:" ? httpsRequest : httpRequest)(value, {
        method: "GET", lookup: pinnedLookup, headers: { "User-Agent": userAgent, Accept: xml ? "application/xml,text/xml;q=0.9,text/plain;q=0.8" : "text/html,text/plain;q=0.8" },
       timeout: 4500,
@@ -104,10 +93,36 @@ async function fetchPublic(
     request.on("error", reject);
     request.end();
   });
+}
+
+const liveNetwork: DiscoveryNetwork = {
+  resolve: (hostname) => lookup(hostname, { all: true, verbatim: true }),
+  request: requestPage,
+};
+
+async function fetchPublic(
+  value: URL, remaining = 2, obeyRobots = false, robotsCache = new Map<string, string | null>(),
+  xml = false, sameOrigin?: string, network: DiscoveryNetwork = liveNetwork,
+): Promise<{ url: URL; status: number; body: string; truncated: boolean }> {
+  if (sameOrigin && value.origin !== sameOrigin) throw new Error("Discovery stays on the original website.");
+  if (blockedProvider(value.hostname) || value.hostname === "github.com") throw new Error("This provider does not allow public page extraction here.");
+  if (obeyRobots) {
+    if (!robotsCache.has(value.origin)) {
+      const rules = await fetchPublic(new URL("/robots.txt", value), 2, false, robotsCache, false, value.origin, network);
+      if (rules.url.origin !== value.origin || rules.truncated) throw new Error("Could not verify this site's access rules.");
+      robotsCache.set(value.origin, rules.status === 404 ? null : rules.body);
+    }
+    const rules = robotsCache.get(value.origin);
+    if (rules && !robotsAllows(rules, value.pathname + value.search)) throw new Error("This site does not permit HMR to read this page.");
+  }
+  const answers = await network.resolve(value.hostname);
+  const addresses = answers.filter((answer) => answer.family === 4);
+  if (!addresses.length || addresses.some((answer) => !publicIpv4(answer.address))) throw new Error("This address is not a public website.");
+  const result = await network.request(value, addresses[0], xml);
   if (result.status >= 300 && result.status < 400 && result.location) {
     if (remaining <= 0) throw new Error("Too many redirects.");
     const next = sourceUrl(new URL(result.location, value).href);
-    return fetchPublic(next, remaining - 1, obeyRobots, robotsCache, xml, sameOrigin);
+    return fetchPublic(next, remaining - 1, obeyRobots, robotsCache, xml, sameOrigin, network);
   }
   if (result.status === 404) return { url: value, status: 404, body: "", truncated: false };
   if (result.status !== 200) throw new Error(`The source returned HTTP ${result.status}.`);
@@ -362,7 +377,7 @@ async function githubCandidates(url: URL): Promise<SourceResult> {
     message: candidates.length ? `${candidates.length} public GitHub project${candidates.length === 1 ? "" : "s"} found.` : "No public repositories found.", candidates };
 }
 
-export async function discoverSource(value: string): Promise<SourceResult> {
+export async function discoverSource(value: string, network: DiscoveryNetwork = liveNetwork): Promise<SourceResult> {
   try {
     const url = sourceUrl(value);
     const host = url.hostname.toLowerCase().replace(/^www\./, "");
@@ -372,7 +387,7 @@ export async function discoverSource(value: string): Promise<SourceResult> {
       message: "HMR cannot import projects from this platform's profile URL. Add project details yourself or upload your own case study.",
     };
     const robotsCache = new Map<string, string | null>();
-    const load: PageLoader = (target, xml) => fetchPublic(target, 2, true, robotsCache, xml, url.origin);
+    const load: PageLoader = (target, xml) => fetchPublic(target, 2, true, robotsCache, xml, url.origin, network);
     // Fetch the entry page first to populate robotsCache; it may advertise a nonstandard sitemap.
     const page = await load(url);
     const hint = advertisedSitemap(robotsCache.get(url.origin) ?? null, page.url);

@@ -2,10 +2,10 @@
 type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
 export const modules: ModuleMap = {
   "./components/mockups/hmr-portfolio/Current.tsx": () => import("../components/mockups/hmr-portfolio/Current.tsx"),
-  "./components/mockups/saas-company-dashboard/Dashboard.tsx": () => import("../components/mockups/saas-company-dashboard/Dashboard.tsx"),
-  "./components/mockups/saas-company-dashboard/DashboardLight.tsx": () => import("../components/mockups/saas-company-dashboard/DashboardLight.tsx"),
   "./components/mockups/hub-privacy-flow/BusinessJourney.tsx": () => import("../components/mockups/hub-privacy-flow/BusinessJourney.tsx"),
   "./components/mockups/hub-privacy-flow/FlowOverview.tsx": () => import("../components/mockups/hub-privacy-flow/FlowOverview.tsx"),
   "./components/mockups/hub-privacy-flow/HMROperatorJourney.tsx": () => import("../components/mockups/hub-privacy-flow/HMROperatorJourney.tsx"),
-  "./components/mockups/hub-privacy-flow/ProfessionalJourney.tsx": () => import("../components/mockups/hub-privacy-flow/ProfessionalJourney.tsx")
+  "./components/mockups/hub-privacy-flow/ProfessionalJourney.tsx": () => import("../components/mockups/hub-privacy-flow/ProfessionalJourney.tsx"),
+  "./components/mockups/saas-company-dashboard/Dashboard.tsx": () => import("../components/mockups/saas-company-dashboard/Dashboard.tsx"),
+  "./components/mockups/saas-company-dashboard/DashboardLight.tsx": () => import("../components/mockups/saas-company-dashboard/DashboardLight.tsx")
 };

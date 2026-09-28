@@ -119,3 +119,78 @@ test("a disallowed sitemap cannot turn the home page into a project", async () =
   assert.deepEqual(result.candidates.map((item) => item.title), ["My portfolio"]);
   assert.deepEqual(requested, [["/", false], ["/sitemap.xml", true]]);
 });
+
+// Exercise discoverSource's real redirect/robots/DNS policy with controlled HTTP
+// responses. No request here opens a socket or uses a third-party service.
+function networkFixture(responses) {
+  const requested = [], resolved = [];
+  const network = {
+    resolve: async (host) => { resolved.push(host); return [{ address: "8.8.8.8", family: 4 }]; },
+    request: async (url, pinned, xml) => {
+      assert.deepEqual(pinned, { address: "8.8.8.8", family: 4 });
+      requested.push(url.href);
+      const response = responses[url.href];
+      if (!response) throw new Error(`Unexpected outbound request: ${url.href}`);
+      return { status: 200, contentType: xml ? "application/xml" : "text/html", body: "", truncated: false, ...response };
+    },
+  };
+  return { network, requested, resolved };
+}
+
+const site = "https://folio.example";
+
+test("a permitted entry redirect cannot fetch a robots-disallowed destination or draft it", async () => {
+  const { network, requested, resolved } = networkFixture({
+    [`${site}/robots.txt`]: { contentType: "text/plain", body: "User-agent: *\nDisallow: /private/" },
+    [`${site}/go`]: { status: 302, location: "/private/case-study" },
+    [`${site}/private/case-study`]: { body: "<title>Secret work</title>" },
+  });
+  const result = await discoverSource(`${site}/go`, network);
+  assert.equal(result.status, "link_only");
+  assert.deepEqual(result.candidates, []);
+  assert.match(result.message, /does not permit/);
+  assert.deepEqual(requested, [`${site}/robots.txt`, `${site}/go`]);
+  assert.deepEqual(resolved, ["folio.example", "folio.example"]);
+});
+
+test("a cross-origin redirect is rejected before its destination is resolved or fetched", async () => {
+  const { network, requested, resolved } = networkFixture({
+    [`${site}/robots.txt`]: { status: 404 },
+    [`${site}/go`]: { status: 301, location: "https://another.example/projects/secret" },
+    "https://another.example/projects/secret": { body: "<title>Foreign work</title>" },
+  });
+  const result = await discoverSource(`${site}/go`, network);
+  assert.equal(result.status, "error");
+  assert.deepEqual(result.candidates, []);
+  assert.match(result.message, /original website/);
+  assert.deepEqual(requested, [`${site}/robots.txt`, `${site}/go`]);
+  assert.deepEqual(resolved, ["folio.example", "folio.example"]);
+});
+
+test("allowed same-origin redirects can still produce a reviewed project draft", async () => {
+  const { network, requested } = networkFixture({
+    [`${site}/robots.txt`]: { contentType: "text/plain", body: "User-agent: *\nDisallow: /private/\nAllow: /projects/" },
+    [`${site}/go`]: { status: 302, location: "/projects/atlas" },
+    [`${site}/projects/atlas`]: { body: "<title>Atlas case study</title><meta name='description' content='A public project'>" },
+    [`${site}/sitemap.xml`]: { status: 404 },
+  });
+  const result = await discoverSource(`${site}/go`, network);
+  assert.equal(result.status, "projects");
+  assert.deepEqual(result.candidates.map(candidate => candidate.title), ["Atlas case study"]);
+  assert.equal(result.candidates[0].projectUrl, `${site}/projects/atlas`);
+  assert.deepEqual(requested, [`${site}/robots.txt`, `${site}/go`, `${site}/projects/atlas`, `${site}/sitemap.xml`]);
+});
+
+test("a child project redirect to a forbidden page remains only a site preview", async () => {
+  const { network, requested } = networkFixture({
+    [`${site}/robots.txt`]: { contentType: "text/plain", body: "User-agent: *\nDisallow: /private/" },
+    [`${site}/`]: { body: '<title>Portfolio overview</title><a href="/projects/teaser">Project</a>' },
+    [`${site}/sitemap.xml`]: { status: 404 },
+    [`${site}/projects/teaser`]: { status: 302, location: "/private/secret" },
+    [`${site}/private/secret`]: { body: "<title>Secret project</title>" },
+  });
+  const result = await discoverSource(`${site}/`, network);
+  assert.equal(result.status, "site_preview");
+  assert.deepEqual(result.candidates.map(candidate => candidate.title), ["Portfolio overview"]);
+  assert.deepEqual(requested, [`${site}/robots.txt`, `${site}/`, `${site}/sitemap.xml`, `${site}/projects/teaser`]);
+});

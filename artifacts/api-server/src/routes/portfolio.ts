@@ -203,7 +203,7 @@ router.post("/profiles/:profileId/portfolio/discover", sourceDiscoveryLimiter, a
   if (!owns(req, params.data.profileId)) { res.status(403).json({ error: "You may only discover work for your own portfolio." }); return; }
   const input = z.object({ urls: z.array(z.string().trim().min(1).max(2048)).min(1).max(6) }).safeParse(req.body);
   if (!input.success) { res.status(400).json({ error: "Enter up to six source URLs." }); return; }
-  const results = await Promise.all(input.data.urls.map(discoverSource));
+  const results = await Promise.all(input.data.urls.map((url) => discoverSource(url)));
   res.json({ results });
 });
 
