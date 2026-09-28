@@ -157,3 +157,17 @@ mtime_ms = 1790611105200
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:f660e5c3-5996-4f13-ba53-d9b6f0557c4b/a7f423a0-6b23-4e3b-aa52-8661b713aae6/9bba2c74-c314-42aa-9f9b-0d1cbc2fd99e"
 storage_version_token = "1790611130673006"
 content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+[[outputs]]
+id = "G902jdqhfLRKcr5IASqao"
+uri = "file://screenshots/hmr-portfolio-example.jpg"
+type = "image"
+title = "HMR portfolio — fictional example"
+description = "Screenshot of HMR’s professional work section with made-up profile and project details; based on the current layout."
+logical_id = "7908a06e-add8-4b94-a829-77753e9280e3"
+content_hash = "sha256:af16d42a632785b116d4cb0e6d980d7c999d4636afbd6de8e8e508c19a5326f6"
+size = 120255
+mtime_ms = 1790614145559
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:f660e5c3-5996-4f13-ba53-d9b6f0557c4b/7908a06e-add8-4b94-a829-77753e9280e3/8ceaef24-ed17-4687-8075-9a24501e4b99"
+storage_version_token = "1790614179412940"
+content_type = "image/jpeg"
