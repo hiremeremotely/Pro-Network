@@ -715,6 +715,42 @@ export const DiscoverGithubPortfolioResponse = zod.array(DiscoverGithubPortfolio
 
 
 /**
+ * @summary Discover reviewable drafts from professional-supplied public URLs
+ */
+export const DiscoverPortfolioSourcesParams = zod.object({
+  "profileId": zod.coerce.number().int()
+})
+
+export const discoverPortfolioSourcesBodyUrlsItemMax = 2048;
+
+export const discoverPortfolioSourcesBodyUrlsMax = 6;
+
+
+
+export const DiscoverPortfolioSourcesBody = zod.object({
+  "urls": zod.array(zod.url().max(discoverPortfolioSourcesBodyUrlsItemMax)).min(1).max(discoverPortfolioSourcesBodyUrlsMax)
+})
+
+export const DiscoverPortfolioSourcesResponse = zod.object({
+  "results": zod.array(zod.object({
+  "url": zod.string(),
+  "status": zod.enum(['projects', 'site_preview', 'link_only', 'needs_input', 'error']),
+  "message": zod.string(),
+  "candidates": zod.array(zod.object({
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "projectUrl": zod.url(),
+  "canonicalUrl": zod.url(),
+  "imageUrl": zod.string().nullish(),
+  "tags": zod.array(zod.string()),
+  "source": zod.enum(['personal', 'github']),
+  "externalId": zod.string()
+}))
+}))
+})
+
+
+/**
  * @summary List skills for a profile
  */
 export const ListProfileSkillsParams = zod.object({

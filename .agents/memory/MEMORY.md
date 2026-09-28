@@ -2,3 +2,4 @@
 - [API codegen compatibility](api-zod-exports.md) — use the codegen script's post-processing; it keeps Orval 8 output compatible with Zod 3 and avoids duplicate exports.
 - [Gmail launch approval](gmail-launch-approval.md) — keep Gmail limited to test users until restricted-scope verification and any required security assessment are complete.
 - [Professional hub trust boundary](professional-hub-trust-boundary.md) — external URLs are private evidence, not public hub links; HMR mediates identity and source-link release.
+- [Pinned DNS with Node requests](pinned-dns-node.md) — custom lookup callbacks must handle Node's all-address form as well as single-address form.

@@ -284,6 +284,58 @@ export interface GithubPortfolioCandidate {
   source: GithubPortfolioCandidateSource;
 }
 
+export interface PortfolioSourceDiscoveryInput {
+  /**
+     * @minItems 1
+     * @maxItems 6
+     * @items.maxLength 2048
+     */
+  urls: string[];
+}
+
+export type PortfolioSourceCandidateSource = typeof PortfolioSourceCandidateSource[keyof typeof PortfolioSourceCandidateSource];
+
+
+export const PortfolioSourceCandidateSource = {
+  personal: 'personal',
+  github: 'github',
+} as const;
+
+export interface PortfolioSourceCandidate {
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  projectUrl: string;
+  canonicalUrl: string;
+  /** @nullable */
+  imageUrl?: string | null;
+  tags: string[];
+  source: PortfolioSourceCandidateSource;
+  externalId: string;
+}
+
+export type PortfolioSourceResultStatus = typeof PortfolioSourceResultStatus[keyof typeof PortfolioSourceResultStatus];
+
+
+export const PortfolioSourceResultStatus = {
+  projects: 'projects',
+  site_preview: 'site_preview',
+  link_only: 'link_only',
+  needs_input: 'needs_input',
+  error: 'error',
+} as const;
+
+export interface PortfolioSourceResult {
+  url: string;
+  status: PortfolioSourceResultStatus;
+  message: string;
+  candidates: PortfolioSourceCandidate[];
+}
+
+export interface PortfolioSourceDiscoveryResponse {
+  results: PortfolioSourceResult[];
+}
+
 export type CreatePortfolioProjectBodySource = typeof CreatePortfolioProjectBodySource[keyof typeof CreatePortfolioProjectBodySource];
 
 

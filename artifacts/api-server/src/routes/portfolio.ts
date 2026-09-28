@@ -1,12 +1,18 @@
 import { Router, type IRouter } from "express";
+import rateLimit from "express-rate-limit";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db, portfolioTable, portfolioUploadTicketsTable } from "@workspace/db";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { canViewProfile, companyReleaseScope, hasApprovedFieldRelease } from "../lib/privacyProjection";
+import { discoverSource } from "../lib/portfolio-source-discovery";
 import { existingImport, importedItemIdentity, preservesImportedIdentity, rowsForPortfolioViewer, validProviderUrl } from "./portfolio-rules";
 
 const router: IRouter = Router();
+const sourceDiscoveryLimiter = rateLimit({
+  windowMs: 60_000, limit: 5, standardHeaders: true, legacyHeaders: false,
+  message: { error: "Too many source checks. Please try again in a minute." },
+});
 const objectStorageService = new ObjectStorageService();
 const uploadMimes = new Set(["application/pdf", "image/png", "image/jpeg", "image/webp"]);
 const idParams = z.object({ profileId: z.coerce.number().int().positive() });
@@ -189,6 +195,16 @@ router.get("/profiles/:profileId/portfolio/import/github", async (req, res): Pro
     const repos = await response.json() as Array<any>;
     res.json(repos.map((repo) => ({ externalId: String(repo.id), title: repo.name, description: repo.description, canonicalUrl: repo.html_url, projectUrl: repo.homepage || repo.html_url, imageUrl: null, tags: repo.language ? [repo.language] : [], source: "github" })));
   } catch { res.status(502).json({ error: "GitHub is unavailable" }); }
+});
+
+router.post("/profiles/:profileId/portfolio/discover", sourceDiscoveryLimiter, async (req, res): Promise<void> => {
+  const params = idParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+  if (!owns(req, params.data.profileId)) { res.status(403).json({ error: "You may only discover work for your own portfolio." }); return; }
+  const input = z.object({ urls: z.array(z.string().trim().min(1).max(2048)).min(1).max(6) }).safeParse(req.body);
+  if (!input.success) { res.status(400).json({ error: "Enter up to six source URLs." }); return; }
+  const results = await Promise.all(input.data.urls.map(discoverSource));
+  res.json({ results });
 });
 
 router.post("/profiles/:profileId/portfolio/import", async (req, res): Promise<void> => {

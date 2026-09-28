@@ -811,7 +811,8 @@ export default function ProfileEdit() {
 
         {/* Portfolio Tab */}
         <TabsContent value="portfolio" className="space-y-6">
-          <PortfolioManager profileId={CURRENT_PROFILE_ID} portfolio={portfolio ?? []} githubUrl={profile?.githubUrl} />
+          <PortfolioManager profileId={CURRENT_PROFILE_ID} portfolio={portfolio ?? []} githubUrl={profile?.githubUrl}
+            sourceLinks={[profile?.githubUrl, profile?.website, profile?.linkedinUrl, ...(profile?.customLinks ?? []).map((link) => link.url)].filter((url): url is string => Boolean(url))} />
         </TabsContent>
 
         {/* Skills Tab */}

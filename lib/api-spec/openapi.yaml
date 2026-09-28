@@ -600,6 +600,28 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/GithubPortfolioCandidate" }
 
+  /profiles/{profileId}/portfolio/discover:
+    post:
+      operationId: discoverPortfolioSources
+      tags: [portfolio]
+      summary: Discover reviewable drafts from professional-supplied public URLs
+      parameters:
+        - name: profileId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PortfolioSourceDiscoveryInput" }
+      responses:
+        "200":
+          description: Results by source; no portfolio entries are saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PortfolioSourceDiscoveryResponse" }
+
   /profiles/{profileId}/skills:
     get:
       operationId: listProfileSkills
@@ -1865,6 +1887,50 @@ components:
           items: { type: string }
         source: { type: string, enum: [github] }
       required: [externalId, title, canonicalUrl, projectUrl, tags, source]
+
+    PortfolioSourceDiscoveryInput:
+      type: object
+      required: [urls]
+      properties:
+        urls:
+          type: array
+          minItems: 1
+          maxItems: 6
+          items: { type: string, format: uri, maxLength: 2048 }
+
+    PortfolioSourceCandidate:
+      type: object
+      required: [title, projectUrl, canonicalUrl, tags, source, externalId]
+      properties:
+        title: { type: string }
+        description: { type: ["string", "null"] }
+        projectUrl: { type: string, format: uri }
+        canonicalUrl: { type: string, format: uri }
+        imageUrl: { type: ["string", "null"] }
+        tags:
+          type: array
+          items: { type: string }
+        source: { type: string, enum: [personal, github] }
+        externalId: { type: string }
+
+    PortfolioSourceResult:
+      type: object
+      required: [url, status, message, candidates]
+      properties:
+        url: { type: string }
+        status: { type: string, enum: [projects, site_preview, link_only, needs_input, error] }
+        message: { type: string }
+        candidates:
+          type: array
+          items: { $ref: "#/components/schemas/PortfolioSourceCandidate" }
+
+    PortfolioSourceDiscoveryResponse:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/PortfolioSourceResult" }
 
     CreatePortfolioProjectBody:
       type: object
