@@ -1,17 +1,21 @@
 import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { useSceneTimer } from '@/lib/video';
 import { LinkGlyph } from '../LinkGlyph';
 
 const EASE = [0.18, 0.78, 0.22, 1] as const;
 
 export function SceneOne() {
+  const [handoff, setHandoff] = useState(false);
+  useSceneTimer([{ time: 4900, callback: () => setHandoff(true) }]);
   return (
     <motion.section
       className="film-scene"
       style={{ background: '#191735', color: '#fff' }}
       initial={{ opacity: 0, scale: 1.035 }}
-      animate={{ opacity: 1, scale: 1 }}
+      animate={{ opacity: 1, scale: handoff ? 1.04 : 1 }}
       exit={{ opacity: 0, scale: 1.12, filter: 'blur(12px)' }}
-      transition={{ duration: 0.55, ease: EASE }}
+      transition={{ duration: handoff ? 0.5 : 0.55, ease: EASE }}
     >
       <div className="film-soft-grid" style={{ position: 'absolute', inset: 0, opacity: .48 }} />
       <motion.div
@@ -25,29 +29,31 @@ export function SceneOne() {
       />
       <motion.div
         style={{ position: 'absolute', left: '50%', top: '48%', width: '9vmin', height: '9vmin', opacity: .8, transform: 'translate(-50%,-50%)' }}
-        initial={false}
-        animate={{ left: '45%', top: '32%', width: '20vmin', height: '20vmin', scale: 1, rotate: 0, opacity: 1 }}
+        initial={{ left: '50%', top: '48%', width: '9vmin', height: '9vmin', scale: 1, rotate: 0, opacity: 1 }}
+        animate={handoff
+          ? { left: '50%', top: '48%', width: '20vmin', height: '20vmin', scale: 3.5, rotate: 0, opacity: 1, filter: ['blur(0px)', 'blur(2px)', 'blur(10px)'] }
+          : { left: '45%', top: '32%', width: '20vmin', height: '20vmin', scale: 1, rotate: 0, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 270, damping: 24, delay: .1 }}
       >
-        <LinkGlyph size={220} animated />
+        <LinkGlyph size="100%" />
       </motion.div>
       <div style={{ position: 'absolute', inset: '7% 7% 7% 7%', display: 'flex', alignItems: 'center' }}>
         <div style={{ width: '49%', zIndex: 2 }}>
           <motion.p className="film-eyebrow" style={{ color: '#b5adff', margin: '0 0 2.2vmin' }}
-            initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .12, duration: .4 }}>
+            initial={{ opacity: 0, y: 15 }} animate={{ opacity: handoff ? 0 : 1, y: 0 }} transition={{ delay: .12, duration: .4 }}>
             PROCONNECT / PORTFOLIO
           </motion.p>
           <motion.h1 className="film-display" style={{ fontSize: '8.4vmin', lineHeight: .91, letterSpacing: '-.065em', fontWeight: 700, margin: 0, maxWidth: '55vmin' }}
-            initial={{ clipPath: 'inset(0 0 100% 0)', y: 25 }} animate={{ clipPath: 'inset(0 0 0% 0)', y: 0 }}
+            initial={{ clipPath: 'inset(0 0 100% 0)', y: 25 }} animate={{ clipPath: handoff ? 'inset(0 0 100% 0)' : 'inset(0 0 0% 0)', y: 0 }}
             transition={{ duration: .65, delay: .24, ease: EASE }}>
             YOUR WORK,<br /><span style={{ color: '#b4aaff' }}>TOGETHER.</span>
           </motion.h1>
-          <motion.p className="film-ui" style={{ color: 'rgba(255,255,255,.68)', fontSize: '2.4vmin', lineHeight: 1.35, marginTop: '2.4vmin', maxWidth: '38vmin' }}
-            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .82, duration: .42 }}>
+          <motion.p className="film-ui" style={{ color: 'rgba(255,255,255,.68)', fontSize: '3vmin', lineHeight: 1.25, marginTop: '2.4vmin', maxWidth: '40vmin' }}
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: handoff ? 0 : 1, y: 0 }} transition={{ delay: .82, duration: .42 }}>
             Start from links or add a project yourself.
           </motion.p>
-          <motion.div style={{ display: 'flex', alignItems: 'center', gap: '1vmin', marginTop: '3vmin', color: '#c8c1ff', fontSize: '1.6vmin', fontWeight: 700 }}
-            initial={{ opacity: 0, x: -18 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 1.22, duration: .45 }}>
+          <motion.div style={{ display: 'flex', alignItems: 'center', gap: '1vmin', marginTop: '3vmin', color: '#c8c1ff', fontSize: '1.9vmin', fontWeight: 700 }}
+            initial={{ opacity: 0, x: -18 }} animate={{ opacity: handoff ? 0 : 1, x: 0 }} transition={{ delay: 1.22, duration: .45 }}>
             <span style={{ width: '4.4vmin', height: '1px', background: '#a89dff' }} />
             PROFILE / PORTFOLIO
           </motion.div>
@@ -56,7 +62,7 @@ export function SceneOne() {
           className="film-card"
           style={{ position: 'absolute', right: '0%', top: '20%', width: '40%', padding: '2.4vmin', color: '#211d3d', transformOrigin: 'center' }}
           initial={{ opacity: 0, x: 72, rotateY: -16, rotateZ: 2, scale: .94 }}
-          animate={{ opacity: 1, x: 0, rotateY: 0, rotateZ: 0, scale: 1 }}
+          animate={{ opacity: handoff ? 0 : 1, x: 0, rotateY: 0, rotateZ: 0, scale: handoff ? 1.06 : 1 }}
           transition={{ delay: .62, duration: .8, ease: EASE }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2vmin' }}>

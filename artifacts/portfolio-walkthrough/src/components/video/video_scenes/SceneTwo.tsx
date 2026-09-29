@@ -6,6 +6,8 @@ const EASE = [0.18, 0.78, 0.22, 1] as const;
 
 export function SceneTwo() {
   const [stage, setStage] = useState(0);
+  const [handoff, setHandoff] = useState(false);
+  const [pushThrough, setPushThrough] = useState(false);
   useSceneTimer([
     { time: 3000, callback: () => setStage(1) },
     { time: 3900, callback: () => setStage(2) },
@@ -13,6 +15,8 @@ export function SceneTwo() {
     { time: 6300, callback: () => setStage(4) },
     { time: 7350, callback: () => setStage(5) },
     { time: 8550, callback: () => setStage(6) },
+    { time: 8800, callback: () => setHandoff(true) },
+    { time: 10000, callback: () => setPushThrough(true) },
   ]);
   return (
     <motion.section className="film-scene film-soft-grid" style={{ background: '#f7f6fb', color: '#201d39' }}
@@ -26,22 +30,29 @@ export function SceneTwo() {
             initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .38 }}>
             01 / BUILD FROM LINKS
           </motion.p>
-          <motion.h2 className="film-display" style={{ margin: 0, fontSize: '5.6vmin', letterSpacing: '-.06em', lineHeight: .98, fontWeight: 700 }}
-            initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .12, duration: .5, ease: EASE }}>
+          <motion.h2 className="film-display" style={{ margin: 0, fontSize: '7vmin', letterSpacing: '-.06em', lineHeight: .98, fontWeight: 700 }}
+            initial={{ opacity: 0, y: 24 }} animate={{ opacity: handoff ? 0 : 1, y: handoff ? -12 : 0 }} transition={{ delay: .12, duration: .5, ease: EASE }}>
             Start<br />with links.
           </motion.h2>
-          <motion.p className="film-ui" style={{ color: '#706c83', fontSize: '1.9vmin', lineHeight: 1.45, marginTop: '2vmin' }}
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: .55, duration: .4 }}>
-            Add your own public work URLs. Nothing saves until you review it.
+          <motion.p className="film-ui" style={{ color: '#706c83', fontSize: '2.6vmin', lineHeight: 1.35, marginTop: '2vmin' }}
+            initial={{ opacity: 0 }} animate={{ opacity: handoff ? 0 : 1 }} transition={{ delay: .55, duration: .4 }}>
+            Public pages and GitHub can suggest drafts. LinkedIn, Behance and Dribbble need details you provide.
           </motion.p>
           <motion.div style={{ display: 'flex', alignItems: 'center', gap: '1vmin', marginTop: '2.6vmin', color: '#5146e5', fontWeight: 700, fontSize: '1.6vmin' }}
             initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: .9, duration: .35 }}>
             <span style={{ width: '4vmin', height: '1px', background: '#8c82f5' }} /> PUBLIC + PERMITTED
           </motion.div>
         </div>
-        <motion.div className="film-card" style={{ width: '68%', padding: '2.3vmin 2.6vmin', position: 'relative', transformOrigin: 'left center' }}
-          initial={{ opacity: 0, x: 58, rotateY: -9, scale: .95 }} animate={{ opacity: 1, x: 0, rotateY: 0, scale: 1 }}
-          transition={{ delay: .25, duration: .72, ease: EASE }}>
+        <motion.div className="film-card" style={{ width: '68%', padding: '2.3vmin 2.6vmin', position: 'relative', transformOrigin: '58% 80%', boxShadow: pushThrough ? 'none' : undefined, outline: pushThrough ? '.65vmin solid #5146e5' : undefined }}
+          initial={{ opacity: 0, x: 58, rotateY: -9, scale: .95 }}
+          animate={pushThrough
+            ? { opacity: [1, 1, 0], scale: [1.08, 1.08, 2.5], x: [0, 0, 18] }
+            : handoff
+              ? { opacity: 1, x: 0, rotateY: -2, rotateZ: -1.2, scale: 1.06 }
+              : { opacity: 1, x: 0, rotateY: 0, rotateZ: 0, scale: 1 }}
+          transition={pushThrough
+            ? { delay: .25, duration: 1.15, ease: EASE, opacity: { delay: .25, duration: 1.15, times: [0, .95, 1], ease: EASE } }
+            : { delay: .25, duration: handoff ? .75 : .72, ease: EASE }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '1.55vmin', borderBottom: '1px solid #efedf5' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.1vmin' }}>
               <span style={{ width: '3.3vmin', height: '3.3vmin', display: 'grid', placeItems: 'center', borderRadius: '1vmin', background: '#efedff', color: '#5146e5', fontSize: '1.9vmin' }}>↗</span>

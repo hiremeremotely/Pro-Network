@@ -8,15 +8,17 @@ export function SceneThree() {
   const [review, setReview] = useState(false);
   const [saved, setSaved] = useState(false);
   const [caption, setCaption] = useState(false);
+  const [handoff, setHandoff] = useState(false);
   useSceneTimer([
     { time: 5000, callback: () => setReview(true) },
     { time: 8000, callback: () => setSaved(true) },
     { time: 10200, callback: () => setCaption(true) },
+    { time: 11050, callback: () => setHandoff(true) },
   ]);
   return (
     <motion.section className="film-scene" style={{ background: '#f3f1f7', color: '#201d39' }}
-      initial={{ opacity: 0, x: 45, scale: .96, filter: 'blur(10px)' }}
-      animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
+      initial={{ opacity: 1, x: 45, scale: .96 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, rotateY: 12, scale: .94, filter: 'blur(10px)' }}
       transition={{ duration: .68, ease: EASE }}>
       <div className="film-soft-grid" style={{ position: 'absolute', inset: 0, opacity: .4 }} />
@@ -30,20 +32,22 @@ export function SceneThree() {
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: .08, duration: .35 }}>
             02 / ADD MANUALLY
           </motion.p>
-          <motion.h2 className="film-display" style={{ margin: 0, fontSize: '5.4vmin', lineHeight: .98, letterSpacing: '-.065em', fontWeight: 700 }}
-            initial={{ opacity: 0, y: 22 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .18, duration: .52, ease: EASE }}>
+          <motion.h2 className="film-display" style={{ margin: 0, fontSize: '7vmin', lineHeight: .98, letterSpacing: '-.065em', fontWeight: 700 }}
+            initial={{ opacity: 0, y: 22 }} animate={{ opacity: handoff ? 0 : 1, y: handoff ? -12 : 0 }} transition={{ delay: .18, duration: .52, ease: EASE }}>
             Or add it<br /><span style={{ color: '#5146e5' }}>yourself.</span>
           </motion.h2>
-          <motion.p className="film-ui" style={{ color: '#777389', fontSize: '1.8vmin', lineHeight: 1.45, marginTop: '2.2vmin' }}
-            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .56, duration: .38 }}>
+          <motion.p className="film-ui" style={{ color: '#777389', fontSize: '2.5vmin', lineHeight: 1.35, marginTop: '2.2vmin' }}
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: handoff ? 0 : 1, y: 0 }} transition={{ delay: .56, duration: .38 }}>
             You control every project detail.
           </motion.p>
           <motion.div className="film-rule" style={{ width: '80%', marginTop: '2.4vmin', transformOrigin: 'left' }}
             initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: .9, duration: .8 }} />
         </div>
         <motion.div className="film-card" style={{ width: '69%', padding: '2.1vmin 2.45vmin', position: 'relative', transformOrigin: 'center' }}
-          initial={{ opacity: 0, y: 36, rotateX: 9, scale: .96 }} animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
-          transition={{ delay: .22, duration: .72, ease: EASE }}>
+          initial={{ opacity: 0, y: 36, rotateX: 9, scale: .96 }} animate={handoff
+            ? { opacity: 1, rotateY: 12, rotateZ: 5, scale: .83, x: 25 }
+            : { opacity: 1, y: 0, rotateX: 0, rotateY: 0, rotateZ: 0, scale: 1, x: 0 }}
+          transition={{ delay: .22, duration: handoff ? 1.95 : .72, ease: EASE }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.35vmin' }}>
             <div>
               <div className="film-eyebrow" style={{ color: '#878397', fontSize: '1.1vmin' }}>PORTFOLIO STUDIO</div>
@@ -91,7 +95,7 @@ export function SceneThree() {
       </div>
       {saved && (
         <motion.div className="film-card" style={{ position: 'absolute', right: '6.5%', bottom: '8%', padding: '1.05vmin 1.5vmin', display: 'flex', alignItems: 'center', gap: '1vmin', borderRadius: '1vmin' }}
-          initial={{ opacity: 0, y: 18, rotate: 2, scale: .9 }} animate={{ opacity: 1, y: 0, rotate: 0, scale: 1 }} transition={{ type: 'spring', stiffness: 240, damping: 22 }}>
+          initial={{ opacity: 0, y: 18, rotate: 2, scale: .9 }} animate={{ opacity: handoff ? 0 : 1, y: 0, rotate: 0, scale: 1 }} transition={{ type: 'spring', stiffness: 240, damping: 22 }}>
           <span style={{ width: '3.4vmin', height: '3.4vmin', borderRadius: '.75vmin', background: '#efedff', display: 'grid', placeItems: 'center', color: '#5146e5', fontSize: '1.8vmin' }}>✓</span>
           <span className="film-ui" style={{ fontSize: '1.35vmin', fontWeight: 700 }}>Northstar Identity</span>
           <span className="film-chip"><i className="film-lock" />PRIVATE</span>
@@ -99,7 +103,7 @@ export function SceneThree() {
       )}
       {caption && (
         <motion.div style={{ position: 'absolute', left: '8%', bottom: '8%', color: '#5146e5', fontWeight: 700, fontSize: '1.55vmin', maxWidth: '37%' }}
-          initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .4 }}>
+          initial={{ opacity: 0, x: -14 }} animate={{ opacity: handoff ? 0 : 1, x: 0 }} transition={{ duration: .4 }}>
           Change the details before you confirm. You choose what appears in your hub.
         </motion.div>
       )}

@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 
 export function LinkGlyph({ size = 120, color = '#a89dff', animated = false }: {
-  size?: number;
+  size?: number | string;
   color?: string;
   animated?: boolean;
 }) {
