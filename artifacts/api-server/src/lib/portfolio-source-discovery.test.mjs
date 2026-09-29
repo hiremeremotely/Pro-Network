@@ -173,6 +173,38 @@ test("robots redirects to another origin do not authorize a project fetch", asyn
   assert.deepEqual(resolved, ["folio.example"]);
 });
 
+test("same-origin robots redirects apply the final disallow before fetching a project", async () => {
+  const project = `${site}/projects/secret`;
+  const finalRules = `${site}/rules/robots.txt`;
+  const { network, requested, resolved } = networkFixture({
+    [`${site}/robots.txt`]: { status: 302, location: "/rules/robots.txt" },
+    [finalRules]: { contentType: "text/plain", body: "User-agent: *\nDisallow: /projects/secret" },
+    [project]: { body: "<title>Secret project</title>" },
+  });
+  const result = await discoverSource(project, network);
+  assert.equal(result.status, "link_only");
+  assert.deepEqual(result.candidates, []);
+  assert.match(result.message, /does not permit/);
+  assert.deepEqual(requested, [`${site}/robots.txt`, finalRules]);
+  assert.deepEqual(resolved, ["folio.example", "folio.example"]);
+});
+
+test("same-origin robots redirects with final allow rules still permit a project preview", async () => {
+  const project = `${site}/projects/atlas`;
+  const finalRules = `${site}/rules/robots.txt`;
+  const { network, requested } = networkFixture({
+    [`${site}/robots.txt`]: { status: 301, location: "/rules/robots.txt" },
+    [finalRules]: { contentType: "text/plain", body: "User-agent: *\nAllow: /projects/" },
+    [project]: { body: "<title>Atlas case study</title><meta name='description' content='A public project'>" },
+    [`${site}/sitemap.xml`]: { status: 404 },
+  });
+  const result = await discoverSource(project, network);
+  assert.equal(result.status, "projects");
+  assert.deepEqual(result.candidates.map(candidate => candidate.title), ["Atlas case study"]);
+  assert.equal(result.candidates[0].projectUrl, project);
+  assert.deepEqual(requested, [`${site}/robots.txt`, finalRules, project, `${site}/sitemap.xml`]);
+});
+
 test("complete allowed robots rules still permit a normal project preview", async () => {
   const project = `${site}/projects/atlas`;
   const { network, requested } = networkFixture({
