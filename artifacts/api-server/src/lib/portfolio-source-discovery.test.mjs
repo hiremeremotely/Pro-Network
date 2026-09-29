@@ -157,6 +157,26 @@ test("truncated oversized robots rules never authorize a project fetch", async (
   assert.deepEqual(resolved, ["folio.example"]);
 });
 
+test("truncated oversized robots rules after a same-origin redirect never authorize a project fetch", async () => {
+  const project = `${site}/projects/secret`;
+  const finalRules = `${site}/rules/robots.txt`;
+  const { network, requested, resolved } = networkFixture({
+    [`${site}/robots.txt`]: { status: 302, location: "/rules/robots.txt" },
+    [finalRules]: {
+      contentType: "text/plain",
+      body: `User-agent: *\nAllow: /projects/\n${"# padding\n".repeat(64000)}`,
+      truncated: true,
+    },
+    [project]: { body: "<title>Secret project</title>" },
+  });
+  const result = await discoverSource(project, network);
+  assert.equal(result.status, "error");
+  assert.deepEqual(result.candidates, []);
+  assert.match(result.message, /could not verify.*access rules/i);
+  assert.deepEqual(requested, [`${site}/robots.txt`, finalRules]);
+  assert.deepEqual(resolved, ["folio.example", "folio.example"]);
+});
+
 test("robots redirects to another origin do not authorize a project fetch", async () => {
   const project = `${site}/projects/secret`;
   const foreignRules = "https://another.example/robots.txt";
