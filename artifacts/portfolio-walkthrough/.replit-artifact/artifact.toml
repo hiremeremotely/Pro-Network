@@ -1,0 +1,29 @@
+kind = "video"
+videoAspectRatio = "16:9"
+previewPath = "/portfolio-walkthrough/"
+title = "Portfolio Creation Walkthrough"
+description = "A short animated walkthrough of adding portfolio work from public source links and creating a project manually, with review and privacy settings explained."
+version = "1.0.0"
+id = "artifacts/portfolio-walkthrough"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/portfolio-walkthrough/" ]
+localPort = 25043
+
+[services.development]
+run = "pnpm --filter @workspace/portfolio-walkthrough run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/portfolio-walkthrough", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/portfolio-walkthrough/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25043"
+BASE_PATH = "/portfolio-walkthrough/"

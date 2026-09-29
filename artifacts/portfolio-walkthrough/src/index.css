@@ -1,0 +1,166 @@
+@import 'tailwindcss';
+
+:root {
+  --color-primary: #5146e5;
+  --color-secondary: #55536f;
+  --color-accent: #a89dff;
+  --color-bg-light: #f7f6fb;
+  --color-bg-dark: #191735;
+  --color-bg-muted: #eeecf6;
+  --color-text-primary: #1d1a35;
+  --color-text-secondary: #6f6b83;
+  --color-text-muted: #9a97a9;
+  --color-text-inverse: #ffffff;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+@theme inline {
+  --color-primary: var(--color-primary);
+  --color-secondary: var(--color-secondary);
+  --color-accent: var(--color-accent);
+  --color-bg-light: var(--color-bg-light);
+  --color-bg-dark: var(--color-bg-dark);
+  --color-bg-muted: var(--color-bg-muted);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-inverse: var(--color-text-inverse);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-error: var(--color-error);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+}
+
+body {
+  font-family: var(--font-body);
+  margin: 0;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* { box-sizing: border-box; }
+
+.film-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+.film-eyebrow {
+  font-family: var(--font-body);
+  font-size: 1.55vmin;
+  font-weight: 700;
+  letter-spacing: .16em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.film-mono { font-family: var(--font-mono); }
+.film-display { font-family: var(--font-display); }
+.film-ui { font-family: var(--font-body); }
+
+.film-card {
+  background: rgba(255,255,255,.97);
+  border: 1px solid rgba(53,46,94,.11);
+  border-radius: 1.65vmin;
+  box-shadow: 0 2.8vmin 7vmin rgba(35,27,78,.12), 0 .45vmin 1.3vmin rgba(35,27,78,.06);
+}
+
+.film-field {
+  border: 1px solid #e7e4ef;
+  border-radius: .85vmin;
+  background: #fff;
+  color: #24213d;
+}
+
+.film-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .55vmin;
+  border-radius: 999px;
+  padding: .55vmin 1.05vmin;
+  background: #edfbf4;
+  color: #16865e;
+  font-size: 1.35vmin;
+  font-weight: 700;
+  letter-spacing: .035em;
+}
+
+.film-lock {
+  width: 1.2vmin;
+  height: 1.2vmin;
+  border: .18vmin solid currentColor;
+  border-radius: .3vmin;
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+}
+.film-lock::before {
+  content: "";
+  position: absolute;
+  width: .55vmin;
+  height: .55vmin;
+  border: .16vmin solid currentColor;
+  border-bottom: 0;
+  border-radius: .5vmin .5vmin 0 0;
+  left: 50%;
+  top: -.55vmin;
+  transform: translateX(-50%);
+}
+
+.film-rule {
+  height: 1px;
+  background: linear-gradient(90deg, rgba(81,70,229,.05), rgba(81,70,229,.65), rgba(81,70,229,.05));
+}
+
+.film-soft-grid {
+  background-image: linear-gradient(rgba(92,83,160,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(92,83,160,.045) 1px, transparent 1px);
+  background-size: 4.8vmin 4.8vmin;
+}
+
+.video-media-frame {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+.video-media-frame > :is(img, video) {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  width: 100%;
+}
+
+.video-media-frame[data-media-fit='contain'] > :is(img, video) {
+  object-fit: contain;
+}
+
+.video-media-frame[data-media-position='top'] > :is(img, video) {
+  object-position: top;
+}
+
+.video-media-frame[data-media-position='right'] > :is(img, video) {
+  object-position: right;
+}
+
+.video-media-frame[data-media-position='bottom'] > :is(img, video) {
+  object-position: bottom;
+}
+
+.video-media-frame[data-media-position='left'] > :is(img, video) {
+  object-position: left;
+}
