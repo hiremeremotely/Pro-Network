@@ -139,6 +139,54 @@ function networkFixture(responses) {
 
 const site = "https://folio.example";
 
+test("truncated oversized robots rules never authorize a project fetch", async () => {
+  const project = `${site}/projects/secret`;
+  const { network, requested, resolved } = networkFixture({
+    [`${site}/robots.txt`]: {
+      contentType: "text/plain",
+      body: `User-agent: *\nAllow: /projects/\n${"# padding\n".repeat(64000)}`,
+      truncated: true,
+    },
+    [project]: { body: "<title>Secret project</title>" },
+  });
+  const result = await discoverSource(project, network);
+  assert.equal(result.status, "error");
+  assert.deepEqual(result.candidates, []);
+  assert.match(result.message, /could not verify.*access rules/i);
+  assert.deepEqual(requested, [`${site}/robots.txt`]);
+  assert.deepEqual(resolved, ["folio.example"]);
+});
+
+test("robots redirects to another origin do not authorize a project fetch", async () => {
+  const project = `${site}/projects/secret`;
+  const foreignRules = "https://another.example/robots.txt";
+  const { network, requested, resolved } = networkFixture({
+    [`${site}/robots.txt`]: { status: 302, location: foreignRules },
+    [foreignRules]: { contentType: "text/plain", body: "User-agent: *\nAllow: /" },
+    [project]: { body: "<title>Secret project</title>" },
+  });
+  const result = await discoverSource(project, network);
+  assert.equal(result.status, "error");
+  assert.deepEqual(result.candidates, []);
+  assert.match(result.message, /original website/i);
+  assert.deepEqual(requested, [`${site}/robots.txt`]);
+  assert.deepEqual(resolved, ["folio.example"]);
+});
+
+test("complete allowed robots rules still permit a normal project preview", async () => {
+  const project = `${site}/projects/atlas`;
+  const { network, requested } = networkFixture({
+    [`${site}/robots.txt`]: { contentType: "text/plain", body: "User-agent: *\nAllow: /projects/" },
+    [project]: { body: "<title>Atlas case study</title><meta name='description' content='A public project'>" },
+    [`${site}/sitemap.xml`]: { status: 404 },
+  });
+  const result = await discoverSource(project, network);
+  assert.equal(result.status, "projects");
+  assert.deepEqual(result.candidates.map(candidate => candidate.title), ["Atlas case study"]);
+  assert.equal(result.candidates[0].projectUrl, project);
+  assert.deepEqual(requested, [`${site}/robots.txt`, project, `${site}/sitemap.xml`]);
+});
+
 test("a permitted entry redirect cannot fetch a robots-disallowed destination or draft it", async () => {
   const { network, requested, resolved } = networkFixture({
     [`${site}/robots.txt`]: { contentType: "text/plain", body: "User-agent: *\nDisallow: /private/" },
