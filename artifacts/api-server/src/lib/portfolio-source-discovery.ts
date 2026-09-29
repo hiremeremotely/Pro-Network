@@ -315,7 +315,7 @@ export async function discoverPersonalSource(value: URL, load: PageLoader, sitem
   const directProject = /\/(projects?|work|case-stud(?:y|ies)|portfolio)\/[^/]+/i.test(page.url.pathname) ||
     confirmedProject(page.body, page.url);
   const candidates: SourceCandidate[] = [];
-  if (directProject && parsed.candidate.title) candidates.push(parsed.candidate);
+  if (!page.truncated && directProject && parsed.candidate.title) candidates.push(parsed.candidate);
 
   const leads = [...parsed.links, ...structuredLinks(page.body, page.url)];
   // At most two sitemap documents and four project pages per source, even for large indexes.
@@ -339,7 +339,7 @@ export async function discoverPersonalSource(value: URL, load: PageLoader, sitem
     checked++;
     try {
       const child = await load(link);
-      if (child.status !== 200 || child.url.origin !== page.url.origin) continue;
+      if (child.status !== 200 || child.truncated || child.url.origin !== page.url.origin) continue;
       const candidate = metadata(child.body, child.url).candidate;
       const conventional = /\/(projects?|work|case-stud(?:y|ies)|portfolio)\/[^/]+/i.test(child.url.pathname);
       if ((conventional || confirmedProject(child.body, child.url)) && candidate.title &&

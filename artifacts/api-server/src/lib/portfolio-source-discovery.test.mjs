@@ -187,6 +187,37 @@ test("complete allowed robots rules still permit a normal project preview", asyn
   assert.deepEqual(requested, [`${site}/robots.txt`, project, `${site}/sitemap.xml`]);
 });
 
+test("a truncated direct project page is only a site preview, not a project draft", async () => {
+  const project = `${site}/projects/atlas`;
+  const { network, requested } = networkFixture({
+    [`${site}/robots.txt`]: { status: 404 },
+    [project]: { body: "<title>Atlas case study</title><meta name='description' content='Partial details'>", truncated: true },
+    [`${site}/sitemap.xml`]: { status: 404 },
+  });
+  const result = await discoverSource(project, network);
+  assert.equal(result.status, "site_preview");
+  assert.match(result.message, /start of this large page/i);
+  assert.deepEqual(result.candidates.map(candidate => candidate.title), ["Atlas case study"]);
+  assert.deepEqual(requested, [`${site}/robots.txt`, project, `${site}/sitemap.xml`]);
+});
+
+for (const truncated of [true, false]) {
+  test(`${truncated ? "truncated" : "complete"} child project page ${truncated ? "is excluded from drafts" : "produces a normal draft"}`, async () => {
+    const project = `${site}/projects/atlas`;
+    const { network, requested } = networkFixture({
+      [`${site}/robots.txt`]: { status: 404 },
+      [`${site}/`]: { body: '<title>Portfolio overview</title><a href="/projects/atlas">Atlas</a>' },
+      [`${site}/sitemap.xml`]: { status: 404 },
+      [project]: { body: "<title>Atlas case study</title><meta name='description' content='Project details'>", truncated },
+    });
+    const result = await discoverSource(`${site}/`, network);
+    assert.equal(result.status, truncated ? "site_preview" : "projects");
+    assert.deepEqual(result.candidates.map(candidate => candidate.title), truncated ? ["Portfolio overview"] : ["Atlas case study"]);
+    if (!truncated) assert.equal(result.candidates[0].projectUrl, project);
+    assert.deepEqual(requested, [`${site}/robots.txt`, `${site}/`, `${site}/sitemap.xml`, project]);
+  });
+}
+
 test("a permitted entry redirect cannot fetch a robots-disallowed destination or draft it", async () => {
   const { network, requested, resolved } = networkFixture({
     [`${site}/robots.txt`]: { contentType: "text/plain", body: "User-agent: *\nDisallow: /private/" },
