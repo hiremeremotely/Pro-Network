@@ -122,10 +122,10 @@ test("a disallowed sitemap cannot turn the home page into a project", async () =
 
 // Exercise discoverSource's real redirect/robots/DNS policy with controlled HTTP
 // responses. No request here opens a socket or uses a third-party service.
-function networkFixture(responses) {
+function networkFixture(responses, resolveAnswers = () => [{ address: "8.8.8.8", family: 4 }]) {
   const requested = [], resolved = [];
   const network = {
-    resolve: async (host) => { resolved.push(host); return [{ address: "8.8.8.8", family: 4 }]; },
+    resolve: async (host) => { resolved.push(host); return resolveAnswers(resolved.length, host); },
     request: async (url, pinned, xml) => {
       assert.deepEqual(pinned, { address: "8.8.8.8", family: 4 });
       requested.push(url.href);
@@ -227,6 +227,46 @@ test("allowed same-origin redirects can still produce a reviewed project draft",
   assert.deepEqual(result.candidates.map(candidate => candidate.title), ["Atlas case study"]);
   assert.equal(result.candidates[0].projectUrl, `${site}/projects/atlas`);
   assert.deepEqual(requested, [`${site}/robots.txt`, `${site}/go`, `${site}/projects/atlas`, `${site}/sitemap.xml`]);
+});
+
+const redirectTarget = `${site}/projects/atlas`;
+const redirectResponses = {
+  [`${site}/robots.txt`]: { status: 404 },
+  [`${site}/go`]: { status: 302, location: "/projects/atlas" },
+  [redirectTarget]: { body: "<title>Atlas case study</title><meta name='description' content='A public project'>" },
+  [`${site}/sitemap.xml`]: { status: 404 },
+};
+
+for (const [label, answers] of [
+  ["private IPv4", [{ address: "10.0.0.1", family: 4 }]],
+  ["IPv6-only", [{ address: "2606:4700:4700::1111", family: 6 }]],
+  ["public then private IPv4", [{ address: "8.8.8.8", family: 4 }, { address: "192.168.1.5", family: 4 }]],
+  ["private then public IPv4", [{ address: "192.168.1.5", family: 4 }, { address: "8.8.8.8", family: 4 }]],
+  ["public IPv4 and IPv6", [{ address: "8.8.8.8", family: 4 }, { address: "2606:4700:4700::1111", family: 6 }]],
+]) {
+  test(`a same-origin redirect with ${label} DNS answers cannot fetch or draft the destination`, async () => {
+    const { network, requested, resolved } = networkFixture(redirectResponses,
+      (lookupNumber) => lookupNumber === 3 ? answers : [{ address: "8.8.8.8", family: 4 }]);
+    const result = await discoverSource(`${site}/go`, network);
+    assert.equal(result.status, "error");
+    assert.deepEqual(result.candidates, []);
+    assert.match(result.message, /not a public website/i);
+    assert.deepEqual(requested, [`${site}/robots.txt`, `${site}/go`]);
+    assert.deepEqual(resolved, ["folio.example", "folio.example", "folio.example"]);
+  });
+}
+
+test("a same-origin redirect with public DNS answers fetches and drafts the destination", async () => {
+  const { network, requested, resolved } = networkFixture(redirectResponses,
+    (lookupNumber) => lookupNumber === 3
+      ? [{ address: "8.8.8.8", family: 4 }, { address: "1.1.1.1", family: 4 }]
+      : [{ address: "8.8.8.8", family: 4 }]);
+  const result = await discoverSource(`${site}/go`, network);
+  assert.equal(result.status, "projects");
+  assert.deepEqual(result.candidates.map((candidate) => candidate.title), ["Atlas case study"]);
+  assert.equal(result.candidates[0].projectUrl, redirectTarget);
+  assert.deepEqual(requested, [`${site}/robots.txt`, `${site}/go`, redirectTarget, `${site}/sitemap.xml`]);
+  assert.deepEqual(resolved, ["folio.example", "folio.example", "folio.example", "folio.example"]);
 });
 
 test("a child project redirect to a forbidden page remains only a site preview", async () => {

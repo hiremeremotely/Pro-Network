@@ -116,9 +116,10 @@ async function fetchPublic(
     if (rules && !robotsAllows(rules, value.pathname + value.search)) throw new Error("This site does not permit HMR to read this page.");
   }
   const answers = await network.resolve(value.hostname);
-  const addresses = answers.filter((answer) => answer.family === 4);
-  if (!addresses.length || addresses.some((answer) => !publicIpv4(answer.address))) throw new Error("This address is not a public website.");
-  const result = await network.request(value, addresses[0], xml);
+  if (!answers.length || answers.some((answer) => answer.family !== 4 || !publicIpv4(answer.address))) {
+    throw new Error("This address is not a public website.");
+  }
+  const result = await network.request(value, answers[0], xml);
   if (result.status >= 300 && result.status < 400 && result.location) {
     if (remaining <= 0) throw new Error("Too many redirects.");
     const next = sourceUrl(new URL(result.location, value).href);
