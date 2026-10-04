@@ -164,12 +164,26 @@ Migration progress/failures appear in the existing ECS CloudWatch log group.
 The job never prints database credentials or needs a new database GitHub secret.
 Replit's managed database is separate; updating it does not update RDS.
 
+GitHub records the one-off task ARN immediately after launch. The verification
+step polls it for up to 20 minutes, prints ECS stopped/container reasons and
+exit codes, and copies allowlisted, password-redacted migration diagnostics
+from its CloudWatch stream into both the job log and Actions summary.
+Database SQLSTATE errors include a readable explanation (for example, `28P01`
+means RDS rejected the database password, not a PEM or network timeout).
+The previous action's generic `Run task failed: [null]` is no longer the gate.
+If log reading is denied, ECS status/exit codes still gate deployment and the
+exact log group/stream is shown for manual inspection.
+
 ### Required permissions and database baseline
 
 The GitHub AWS principal needs `ecs:DescribeServices`, `ecs:RegisterTaskDefinition`,
 `ecs:RunTask`, `ecs:DescribeTasks`, and its existing service-update permissions.
 Its `iam:PassRole` permissions must cover the task's existing execution/task roles,
 and any task-definition resource restriction must include the migration family.
+For automatic failure detail in Actions, additionally allow `logs:GetLogEvents`
+on the migration's existing CloudWatch log group/streams. No new repository
+secret is required. Missing this optional permission does not turn a successful
+migration into a failed deployment, or allow a failed migration to pass.
 The existing task role still needs access to the configured Secrets Manager
 secret (and its KMS key, if applicable). The database user needs schema/DDL and
 ledger-table permissions. Keep RDS's existing ECS-only network access; do not

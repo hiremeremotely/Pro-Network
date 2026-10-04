@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { build } from "esbuild";
 import { prepareMigrationTask } from "../../../deploy/prepare-migration-task.mjs";
+import { checkMigrationTask, migrationResult, safeMigrationLogs, explainMigrationFailure } from "../../../deploy/check-migration-task.mjs";
 
 const service = {
   failures: [],
@@ -71,12 +72,124 @@ test("workflow waits for successful migration before service update and ships SQ
   assert.ok(migration > 0 && verify > migration && deploy > verify);
   const migrationStep = workflow.slice(migration, verify);
   assert.doesNotMatch(migrationStep, /^\s+service:/m);
-  assert.match(migrationStep, /wait-for-task-stopped: true/);
-  assert.match(workflow, /exitCode == 0/);
+  assert.match(migrationStep, /aws ecs run-task/);
+  assert.match(migrationStep, /task-arn=.*GITHUB_OUTPUT/);
+  assert.match(workflow.slice(verify, deploy), /node deploy\/check-migration-task.mjs/);
   assert.match(workflow, /cancel-in-progress: false/);
   assert.doesNotMatch(workflow, /continue-on-error: true|push-force|NODE_TLS_REJECT_UNAUTHORIZED/);
   assert.match(await readFile(new URL("../Dockerfile", import.meta.url), "utf8"), /COPY lib\/db\/migrations \.\/migrations/);
   assert.match(await readFile(new URL("../build.mjs", import.meta.url), "utf8"), /migrate:.*src\/migrate\.ts/);
+});
+
+const stoppedTask = (exitCode = 0) => ({
+  failures: [], tasks: [{
+    lastStatus: "STOPPED", stopCode: "EssentialContainerExited", stoppedReason: "Essential container exited",
+    containers: [{ name: "api-server", lastStatus: "STOPPED", exitCode }],
+  }],
+});
+const loggedDefinition = {
+  containerDefinitions: [{ name: "api-server", logConfiguration: { options: {
+    "awslogs-group": "/ecs/fixture", "awslogs-stream-prefix": "ecs", "awslogs-region": "us-east-1",
+  } } }],
+};
+
+test("migration gate rejects every incomplete or unsuccessful ECS result", () => {
+  assert.equal(migrationResult(stoppedTask()).success, true);
+  for (const result of [
+    stoppedTask(1), stoppedTask(null),
+    { failures: [{ reason: "MISSING" }], tasks: [] },
+    { failures: [], tasks: [] },
+    { failures: [], tasks: [{ lastStatus: "STOPPED", containers: [] }] },
+    { failures: [], tasks: [{ lastStatus: "RUNNING", containers: [{ name: "api-server", exitCode: 0 }] }] },
+    { failures: [], tasks: [...stoppedTask().tasks, ...stoppedTask().tasks] },
+  ]) assert.equal(migrationResult(result).success, false);
+});
+
+test("failed migration reports password rejection and redacted effective configuration in CI", async () => {
+  const output = [];
+  const calls = [];
+  const result = await checkMigrationTask({ cluster: "fixture-cluster", taskArn: "arn:fixture/task/id", taskDefinition: loggedDefinition }, {
+    aws: args => {
+      calls.push(args);
+      if (args[0] === "ecs") return stoppedTask(1);
+      return { events: [
+        { message: JSON.stringify({ msg: "Effective database connection (password redacted)", source: "aws-secrets-manager",
+          secretVersionId: "fixture-version", database: { configured: true, host: "db.example.test", username: "alpha", database: "app",
+            passwordConfigured: true, sslEnabled: true, password: "NEVER_PRINT_PASSWORD",
+            connectionString: "postgresql://alpha:NEVER_PRINT_PASSWORD@db.example.test/app" } }) },
+        { message: JSON.stringify({ msg: "Database migration failed; deployment blocked. Check migration SQL and database permissions.", code: "28P01" }) },
+        { message: "NEVER_PRINT_RAW_LOG" },
+        { message: JSON.stringify({ msg: "Unhandled error", err: { password: "NEVER_PRINT_PASSWORD" } }) },
+      ] };
+    }, report: message => output.push(message), delay: async () => {},
+  });
+  assert.equal(result.success, false);
+  assert.match(result.explanation, /RDS rejected the database password/);
+  assert.match(output.join("\n"), /28P01|fixture-version/);
+  assert.doesNotMatch(output.join("\n"), /NEVER_PRINT/);
+  assert.ok(calls.some(args => args.includes("ecs/api-server/id")));
+  assert.ok(calls.every(args => !args.includes("update-service")));
+});
+
+test("task startup failures remain explicit when no CloudWatch stream is readable", async () => {
+  const stopped = stoppedTask(null);
+  stopped.tasks[0].stopCode = "TaskFailedToStart";
+  stopped.tasks[0].stoppedReason = "ResourceInitializationError: unable to pull secrets";
+  const output = [];
+  const result = await checkMigrationTask({ cluster: "fixture", taskArn: "arn:fixture/task/id", taskDefinition: loggedDefinition }, {
+    aws: args => { if (args[0] === "ecs") return stopped; throw new Error("AccessDeniedException: logs:GetLogEvents"); },
+    delay: async () => {}, report: line => output.push(line),
+  });
+  assert.equal(result.success, false);
+  assert.match(result.explanation, /could not start/);
+  assert.match(output.join("\n"), /ResourceInitializationError|logs:GetLogEvents/);
+});
+
+test("successful migrations proceed even without optional log-read permission", async () => {
+  const result = await checkMigrationTask({ cluster: "fixture", taskArn: "arn:fixture/task/id", taskDefinition: loggedDefinition }, {
+    aws: args => { if (args[0] === "ecs") return stoppedTask(); throw new Error("AccessDenied"); },
+    delay: async () => {}, report: () => {},
+  });
+  assert.equal(result.success, true);
+});
+
+test("migration timeout and unavailable task status block rollout", async () => {
+  let time = 0;
+  const timeout = await checkMigrationTask({ cluster: "fixture", taskArn: "fixture", taskDefinition: {} }, {
+    aws: () => ({ failures: [], tasks: [{ lastStatus: "RUNNING", containers: [] }] }),
+    now: () => time, delay: async () => { time += 10_000; }, timeoutMs: 10_000, report: () => {},
+  });
+  assert.equal(timeout.success, false);
+  assert.match(timeout.explanation, /did not stop/);
+  const unavailable = await checkMigrationTask({ cluster: "fixture", taskArn: "fixture", taskDefinition: {} }, {
+    aws: () => { throw new Error("AccessDenied"); }, report: () => {},
+  });
+  assert.equal(unavailable.success, false);
+  assert.match(unavailable.explanation, /DescribeTasks/);
+});
+
+test("pending tasks are polled until stopped and startup/SQL errors have readable explanations", async () => {
+  let descriptions = 0;
+  let delays = 0;
+  const result = await checkMigrationTask({ cluster: "fixture", taskArn: "fixture", taskDefinition: {} }, {
+    aws: () => ++descriptions === 1 ? { tasks: [{ lastStatus: "PENDING" }], failures: [] } : stoppedTask(),
+    delay: async () => { delays++; }, report: () => {},
+  });
+  assert.equal(result.success, true);
+  assert.equal(delays, 1);
+  for (const code of ["42501", "42P01", "42703", "55P03", "57014", "28000", "23505"]) {
+    assert.match(explainMigrationFailure([{ code }], {}), new RegExp(code));
+  }
+  for (const message of [
+    "[load-secrets] Failed to fetch secret fixture: NEVER_PRINT_PASSWORD",
+    "[load-secrets] Production database TLS configuration rejected: Set DATABASE_URL sslmode=verify-full.",
+    "[load-secrets] Secret is not valid JSON.",
+  ]) {
+    const lines = safeMigrationLogs([{ message }]);
+    assert.equal(lines.length, 1);
+    assert.doesNotMatch(JSON.stringify(lines), /NEVER_PRINT_PASSWORD/);
+    assert.match(explainMigrationFailure(lines, {}), /secret|TLS/i);
+  }
 });
 
 test("secret-loading wrapper selects migration-only mode and propagates failure without starting API", async (t) => {
