@@ -48,6 +48,7 @@ RUN npm install --no-package-lock --omit=dev \
 
 # Bundled application
 COPY --from=builder /app/artifacts/api-server/dist ./dist
+COPY lib/db/migrations ./migrations
 
 # Startup wrapper: loads secrets from AWS Secrets Manager, then starts the app
 COPY artifacts/api-server/load-secrets.mjs ./

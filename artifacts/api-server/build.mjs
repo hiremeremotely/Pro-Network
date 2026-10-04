@@ -17,6 +17,7 @@ async function buildAll() {
   await esbuild({
     entryPoints: {
       index: path.resolve(artifactDir, "src/index.ts"),
+      migrate: path.resolve(artifactDir, "src/migrate.ts"),
       // The wrapper needs this guard before it imports the database/app bundle.
       "validate-tls": path.resolve(artifactDir, "../../lib/db/src/validate-tls.ts"),
     },

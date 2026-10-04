@@ -8,17 +8,20 @@ on:
       - "lib/db/**"
       - "lib/api-zod/**"
       - "deploy/ecs-task-definition.json"
+      - "deploy/prepare-migration-task.mjs"
       - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
 concurrency:
   group: deploy-api-${{ github.ref }}
-  cancel-in-progress: true
+  # Do not cancel a deployment while its schema transaction is running.
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Build, push to ECR, deploy to ECS
+    name: Build, migrate RDS, deploy to ECS
     runs-on: ubuntu-latest
+    timeout-minutes: 50
 
     permissions:
       contents: read
@@ -75,7 +78,55 @@ jobs:
           container-name:   api-server
           image:            ${{ steps.build-image.outputs.image }}
 
-      # ── 6. Deploy to ECS service ──────────────────────────────────────────
+      # ── 6. Use the service's CURRENT network configuration ───────────────
+      - name: Prepare one-off migration task
+        id: migration-network
+        env:
+          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
+          RENDERED_TASK: ${{ steps.task-def.outputs.task-definition }}
+        run: |
+          set -euo pipefail
+          aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            > "$RUNNER_TEMP/migration-service.json"
+          node deploy/prepare-migration-task.mjs \
+            "$RUNNER_TEMP/migration-service.json" "$RENDERED_TASK" \
+            "$RUNNER_TEMP/migration-task.json" >> "$GITHUB_OUTPUT"
+
+      # Register/run a separate task, WITHOUT updating the running API service.
+      - name: Run RDS migrations inside ECS
+        id: migrations
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ runner.temp }}/migration-task.json
+          cluster: ${{ secrets.ECS_CLUSTER }}
+          run-task: true
+          run-task-launch-type: FARGATE
+          run-task-subnets: ${{ steps.migration-network.outputs.subnets }}
+          run-task-security-groups: ${{ steps.migration-network.outputs.security-groups }}
+          run-task-assign-public-IP: ${{ steps.migration-network.outputs.assign-public-ip }}
+          wait-for-task-stopped: true
+          wait-for-minutes: 20
+
+      - name: Confirm migration completed successfully
+        env:
+          ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+          MIGRATION_TASK_ARNS: ${{ steps.migrations.outputs.run-task-arn }}
+        run: |
+          set -euo pipefail
+          TASK_ARN=$(jq -er 'if length == 1 then .[0] else error("Expected one migration task") end' <<< "$MIGRATION_TASK_ARNS")
+          aws ecs describe-tasks --cluster "$ECS_CLUSTER" --tasks "$TASK_ARN" \
+            > "$RUNNER_TEMP/migration-result.json"
+          jq -e '
+            (.failures | length == 0) and
+            (.tasks | length == 1) and
+            (.tasks[0].lastStatus == "STOPPED") and
+            ([.tasks[0].containers[] | select(.name == "api-server")] |
+              length == 1 and .[0].exitCode == 0)
+          ' "$RUNNER_TEMP/migration-result.json" > /dev/null
+
+      # ── 7. Only deploy after a successful migration exit ─────────────────
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:

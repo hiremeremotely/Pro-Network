@@ -77,6 +77,12 @@ The workflow `.github/workflows/deploy-frontend.yml` will then auto-deploy on ev
 
 ### Push schema to production RDS / Seed demo data
 
+The GitHub API deployment now runs pending `lib/db/migrations/*.sql` in a
+one-off ECS task before updating the API service. See `deploy/README.md` for
+permissions, ledger/checksum behavior and manual recovery. Prefer new reviewed
+SQL migration files over an unreviewed production schema push. Take an RDS
+snapshot before the first automatic migration.
+
 Special characters in the password must be URL-encoded first:
 ```bash
 node -e "console.log(encodeURIComponent('YOUR_DB_PASSWORD'))"

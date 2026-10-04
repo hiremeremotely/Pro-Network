@@ -138,9 +138,53 @@ Run `pnpm --filter @workspace/api-server run test:deployment` locally.
 
 ## Missing columns in the external RDS database
 
-Deploying a new API image does not apply the SQL files in `lib/db/migrations`
-to AWS RDS. Replit's managed database is a separate database; updating it does
-not update RDS.
+The GitHub API deployment workflow now applies pending SQL migrations to AWS
+RDS **before updating the API service**:
+
+1. Build the new image, including the SQL files and a migration-only entry point.
+2. Read the existing ECS service's current subnets, security groups and public-IP
+   setting. No hardcoded subnet list or access from GitHub runners is required.
+3. Register a separate `hire-me-remotely-api-migration` task definition using the
+   rendered API image and roles, without its HTTP health check or sidecars.
+4. Run `node load-secrets.mjs --migrate` as a one-off Fargate task. It loads the
+   existing AWS secret and enforces the same RDS TLS verification as the API.
+5. Wait for the task to stop and verify that the API container exited with zero.
+   Only then update the API service. Failure leaves the service on its old image.
+
+Migration progress/failures appear in the existing ECS CloudWatch log group.
+The job never prints database credentials or needs a new database GitHub secret.
+Replit's managed database is separate; updating it does not update RDS.
+
+### Required permissions and database baseline
+
+The GitHub AWS principal needs `ecs:DescribeServices`, `ecs:RegisterTaskDefinition`,
+`ecs:RunTask`, `ecs:DescribeTasks`, and its existing service-update permissions.
+Its `iam:PassRole` permissions must cover the task's existing execution/task roles,
+and any task-definition resource restriction must include the migration family.
+The existing task role still needs access to the configured Secrets Manager
+secret (and its KMS key, if applicable). The database user needs schema/DDL and
+ledger-table permissions. Keep RDS's existing ECS-only network access; do not
+open port 5432 to GitHub runners or the internet.
+
+This migrates an **existing application database**, not an empty database.
+On first use, the runner executes the reviewed, idempotent `0002`–`0005` files in
+order, including any manually applied ones, then records them in
+`public.hmr_schema_migrations`. Existing accounts are not deleted or reseeded.
+
+All pending files and their ledger entries share one transaction. An advisory
+lock prevents concurrent application; connection, lock, statement and overall
+task time limits prevent indefinite hangs. A failure rolls back the batch.
+Subsequent runs skip recorded files and fail if an applied file's checksum changed
+or an applied file is missing from the image. **Never edit or delete an applied
+migration; add a new numbered SQL file.** Files must be transaction-compatible,
+without their own BEGIN/COMMIT/ROLLBACK or concurrent index creation.
+
+Schema changes must stay compatible with the old API during the rollout. Future
+destructive changes need a separately reviewed expand/contract rollout, not a
+reset or automatic `drizzle-kit push --force`. Take an RDS snapshot before the
+first automatic migration.
+
+### Manual recovery option
 
 If the deployed API reports `interest_requests.expires_at does not exist`,
 review the RDS schema and pending migrations, including
@@ -159,8 +203,20 @@ PGSSLROOTCERT=/path/to/aws-rds-global-bundle.pem \
   --file=lib/db/migrations/0005_hmr_lifecycle_and_application_consent.sql
 ```
 
-This is an operator action, not automatic startup migration. Do not reset or
+Normal API startup never applies SQL migrations; only the deployment's one-off
+task does so. The manual command is an operator recovery option. Do not reset or
 reseed an existing database to fix missing columns.
+
+Local verification:
+
+```bash
+pnpm --filter @workspace/api-server run test:deployment
+pnpm --filter @workspace/api-server run test:migrations
+```
+
+The migration integration tests require `initdb` and `pg_ctl`. They create and
+remove an isolated temporary PostgreSQL cluster on a private Unix socket, never
+using the workspace database or RDS.
 
 Introduction expiry maintenance is scoped to `/api/interest-requests` and
 `/api/admin/interest-requests`. It must not intercept sign-in, email checks, or

@@ -86,5 +86,14 @@ try {
   process.exit(1);
 }
 
-// Hand off to the real application
-await import("./dist/index.mjs");
+// The one-off deployment task shares secret loading/TLS policy, but must not
+// start the API or its schedulers.
+const args = process.argv.slice(2);
+if (args.length === 1 && args[0] === "--migrate") {
+  await import("./dist/migrate.mjs");
+} else if (args.length === 0) {
+  await import("./dist/index.mjs");
+} else {
+  console.error("[load-secrets] Unsupported startup arguments.");
+  process.exitCode = 1;
+}

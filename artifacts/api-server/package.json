@@ -9,7 +9,8 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:portfolio": "node --test src/routes/portfolio-rules.test.mjs src/lib/portfolio-source-discovery.test.mjs",
-    "test:deployment": "node --test src/deployment.test.mjs src/routes/interest-request-scope.test.mjs"
+    "test:deployment": "node --test src/deployment.test.mjs src/routes/interest-request-scope.test.mjs src/migration-deployment.test.mjs",
+    "test:migrations": "node --test src/migrations.test.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1146.0",
