@@ -6,3 +6,4 @@
 - [Video transition overlap](video-transition-overlap.md) — inspect rendered boundary frames; timer overlap alone can still leave a near-empty handoff.
 - [AWS app-owned authentication](external-hosting-auth.md) — user chose AWS hosting without Clerk; do not reintroduce managed sign-in.
 - [PostgreSQL TLS policy](postgres-tls-policy.md) — SSL mode aliases change across pg versions; request explicit certificate and hostname verification.
+- [AWS network health boundaries](aws-network-health.md) — align ECS placement with ALB zones; container, ALB, and CloudFront health are separate checks.
