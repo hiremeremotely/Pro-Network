@@ -5,3 +5,4 @@
 - [Pinned DNS with Node requests](pinned-dns-node.md) — custom lookup callbacks must handle Node's all-address form as well as single-address form.
 - [Video transition overlap](video-transition-overlap.md) — inspect rendered boundary frames; timer overlap alone can still leave a near-empty handoff.
 - [AWS app-owned authentication](external-hosting-auth.md) — user chose AWS hosting without Clerk; do not reintroduce managed sign-in.
+- [PostgreSQL TLS policy](postgres-tls-policy.md) — SSL mode aliases change across pg versions; request explicit certificate and hostname verification.

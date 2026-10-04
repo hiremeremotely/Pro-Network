@@ -20,6 +20,22 @@ The ECS task role needs `ses:SendEmail` permission for the verified sender.
 SES sandbox accounts can send only to verified recipients until AWS grants
 production access. Sending uses the task role, not hardcoded AWS access keys.
 
+## PostgreSQL certificate trust
+
+The API runtime image includes Amazon RDS's official CA bundle and loads it
+through `NODE_EXTRA_CA_CERTS` before Node starts. This preserves TLS certificate
+verification while trusting RDS-issued certificates.
+
+Use `sslmode=verify-full` in the PostgreSQL URL to request explicit certificate
+and hostname verification. Connect using the actual RDS endpoint, not a custom
+alias that does not match its certificate. Do not use `sslmode=no-verify`,
+`rejectUnauthorized=false`, or `NODE_TLS_REJECT_UNAUTHORIZED=0`.
+
+After adding or changing the image's CA bundle, rebuild and deploy the API
+image. Restarting an old image will not install the certificates.
+
+## Secret loading
+
 The startup wrapper loads the JSON secret referenced by `APP_SECRET_ARN`.
 Values already present in the ECS task definition take precedence, even if
 empty. New tasks must be started after changing runtime settings.

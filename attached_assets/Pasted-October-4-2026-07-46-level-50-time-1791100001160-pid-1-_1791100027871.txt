@@ -1,0 +1,38 @@
+October 4, 2026, 07:46
+{"level":50,"time":1791100001160,"pid":1,"hostname":"ip-172-31-55-168.ec2.internal","err":{"type":"Error","message":"unable to get local issuer certificate","stack":"Error: unable to get local issuer certificate\n at <anonymous> (/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11)\n at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n at async ensureSessionStore (/app/src/lib/session-store.ts:6:3)\n at async start (/app/src/index.ts:25:3)","code":"UNABLE_TO_GET_ISSUER_CERT_LOCALLY"},"msg":"Could not initialize the PostgreSQL session store"}
+api-server
+October 4, 2026, 07:46
+(node:1) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+api-server
+October 4, 2026, 07:46
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+api-server
+October 4, 2026, 07:46
+To prepare for this change:
+api-server
+October 4, 2026, 07:46
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+api-server
+October 4, 2026, 07:46
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+api-server
+October 4, 2026, 07:46
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+api-server
+October 4, 2026, 07:46
+(Use `node --trace-warnings ...` to show where the warning was created)
+api-server
+October 4, 2026, 07:46
+{"level":30,"time":1791100001056,"pid":1,"hostname":"ip-172-31-55-168.ec2.internal","general":"200/60000ms","auth":"10/60000ms","msg":"Rate limiters configured"}
+api-server
+October 4, 2026, 07:46
+{"level":30,"time":1791100001059,"pid":1,"hostname":"ip-172-31-55-168.ec2.internal","trustProxy":1,"msg":"Express trust proxy"}
+api-server
+October 4, 2026, 07:46
+{"level":30,"time":1791100001062,"pid":1,"hostname":"ip-172-31-55-168.ec2.internal","msg":"Session middleware configured"}
+api-server
+October 4, 2026, 07:46
+{"level":30,"time":1791100001053,"pid":1,"hostname":"ip-172-31-55-168.ec2.internal","allowedOrigins":["https://d1ntn7mxgxamfr.cloudfront.net"],"msg":"CORS allowed origins"}
+api-server
+October 4, 2026, 07:46
+[load-secrets] Injected 7 secret(s) from arn:aws:secretsmanager:us-east-1:985682977618:secret:hire-me-remotely/api/development-6hVFQ6 (region: us-east-1)

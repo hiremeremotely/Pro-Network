@@ -32,6 +32,12 @@ FROM node:24-alpine AS runner
 
 WORKDIR /app
 
+# RDS certificates use AWS's database CA roots, which are not part of Node's
+# standard trust store. Add the official bundle without disabling TLS checks.
+ADD https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /app/certs/aws-rds-global-bundle.pem
+RUN chmod 0644 /app/certs/aws-rds-global-bundle.pem
+ENV NODE_EXTRA_CA_CERTS=/app/certs/aws-rds-global-bundle.pem
+
 # Install only the packages that esbuild externalised (not bundled):
 #   @google-cloud/storage  — avatar / object storage
 #   @aws-sdk/client-secrets-manager — reads env vars from AWS Secrets Manager at startup

@@ -98,3 +98,11 @@ test("production origins reject insecure, wildcard, path, and credential URLs", 
     assert.throws(() => buildAllowedOrigins({ NODE_ENV: "production", ALLOWED_ORIGINS: origin }));
   }
 });
+
+test("the AWS runtime trusts the official RDS CA bundle without disabling TLS verification", async () => {
+  const dockerfile = await readFile(new URL("../Dockerfile", import.meta.url), "utf8");
+  const runner = dockerfile.slice(dockerfile.indexOf("FROM node:24-alpine AS runner"));
+  assert.match(runner, /ADD https:\/\/truststore\.pki\.rds\.amazonaws\.com\/global\/global-bundle\.pem \/app\/certs\/aws-rds-global-bundle\.pem/);
+  assert.match(runner, /ENV NODE_EXTRA_CA_CERTS=\/app\/certs\/aws-rds-global-bundle\.pem/);
+  assert.doesNotMatch(runner, /NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*0|rejectUnauthorized\s*:\s*false/);
+});
