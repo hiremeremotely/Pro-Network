@@ -1,0 +1,17 @@
+October 4, 2026, 07:34
+{"level":30,"time":1791099275658,"pid":1,"hostname":"ip-172-31-19-44.ec2.internal","general":"200/60000ms","auth":"10/60000ms","msg":"Rate limiters configured"}
+api-server
+October 4, 2026, 07:34
+{"level":30,"time":1791099275659,"pid":1,"hostname":"ip-172-31-19-44.ec2.internal","trustProxy":1,"msg":"Express trust proxy"}
+api-server
+October 4, 2026, 07:34
+{"level":30,"time":1791099275661,"pid":1,"hostname":"ip-172-31-19-44.ec2.internal","msg":"Session middleware configured"}
+api-server
+October 4, 2026, 07:34
+{"level":50,"time":1791099275664,"pid":1,"hostname":"ip-172-31-19-44.ec2.internal","err":{"type":"TypeError","message":"Invalid URL","stack":"TypeError: Invalid URL\n at new URL (node:internal/url:895:25)\n at parse (/node_modules/.pnpm/pg-connection-string@2.12.0/node_modules/pg-connection-string/index.js:30:16)\n at new ConnectionParameters (/node_modules/.pnpm/pg@8.20.0/node_modules/pg/lib/connection-parameters.js:60:42)\n at new Client2 (/node_modules/.pnpm/pg@8.20.0/node_modules/pg/lib/client.js:43:33)\n at BoundPool.newClient (/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:241:20)\n at BoundPool.connect (/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:235:10)\n at BoundPool.query (/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:449:10)\n at ensureSessionStore (/app/src/lib/session-store.ts:6:14)\n at start (/app/src/index.ts:25:9)\n at <anonymous> (/app/src/index.ts:37:1)","code":"ERR_INVALID_URL","input":"*****REDACTED*****","base":"postgres://base"},"msg":"Could not initialize the PostgreSQL session store"}
+api-server
+October 4, 2026, 07:34
+{"level":30,"time":1791099275656,"pid":1,"hostname":"ip-172-31-19-44.ec2.internal","allowedOrigins":["https://d1ntn7mxgxamfr.cloudfront.net"],"msg":"CORS allowed origins"}
+api-server
+October 4, 2026, 07:34
+[load-secrets] Injected 6 secret(s) from arn:aws:secretsmanager:us-east-1:985682977618:secret:hire-me-remotely/api/development-6hVFQ6 (region: us-east-1)
