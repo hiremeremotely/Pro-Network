@@ -1,8 +1,12 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "./schema";
+import { validateProductionDatabaseTls } from "./validate-tls";
 
 const { Pool } = pg;
+
+// Also guard direct app starts that bypass the Secrets Manager wrapper.
+validateProductionDatabaseTls();
 
 if (!process.env.DATABASE_URL) {
   throw new Error(

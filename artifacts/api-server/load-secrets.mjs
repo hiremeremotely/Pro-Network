@@ -23,6 +23,8 @@
  * vars directly). The app starts immediately without hitting AWS.
  */
 
+import { validateProductionDatabaseTls } from "./dist/validate-tls.mjs";
+
 const secretArn = process.env.APP_SECRET_ARN;
 
 if (secretArn) {
@@ -73,6 +75,15 @@ if (secretArn) {
   console.log(
     `[load-secrets] Injected ${loaded} secret(s) from ${secretArn} (region: ${region})`
   );
+}
+
+// Validate the final environment after injection and before importing the app.
+// Report only the validator's fixed message; never log URLs or secret values.
+try {
+  validateProductionDatabaseTls();
+} catch (err) {
+  console.error(`[load-secrets] ${err.message}`);
+  process.exit(1);
 }
 
 // Hand off to the real application

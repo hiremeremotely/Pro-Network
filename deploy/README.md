@@ -50,9 +50,33 @@ To repeat the check on a built image locally:
 docker run --rm --network none --entrypoint node YOUR_API_IMAGE /app/check-runtime-ca.mjs
 ```
 
-This checks image trust roots, not live RDS connectivity or settings supplied
-later by ECS/Secrets Manager. Keep those settings on `sslmode=verify-full` as
-described above.
+This checks image trust roots, not live RDS connectivity. In production, the
+startup wrapper additionally validates the **final environment after secret
+loading**, before importing the application. The database library repeats the
+same guard before constructing its pool, including when the app is started
+directly without the wrapper.
+
+Startup exits with a nonzero status if `NODE_TLS_REJECT_UNAUTHORIZED=0`, if
+`PGSSLMODE` is set to anything except `verify-full` (including an empty value),
+or if the database URL contains an SSL mode other than `verify-full`.
+`disable`, `no-verify`, `allow`, `prefer`, `require`, and `verify-ca` are not
+accepted, even when the installed driver currently treats a mode as a stronger
+alias. Explicit `sslmode=verify-full` in `DATABASE_URL` or
+`PGSSLMODE=verify-full` is required; conflicting or duplicate unsafe URL
+parameters, TLS-disabling `ssl` values, certificate-verification bypasses, and
+hostname-verification overrides are rejected. A PostgreSQL TCP endpoint is
+required, not a Unix socket URL.
+URLs with raw whitespace/control characters or malformed percent escapes are
+also rejected: the driver's normalization can otherwise change the meaning of
+encoded SSL parameters. Percent-encode spaces and literal percent signs in
+credentials (for example, `%20` and `%25`) rather than inserting them raw.
+
+Diagnostics name the rejected setting, never the database URL or its
+credentials. These guards do not rewrite settings, replace the configured
+database, or connect to it to test TLS. Non-production behavior is unchanged.
+For an existing production URL without an explicit mode, add
+`sslmode=verify-full` (using `?` or `&` as appropriate), or set
+`PGSSLMODE=verify-full`, keeping the same endpoint, database, and credentials.
 
 ## Secret loading
 

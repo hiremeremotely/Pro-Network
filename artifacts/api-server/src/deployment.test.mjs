@@ -1,18 +1,240 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { rootCertificates } from "node:tls";
+import { createRequire } from "node:module";
+import { build } from "esbuild";
+import { validateProductionDatabaseTls } from "../../../lib/db/src/validate-tls.ts";
 import { buildAllowedOrigins } from "./lib/allowed-origins.ts";
 import { hashPassword, verifyPassword } from "./lib/password.ts";
 import { authEmailConfigured, authenticationLink, isDemoAuthEmail } from "./lib/auth-email.ts";
 import { establishProfileSession } from "./lib/profile-session.ts";
 import { requireAuth } from "./middlewares/require-auth.ts";
 import { cloudFrontProtocol } from "./middlewares/cloudfront-protocol.ts";
+
+// Synthetic credentials only. Never use the workspace's configured database.
+const tlsTestUrl = "postgresql://test-user:test-password@db.example.test/test-db";
+const safeTlsUrl = `${tlsTestUrl}?sslmode=verify-full`;
+
+test("production database TLS requires explicit full verification without rewriting settings", () => {
+  const require = createRequire(new URL("../../../lib/db/package.json", import.meta.url));
+  const { Client } = require("pg");
+  for (const settings of [
+    { DATABASE_URL: safeTlsUrl },
+    { DATABASE_URL: tlsTestUrl, PGSSLMODE: "verify-full" },
+    { DATABASE_URL: safeTlsUrl, PGSSLMODE: "verify-full" },
+    { DATABASE_URL: `${safeTlsUrl}&uselibpqcompat=true` },
+    { DATABASE_URL: `${safeTlsUrl}&ssl=true` },
+    { DATABASE_URL: safeTlsUrl.replace("sslmode", "%73slmode") },
+  ]) {
+    const env = { NODE_ENV: "production", ...settings };
+    const before = { ...env };
+    assert.doesNotThrow(() => validateProductionDatabaseTls(env));
+    assert.deepEqual(env, before);
+    // Confirm the installed driver's URL path enables verification without
+    // opening a connection (the environment-only case is covered below).
+    if (settings.DATABASE_URL.includes("?")) {
+      const ssl = new Client({ connectionString: settings.DATABASE_URL }).connectionParameters.ssl;
+      assert.ok(ssl);
+      assert.notEqual(ssl.rejectUnauthorized, false);
+      assert.equal(ssl.checkServerIdentity, undefined);
+    }
+  }
+});
+
+test("production rejects weak modes, overrides, malformed URLs, and secret-bearing diagnostics", () => {
+  const rejected = [
+    {},
+    { DATABASE_URL: tlsTestUrl },
+    { DATABASE_URL: "test-password:not-a-postgres-url" },
+    { DATABASE_URL: "https://test-user:test-password@db.example.test/test-db?sslmode=verify-full" },
+    { DATABASE_URL: "socket:/tmp?sslmode=verify-full" },
+    { DATABASE_URL: "postgresql://test-user:test-password@%2Ftmp/test-db?sslmode=verify-full" },
+    { DATABASE_URL: safeTlsUrl, NODE_TLS_REJECT_UNAUTHORIZED: "0" },
+    { DATABASE_URL: `${safeTlsUrl}&host=%2Ftmp` },
+    { DATABASE_URL: `${safeTlsUrl}&checkServerIdentity=false` },
+    { DATABASE_URL: `${safeTlsUrl}&rejectUnauthorized=false` },
+    { DATABASE_URL: `${safeTlsUrl}&sslrejectunauthorized=0` },
+    { DATABASE_URL: `${tlsTestUrl}?SSLMode=verify-full`, PGSSLMODE: "verify-full" },
+  ];
+  for (const mode of ["", "disable", "no-verify", "allow", "prefer", "require", "verify-ca", "unknown", "VERIFY-FULL"]) {
+    rejected.push(
+      { DATABASE_URL: `${tlsTestUrl}?sslmode=${mode}` },
+      { DATABASE_URL: safeTlsUrl, PGSSLMODE: mode },
+      { DATABASE_URL: `${safeTlsUrl}&sslmode=${mode}` },
+      { DATABASE_URL: `${tlsTestUrl}?sslmode=${mode}&sslmode=verify-full` },
+      { DATABASE_URL: `${tlsTestUrl}?sslmode=${mode}&uselibpqcompat=true` },
+    );
+  }
+  for (const ssl of ["", "0", "false", "no-verify", "unknown"]) {
+    rejected.push({ DATABASE_URL: `${safeTlsUrl}&ssl=${ssl}` });
+    rejected.push({ DATABASE_URL: `${tlsTestUrl}?ssl=${ssl}`, PGSSLMODE: "verify-full" });
+  }
+  for (const settings of rejected) {
+    assert.throws(() => validateProductionDatabaseTls({ NODE_ENV: "production", ...settings }), (error) => {
+      assert.match(error.message, /Production database TLS configuration rejected:/);
+      assert.doesNotMatch(error.stack, /test-user|test-password|db\.example\.test|test-db|postgresql:\/\//);
+      assert.equal(error.cause, undefined);
+      return true;
+    });
+  }
+});
+
+test("URL normalization cannot turn an approved encoded SSL mode into plaintext", () => {
+  const require = createRequire(new URL("../../../lib/db/package.json", import.meta.url));
+  const { Client } = require("pg");
+  const urlFor = (password) => `postgresql://test-user:${password}@db.example.test/test-db?ssl%6dode=verify-full`;
+  // The driver re-encodes the whole URL for these inputs; unlike WHATWG URL,
+  // it no longer recognizes the encoded sslmode query key.
+  for (const password of ["pass%xx", "pass%2x", "pass word"]) {
+    const DATABASE_URL = urlFor(password);
+    assert.throws(() => validateProductionDatabaseTls({ NODE_ENV: "production", DATABASE_URL }), /valid percent encoding/);
+    const ssl = new Client({ connectionString: DATABASE_URL, ssl: false }).connectionParameters.ssl;
+    assert.equal(ssl, false, "The guard must reject URL forms the driver interprets as plaintext");
+  }
+  // URL also strips raw tabs/newlines and surrounding whitespace; reject them
+  // even where the installed driver does not perform its own re-encoding.
+  for (const DATABASE_URL of [urlFor("pass\tword"), urlFor("pass\nword"), ` ${safeTlsUrl}`, `${safeTlsUrl}\n`, urlFor("pass%"), urlFor("pass%2")]) {
+    assert.throws(() => validateProductionDatabaseTls({ NODE_ENV: "production", DATABASE_URL }), /valid percent encoding/);
+  }
+  for (const DATABASE_URL of [urlFor("pass%25xx"), urlFor("pass%20word"), safeTlsUrl]) {
+    assert.doesNotThrow(() => validateProductionDatabaseTls({ NODE_ENV: "production", DATABASE_URL }));
+    const ssl = new Client({ connectionString: DATABASE_URL, ssl: false }).connectionParameters.ssl;
+    assert.ok(ssl, "Accepted URLs must enable TLS in the real driver");
+    assert.notEqual(ssl.rejectUnauthorized, false);
+    assert.equal(ssl.checkServerIdentity, undefined);
+  }
+});
+
+test("non-production database settings keep their existing behavior", () => {
+  for (const NODE_ENV of [undefined, "development", "test"]) {
+    assert.doesNotThrow(() => validateProductionDatabaseTls({
+      NODE_ENV, DATABASE_URL: `${tlsTestUrl}?sslmode=disable`,
+      PGSSLMODE: "no-verify", NODE_TLS_REJECT_UNAUTHORIZED: "0",
+    }));
+    assert.doesNotThrow(() => validateProductionDatabaseTls({ NODE_ENV }));
+  }
+});
+
+test("secret-loaded and ECS settings are rejected before the wrapper imports the app", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "startup-tls-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  await mkdir(join(dir, "dist"));
+  await writeFile(join(dir, "load-secrets.mjs"), await readFile(new URL("../load-secrets.mjs", import.meta.url)));
+  await build({
+    entryPoints: [fileURLToPath(new URL("../../../lib/db/src/validate-tls.ts", import.meta.url))],
+    outfile: join(dir, "dist/validate-tls.mjs"), bundle: true, platform: "node", format: "esm",
+  });
+  await writeFile(join(dir, "dist/index.mjs"), 'console.log("APP_IMPORTED");');
+  // Mock only AWS transport. Execute the real wrapper and real validator.
+  const loader = join(dir, "aws-loader.mjs");
+  await writeFile(loader, `
+    export async function resolve(specifier, context, nextResolve) {
+      if (specifier === "@aws-sdk/client-secrets-manager") {
+        const source = 'export class GetSecretValueCommand {};' +
+          'export class SecretsManagerClient { async send() { return { SecretString: process.env.TEST_SECRET_JSON }; } }';
+        return { url: "data:text/javascript," + encodeURIComponent(source), shortCircuit: true };
+      }
+      return nextResolve(specifier, context);
+    }
+  `);
+  const env = { ...process.env };
+  for (const key of ["DATABASE_URL", "PGSSLMODE", "NODE_TLS_REJECT_UNAUTHORIZED", "NODE_OPTIONS", "APP_SECRET_ARN"]) delete env[key];
+  const run = (settings, secrets) => spawnSync(process.execPath,
+    ["--loader", loader, join(dir, "load-secrets.mjs")], {
+      env: { ...env, NODE_ENV: "production", ...settings,
+        ...(secrets ? { APP_SECRET_ARN: "test-secret", TEST_SECRET_JSON: JSON.stringify(secrets) } : {}) },
+      encoding: "utf8",
+    });
+  for (const secrets of [
+    { DATABASE_URL: safeTlsUrl, NODE_TLS_REJECT_UNAUTHORIZED: "0" },
+    { DATABASE_URL: `${tlsTestUrl}?sslmode=no-verify` },
+    { DATABASE_URL: safeTlsUrl, PGSSLMODE: "verify-ca" },
+    { DATABASE_URL: "postgresql://test-user:pass%xx@db.example.test/test-db?ssl%6dode=verify-full" },
+  ]) {
+    const result = run({}, secrets);
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /Production database TLS configuration rejected/);
+    assert.doesNotMatch(result.stdout, /APP_IMPORTED/);
+    assert.doesNotMatch(result.stdout + result.stderr, /test-password|test-user|db\.example\.test/);
+  }
+  // ECS has precedence over Secrets Manager, including an empty value.
+  for (const settings of [
+    { DATABASE_URL: `${tlsTestUrl}?sslmode=disable` },
+    { PGSSLMODE: "" },
+    { NODE_TLS_REJECT_UNAUTHORIZED: "0" },
+  ]) {
+    const result = run(settings, { DATABASE_URL: safeTlsUrl, PGSSLMODE: "verify-full" });
+    assert.equal(result.status, 1, result.stderr);
+    assert.doesNotMatch(result.stdout, /APP_IMPORTED/);
+  }
+  for (const [settings, secrets] of [
+    [{ DATABASE_URL: safeTlsUrl }, undefined],
+    [{}, { DATABASE_URL: safeTlsUrl }],
+    [{}, { DATABASE_URL: tlsTestUrl, PGSSLMODE: "verify-full" }],
+    [{ DATABASE_URL: safeTlsUrl }, { DATABASE_URL: `${tlsTestUrl}?sslmode=disable` }],
+    [{ NODE_ENV: "development", DATABASE_URL: `${tlsTestUrl}?sslmode=disable` }, undefined],
+  ]) {
+    const result = run(settings, secrets);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /APP_IMPORTED/);
+  }
+});
+
+test("direct database initialization validates production settings before constructing the pool", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "db-startup-tls-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const script = join(dir, "db.mjs");
+  await build({
+    entryPoints: [fileURLToPath(new URL("../../../lib/db/src/index.ts", import.meta.url))],
+    outfile: script, bundle: true, platform: "node", format: "esm",
+    plugins: [{
+      name: "observe-pool-without-connecting",
+      setup(build) {
+        build.onResolve({ filter: /^(pg|drizzle-orm\/node-postgres)$/ }, ({ path }) => ({ path, namespace: "test-db" }));
+        build.onLoad({ filter: /.*/, namespace: "test-db" }, ({ path }) => ({
+          contents: path === "pg"
+            ? `export default { Pool: class { constructor(config) {
+                if (config.connectionString !== process.env.DATABASE_URL) throw new Error("Database was changed");
+                console.log("POOL_CONSTRUCTED");
+              } } };`
+            : "export function drizzle() { return {}; }",
+        }));
+      },
+    }],
+  });
+  const env = { ...process.env };
+  for (const key of ["DATABASE_URL", "PGSSLMODE", "NODE_TLS_REJECT_UNAUTHORIZED", "NODE_OPTIONS"]) delete env[key];
+  const run = (settings) => spawnSync(process.execPath, [script], {
+    env: { ...env, NODE_ENV: "production", ...settings }, encoding: "utf8",
+  });
+  for (const settings of [
+    { DATABASE_URL: `${tlsTestUrl}?sslmode=disable` },
+    { DATABASE_URL: tlsTestUrl },
+    { DATABASE_URL: safeTlsUrl, NODE_TLS_REJECT_UNAUTHORIZED: "0" },
+    { DATABASE_URL: "postgresql://test-user:pass word@db.example.test/test-db?ssl%6dode=verify-full" },
+  ]) {
+    const result = run(settings);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Production database TLS configuration rejected/);
+    assert.doesNotMatch(result.stdout, /POOL_CONSTRUCTED/);
+    assert.doesNotMatch(result.stderr, /test-password|test-user|db\.example\.test/);
+  }
+  for (const settings of [
+    { DATABASE_URL: safeTlsUrl },
+    { DATABASE_URL: tlsTestUrl, PGSSLMODE: "verify-full" },
+    { NODE_ENV: "development", DATABASE_URL: `${tlsTestUrl}?sslmode=disable` },
+  ]) {
+    const result = run(settings);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /POOL_CONSTRUCTED/);
+  }
+});
 
 test("health is mounted before CORS and session middleware, without Clerk", async () => {
   const source = await readFile(new URL("./app.ts", import.meta.url), "utf8");

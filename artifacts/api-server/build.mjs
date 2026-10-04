@@ -15,7 +15,11 @@ async function buildAll() {
   await rm(distDir, { recursive: true, force: true });
 
   await esbuild({
-    entryPoints: [path.resolve(artifactDir, "src/index.ts")],
+    entryPoints: {
+      index: path.resolve(artifactDir, "src/index.ts"),
+      // The wrapper needs this guard before it imports the database/app bundle.
+      "validate-tls": path.resolve(artifactDir, "../../lib/db/src/validate-tls.ts"),
+    },
     platform: "node",
     bundle: true,
     format: "esm",
