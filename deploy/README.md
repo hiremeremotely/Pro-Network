@@ -34,6 +34,26 @@ alias that does not match its certificate. Do not use `sslmode=no-verify`,
 After adding or changing the image's CA bundle, rebuild and deploy the API
 image. Restarting an old image will not install the certificates.
 
+Before pushing either image tag or updating ECS, `.github/workflows/deploy.yml`
+runs `/app/check-runtime-ca.mjs` in the **actual final runtime image**. This
+offline smoke check uses the image's inherited environment, with no host
+certificate mount, AWS credentials, or database connection. It requires
+`NODE_EXTRA_CA_CERTS` to point to a readable, nonempty PEM file containing valid
+CA certificates, then compares those certificates with Node's startup-loaded
+extra and default trust stores. Merely parsing a file is not enough: a bundle
+configured too late for Node to load fails the check. Disabled TLS verification
+also fails. A nonzero exit stops CI before either push or ECS deployment.
+
+To repeat the check on a built image locally:
+
+```sh
+docker run --rm --network none --entrypoint node YOUR_API_IMAGE /app/check-runtime-ca.mjs
+```
+
+This checks image trust roots, not live RDS connectivity or settings supplied
+later by ECS/Secrets Manager. Keep those settings on `sslmode=verify-full` as
+described above.
+
 ## Secret loading
 
 The startup wrapper loads the JSON secret referenced by `APP_SECRET_ARN`.

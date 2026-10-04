@@ -41,14 +41,15 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # ── 4. Build and push Docker image ────────────────────────────────────
-      - name: Build, tag, and push Docker image
+      # ── 4. Build, verify final runtime trust, then push Docker image ──────
+      - name: Build, check runtime certificates, and push Docker image
         id: build-image
         env:
           REGISTRY:   ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
           SHA_TAG:    ${{ github.sha }}
         run: |
+          set -euo pipefail
           docker build \
             --platform linux/amd64 \
             -f artifacts/api-server/Dockerfile \
@@ -57,6 +58,10 @@ jobs:
             -t "$REGISTRY/$REPOSITORY:$SHA_TAG" \
             -t "$REGISTRY/$REPOSITORY:latest" \
             .
+          # No env overrides, host certificate mounts, AWS access, or app startup:
+          # validate the trust roots inherited by Node from the actual image.
+          docker run --rm --network none --entrypoint node \
+            "$REGISTRY/$REPOSITORY:$SHA_TAG" /app/check-runtime-ca.mjs
           docker push "$REGISTRY/$REPOSITORY:$SHA_TAG"
           docker push "$REGISTRY/$REPOSITORY:latest"
           echo "image=$REGISTRY/$REPOSITORY:$SHA_TAG" >> "$GITHUB_OUTPUT"

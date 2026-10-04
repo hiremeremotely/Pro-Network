@@ -51,6 +51,8 @@ COPY --from=builder /app/artifacts/api-server/dist ./dist
 
 # Startup wrapper: loads secrets from AWS Secrets Manager, then starts the app
 COPY artifacts/api-server/load-secrets.mjs ./
+# CI executes this in the final image before publishing or deploying it.
+COPY artifacts/api-server/check-runtime-ca.mjs ./
 
 ENV NODE_ENV=production
 ENV PORT=3000
