@@ -1,0 +1,62 @@
+October 4, 2026, 07:55
+{"level":30,"time":1791100505479,"pid":1,"hostname":"ip-172-31-73-116.ec2.internal","req":{"id":7,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-server
+October 4, 2026, 07:54
+{"level":30,"time":1791100475478,"pid":1,"hostname":"ip-172-31-73-116.ec2.internal","req":{"id":6,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":0,"msg":"request completed"}
+api-server
+October 4, 2026, 07:54
+{"level":30,"time":1791100445479,"pid":1,"hostname":"ip-172-31-73-116.ec2.internal","req":{"id":5,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-server
+October 4, 2026, 07:53
+{"level":30,"time":1791100415478,"pid":1,"hostname":"ip-172-31-73-116.ec2.internal","req":{"id":4,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-server
+October 4, 2026, 07:53
+{"level":30,"time":1791100385499,"pid":1,"hostname":"ip-172-31-73-116.ec2.internal","req":{"id":3,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-server
+October 4, 2026, 07:52
+{"level":30,"time":1791100355479,"pid":1,"hostname":"ip-172-31-73-116.ec2.internal","req":{"id":2,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-server
+October 4, 2026, 07:52
+{"level":30,"time":1791100325489,"pid":1,"hostname":"ip-172-31-73-116.ec2.internal","req":{"id":1,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":7,"msg":"request completed"}
+api-server
+October 4, 2026, 07:51
+{"level":30,"time":1791100298241,"pid":1,"hostname":"ip-172-31-73-116.ec2.internal","port":3000,"msg":"Server listening"}
+api-server
+October 4, 2026, 07:51
+{"level":30,"time":1791100298241,"pid":1,"hostname":"ip-172-31-73-116.ec2.internal","intervalMs":900000,"msg":"Email sync scheduler started"}
+api-server
+October 4, 2026, 07:51
+(node:1) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+api-server
+October 4, 2026, 07:51
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+api-server
+October 4, 2026, 07:51
+To prepare for this change:
+api-server
+October 4, 2026, 07:51
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+api-server
+October 4, 2026, 07:51
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+api-server
+October 4, 2026, 07:51
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+api-server
+October 4, 2026, 07:51
+(Use `node --trace-warnings ...` to show where the warning was created)
+api-server
+October 4, 2026, 07:51
+{"level":30,"time":1791100297659,"pid":1,"hostname":"ip-172-31-73-116.ec2.internal","general":"200/60000ms","auth":"10/60000ms","msg":"Rate limiters configured"}
+api-server
+October 4, 2026, 07:51
+{"level":30,"time":1791100297660,"pid":1,"hostname":"ip-172-31-73-116.ec2.internal","trustProxy":1,"msg":"Express trust proxy"}
+api-server
+October 4, 2026, 07:51
+{"level":30,"time":1791100297662,"pid":1,"hostname":"ip-172-31-73-116.ec2.internal","msg":"Session middleware configured"}
+api-server
+October 4, 2026, 07:51
+{"level":30,"time":1791100297658,"pid":1,"hostname":"ip-172-31-73-116.ec2.internal","allowedOrigins":["https://d1ntn7mxgxamfr.cloudfront.net"],"msg":"CORS allowed origins"}
+api-server
+October 4, 2026, 07:51
+[load-secrets] Injected 7 secret(s) from arn:aws:secretsmanager:us-east-1:985682977618:secret:hire-me-remotely/api/development-6hVFQ6 (region: us-east-1)
