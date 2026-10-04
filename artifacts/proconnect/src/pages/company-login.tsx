@@ -70,9 +70,12 @@ export default function CompanyLogin() {
         body: JSON.stringify({ email }),
       });
       const data = await res.json();
-      if (res.ok && data.verificationToken) {
-        const link = `${window.location.origin}${import.meta.env.BASE_URL}verify-email?token=${data.verificationToken}`;
-        setResendLink(link);
+      if (res.ok) {
+        if (data.verificationToken) {
+          const link = `${window.location.origin}${import.meta.env.BASE_URL}verify-email?token=${data.verificationToken}`;
+          setResendLink(link);
+        }
+        setError(data.message ?? "Check your inbox for the verification link.");
       } else {
         setError(data.error ?? "Could not resend. Please try again.");
       }

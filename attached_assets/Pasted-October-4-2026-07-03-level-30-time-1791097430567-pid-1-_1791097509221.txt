@@ -1,0 +1,56 @@
+October 4, 2026, 07:03
+{"level":30,"time":1791097430567,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","req":{"id":11,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-server
+October 4, 2026, 07:03
+{"level":30,"time":1791097400567,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","req":{"id":10,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-server
+October 4, 2026, 07:02
+{"level":30,"time":1791097370567,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","req":{"id":9,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-server
+October 4, 2026, 07:02
+{"level":30,"time":1791097340568,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","req":{"id":8,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-server
+October 4, 2026, 07:01
+{"level":30,"time":1791097310567,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","req":{"id":7,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-server
+October 4, 2026, 07:01
+{"level":30,"time":1791097280568,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","req":{"id":6,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-server
+October 4, 2026, 07:00
+{"level":30,"time":1791097250557,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","req":{"id":5,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-server
+October 4, 2026, 07:00
+{"level":30,"time":1791097220569,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","req":{"id":4,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":2,"msg":"request completed"}
+api-server
+October 4, 2026, 06:59
+{"level":30,"time":1791097190567,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","req":{"id":3,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-server
+October 4, 2026, 06:59
+{"level":30,"time":1791097160598,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","req":{"id":2,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-server
+October 4, 2026, 06:58
+{"level":30,"time":1791097130574,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","req":{"id":1,"method":"GET","url":"/api/healthz"},"res":{"statusCode":200},"responseTime":5,"msg":"request completed"}
+api-server
+October 4, 2026, 06:58
+{"level":30,"time":1791097102879,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","general":"200/60000ms","auth":"10/60000ms","msg":"Rate limiters configured"}
+api-server
+October 4, 2026, 06:58
+{"level":30,"time":1791097102880,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","trustProxy":1,"msg":"Express trust proxy"}
+api-server
+October 4, 2026, 06:58
+{"level":50,"time":1791097102881,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","missingConfiguration":"CLERK_SECRET_KEY","msg":"Authentication is not configured: non-health requests will return 503. Configure the deployment's supported Clerk credentials and restart the task."}
+api-server
+October 4, 2026, 06:58
+{"level":30,"time":1791097102882,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","msg":"Session middleware configured"}
+api-server
+October 4, 2026, 06:58
+{"level":30,"time":1791097102954,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","port":3000,"msg":"Server listening"}
+api-server
+October 4, 2026, 06:58
+{"level":30,"time":1791097102954,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","intervalMs":900000,"msg":"Email sync scheduler started"}
+api-server
+October 4, 2026, 06:58
+{"level":30,"time":1791097102877,"pid":1,"hostname":"ip-172-31-72-111.ec2.internal","allowedOrigins":[],"msg":"CORS allowed origins"}
+api-server
+October 4, 2026, 06:58
+[load-secrets] Injected 5 secret(s) from arn:aws:secretsmanager:us-east-1:985682977618:secret:hire-me-remotely/api/development-6hVFQ6 (region: us-east-1)

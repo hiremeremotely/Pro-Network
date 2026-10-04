@@ -69,9 +69,12 @@ export default function Login() {
         body: JSON.stringify({ email }),
       });
       const data = await res.json();
-      if (res.ok && data.verificationToken) {
-        const link = `${window.location.origin}${import.meta.env.BASE_URL}verify-email?token=${data.verificationToken}`;
-        setResendLink(link);
+      if (res.ok) {
+        if (data.verificationToken) {
+          const link = `${window.location.origin}${import.meta.env.BASE_URL}verify-email?token=${data.verificationToken}`;
+          setResendLink(link);
+        }
+        setError(data.message ?? "Check your inbox for the verification link.");
       } else {
         setError(data.error ?? "Could not resend. Please try again.");
       }
@@ -193,25 +196,6 @@ export default function Login() {
               ) : "Sign in"}
             </Button>
           </form>
-
-          <div className="relative my-5">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
-            <div className="relative flex justify-center"><span className="px-3 bg-white text-xs text-gray-400">or continue with</span></div>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full h-11 rounded-full font-semibold border-gray-300 text-gray-700 hover:bg-gray-50"
-            onClick={() => navigate("/sign-in")}
-          >
-            <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" aria-hidden="true">
-              <path fill="#4285F4" d="M21.6 12.23c0-.79-.07-1.55-.2-2.27H12v4.3h5.38a4.6 4.6 0 0 1-2 3.02v2.51h3.24c1.9-1.75 2.98-4.33 2.98-7.56Z" />
-              <path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.44l-3.24-2.51c-.9.6-2.04.96-3.38.96-2.6 0-4.8-1.76-5.6-4.13H3.06v2.59A10 10 0 0 0 12 22Z" />
-              <path fill="#FBBC05" d="M6.4 13.88a6 6 0 0 1 0-3.76V7.53H3.06a10 10 0 0 0 0 8.94l3.34-2.59Z" />
-              <path fill="#EA4335" d="M12 5.99c1.47 0 2.79.5 3.82 1.49l2.86-2.86C16.95 2.99 14.7 2 12 2a10 10 0 0 0-8.94 5.53l3.34 2.59C7.2 7.75 9.4 5.99 12 5.99Z" />
-            </svg>
-            Continue with Google
-          </Button>
 
           <div className="relative my-5">
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>

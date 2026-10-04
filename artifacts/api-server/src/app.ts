@@ -4,15 +4,12 @@ import rateLimit from "express-rate-limit";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import pinoHttp from "pino-http";
-import { clerkMiddleware } from "@clerk/express";
-import { publishableKeyFromHost } from "@clerk/shared/keys";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { requireAuth } from "./middlewares/require-auth";
-import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from "./middlewares/clerkProxyMiddleware";
 import healthRouter from "./routes/health";
-import { clerkConfigurationGuard } from "./middlewares/clerk-configuration";
 import { buildAllowedOrigins } from "./lib/allowed-origins";
+import { cloudFrontProtocol } from "./middlewares/cloudfront-protocol";
 
 const allowedOrigins = buildAllowedOrigins();
 logger.info({ allowedOrigins }, "CORS allowed origins");
@@ -92,8 +89,9 @@ app.use(
 );
 
 // ALB/ECS liveness must work without cookies, auth credentials, or DB queries.
-// A healthy process is not a guarantee that authentication is configured.
+// A healthy process is not a guarantee that email delivery is configured.
 app.use("/api", healthRouter);
+app.use(cloudFrontProtocol(process.env.TRUST_CLOUDFRONT_PROXY === "true"));
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   const requestOrigin = req.headers.origin;
@@ -104,17 +102,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   }
   next();
 });
-
-if (!process.env.CLERK_SECRET_KEY?.trim()) {
-  logger.error(
-    { missingConfiguration: "CLERK_SECRET_KEY" },
-    "Authentication is not configured: non-health requests will return 503. Configure the deployment's supported Clerk credentials and restart the task.",
-  );
-}
-app.use(clerkConfigurationGuard());
-
-// Clerk's frontend API proxy must stream requests before body parsers.
-app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
 app.use(
   cors({
@@ -131,21 +118,12 @@ app.use(
   }),
 );
 
-app.use(
-  clerkMiddleware((req) => ({
-    publishableKey: publishableKeyFromHost(
-      getClerkProxyHost(req) ?? "",
-      process.env.CLERK_PUBLISHABLE_KEY,
-    ),
-  })),
-);
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ── Session middleware ────────────────────────────────────────────────────────
 // HTTP-only cookie session backed by PostgreSQL (connect-pg-simple).
-// Sessions table is created automatically on first run if missing.
+// The sessions table is ensured explicitly at startup (no bundled SQL assets).
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) throw new Error("SESSION_SECRET environment variable is required but not set");
 

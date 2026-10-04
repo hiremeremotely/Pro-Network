@@ -1,5 +1,5 @@
-import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { Switch, Route, Redirect, Router as WouterRouter, useLocation } from "wouter";
+import { useLayoutEffect, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
 import { Toaster } from "@/components/ui/toaster";
@@ -38,71 +38,8 @@ import Terms from "@/pages/terms";
 import Privacy from "@/pages/privacy";
 import OfferPage from "@/pages/offer-page";
 import { CookieConsent } from "@/components/cookie-consent";
-import { ClerkProvider, SignIn, SignUp, useAuth, useUser, useClerk } from "@clerk/react";
-import { publishableKeyFromHost } from "@clerk/react/internal";
-import { shadcn } from "@clerk/themes";
 
 const queryClient = new QueryClient();
-const clerkPubKey = publishableKeyFromHost(
-  window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-);
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
-const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-function ClerkBridge() {
-  const { isLoaded, isSignedIn } = useAuth();
-  const { user } = useUser();
-  const { signOut } = useClerk();
-  const { establishSession } = useAppAuth();
-  const [location, navigate] = useLocation();
-  const bridgedUser = useRef<string | null>(null);
-
-  useEffect(() => {
-    const onLogout = () => { void signOut(); };
-    window.addEventListener("proconnect:clerk-logout", onLogout);
-    return () => window.removeEventListener("proconnect:clerk-logout", onLogout);
-  }, [signOut]);
-
-  useEffect(() => {
-    if (!isLoaded || !isSignedIn || !user || bridgedUser.current === user.id) return;
-    let cancelled = false;
-    fetch(`${import.meta.env.BASE_URL}api/auth/clerk-bridge`, {
-      method: "POST",
-      credentials: "include",
-    })
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok || !data.profile) throw new Error(data.error ?? "Could not connect your account.");
-        if (cancelled) return;
-        bridgedUser.current = user.id;
-        establishSession({
-          id: data.profile.id,
-          name: data.profile.name,
-          email: data.profile.email,
-          accountType: data.profile.accountType,
-          headline: data.profile.headline,
-          bio: data.profile.bio,
-          avatarUrl: data.profile.avatarUrl,
-          authToken: data.authToken,
-        });
-        const isAuthEntry =
-          location === "/" ||
-          location === "/login" ||
-          location.startsWith("/sign-in") ||
-          location.startsWith("/sign-up");
-        if (isAuthEntry) {
-          navigate(data.profile.accountType === "company" ? "/company-dashboard" : "/job-tracker");
-        }
-      })
-      .catch(() => {
-        if (!cancelled) bridgedUser.current = null;
-      });
-    return () => { cancelled = true; };
-  }, [isLoaded, isSignedIn, user, establishSession, location, navigate]);
-
-  return null;
-}
 
 // ── Auth guards ───────────────────────────────────────────────────────────────
 
@@ -162,17 +99,9 @@ function RedirectIfAuth({ children }: { children: ReactNode }) {
 function Router() {
   return (
     <Switch>
-      {/* Clerk OAuth callback routes must retain the optional wildcard exactly. */}
-      <Route path="/sign-in/*?">
-        <div className="min-h-screen bg-[#f3f2ef] flex items-center justify-center px-4">
-          <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
-        </div>
-      </Route>
-      <Route path="/sign-up/*?">
-        <div className="min-h-screen bg-[#f3f2ef] flex items-center justify-center px-4">
-          <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
-        </div>
-      </Route>
+      {/* Preserve old entry links without loading a third-party auth provider. */}
+      <Route path="/sign-in/*?"><Redirect to="/login" /></Route>
+      <Route path="/sign-up/*?"><Redirect to="/signup" /></Route>
       {/* Public — redirect to app if already logged in */}
       <Route path="/">
         <RedirectIfAuth><Landing /></RedirectIfAuth>
@@ -259,7 +188,6 @@ function Router() {
 }
 
 function App() {
-  if (!clerkPubKey) throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY in .env file");
   return (
     <HelmetProvider>
       <QueryClientProvider client={queryClient}>
@@ -267,35 +195,7 @@ function App() {
           <AppAuthProvider>
             <BoAuthProvider>
               <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-                 <ClerkProvider
-                   publishableKey={clerkPubKey}
-                   proxyUrl={clerkProxyUrl}
-                   appearance={{
-                     theme: shadcn,
-                     options: {
-                       logoPlacement: "inside",
-                       logoLinkUrl: basePath || "/",
-                       logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
-                     },
-                     variables: {
-                       colorPrimary: "#4f46e5",
-                       colorForeground: "#111827",
-                       colorMutedForeground: "#6b7280",
-                       colorBackground: "#ffffff",
-                       fontFamily: "Plus Jakarta Sans",
-                       borderRadius: "0.75rem",
-                     },
-                   }}
-                   signInUrl={`${basePath}/sign-in`}
-                   signUpUrl={`${basePath}/sign-up`}
-                   localization={{
-                     signIn: { start: { title: "Welcome back", subtitle: "Sign in to access your account" } },
-                     signUp: { start: { title: "Create your account", subtitle: "Get started today" } },
-                   }}
-                 >
-                   <ClerkBridge />
-                   <Router />
-                 </ClerkProvider>
+                 <Router />
               </WouterRouter>
             </BoAuthProvider>
           </AppAuthProvider>

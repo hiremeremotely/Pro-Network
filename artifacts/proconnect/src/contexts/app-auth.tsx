@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 export interface AppUser {
   id: number;
@@ -16,7 +18,7 @@ interface AppAuthCtx {
   isLoading: boolean;
   login: (email: string, password: string, allowedAccountType?: string) => Promise<{ ok: boolean; error?: string; unverified?: boolean }>;
   signup: (data: SignupData) => Promise<{ ok: boolean; error?: string; verificationToken?: string }>;
-  logout: () => void;
+  logout: () => Promise<boolean>;
   updateUser: (partial: Partial<AppUser>) => void;
   establishSession: (user: AppUser) => void;
 }
@@ -38,6 +40,8 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const BASE = import.meta.env.BASE_URL;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   useEffect(() => {
     fetch(`${BASE}api/auth/me`, { credentials: "include" })
@@ -65,7 +69,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
       const res = await fetch(`${BASE}api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, allowedAccountType }),
         credentials: "include",
       });
       const data = await res.json();
@@ -89,6 +93,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
           }
           return { ok: false, error: "This is a company account. Please use 'For Companies' to sign in." };
         }
+        queryClient.clear();
         setUser(u);
         return { ok: true };
       }
@@ -96,7 +101,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
     } catch {
       return { ok: false, error: "Server unreachable. Please try again." };
     }
-  }, [BASE]);
+  }, [BASE, queryClient]);
 
   const signup = useCallback(async (data: SignupData) => {
     try {
@@ -116,28 +121,36 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
     }
   }, [BASE]);
 
-  const logout = useCallback(() => {
-    void fetch(`${BASE}api/auth/logout`, {
-      method: "POST",
-      credentials: "include",
-    }).catch(() => {});
+  const logout = useCallback(async () => {
+    try {
+      const response = await fetch(`${BASE}api/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Sign-out failed");
+    } catch {
+      toast({ title: "Could not sign out", description: "Please try again.", variant: "destructive" });
+      return false;
+    }
     // Clear any legacy client-side session copy so browser extensions and
     // other tabs receive the logout boundary through the storage event.
     localStorage.removeItem("app_user_session");
     sessionStorage.removeItem("verify_token");
     sessionStorage.removeItem("verify_email_address");
-    window.dispatchEvent(new Event("proconnect:clerk-logout"));
+    queryClient.clear();
     setUser(null);
-  }, [BASE]);
+    return true;
+  }, [BASE, queryClient, toast]);
 
   const updateUser = useCallback((partial: Partial<AppUser>) => {
     setUser(prev => (prev ? { ...prev, ...partial } : null));
   }, []);
 
   const establishSession = useCallback((nextUser: AppUser) => {
+    queryClient.clear();
     setUser(nextUser);
     setIsLoading(false);
-  }, []);
+  }, [queryClient]);
 
   return <Ctx.Provider value={{ user, isLoading, login, signup, logout, updateUser, establishSession }}>{children}</Ctx.Provider>;
 }

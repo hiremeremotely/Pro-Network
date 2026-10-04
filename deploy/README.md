@@ -1,42 +1,77 @@
-# AWS API deployment checks
+# AWS authentication deployment
 
-## Liveness versus authentication
+The app uses its own email/password authentication and PostgreSQL-backed,
+HTTP-only cookie sessions. It no longer uses Clerk, its proxy, or its keys.
+Deploy **both frontend and API** so browsers receive the updated sign-in code.
 
-`GET /api/healthz` is a process-liveness check, mounted before Clerk, sessions,
-and CORS. A 200 here does not verify Clerk configuration or database readiness.
-Do not change ALB health-check success codes to accept failures.
+## Runtime settings
 
-If `CLERK_SECRET_KEY` is absent or blank, other requests fail closed with HTTP
-503 and code `AUTH_NOT_CONFIGURED`. Startup logs name the missing setting without
-printing its value. Authentication is not disabled and protected routes are not
-made public.
+- `DATABASE_URL`: the existing PostgreSQL connection.
+- `SESSION_SECRET`: the existing strong, stable session-signing secret. Do not
+  change it on each deploy or committed code push.
+- `ALLOWED_ORIGINS`: the exact HTTPS frontend origin (comma-separated if needed),
+  e.g. `https://YOUR-DISTRIBUTION.cloudfront.net`. No paths or wildcards.
+- `PUBLIC_APP_URL`: the frontend's public HTTPS URL, used to build verification
+  and password-reset links. This must not be an ALB HTTP address.
+- `SES_FROM_EMAIL`: a sender address/identity verified in Amazon SES.
+- `AWS_REGION`: the region containing that SES identity.
 
-The ECS startup wrapper loads the JSON secret referenced by `APP_SECRET_ARN`.
-It loads this only when the task starts. Task-definition environment variables,
-including empty ones, take precedence over the JSON secret.
+The ECS task role needs `ses:SendEmail` permission for the verified sender.
+SES sandbox accounts can send only to verified recipients until AWS grants
+production access. Sending uses the task role, not hardcoded AWS access keys.
 
-This project currently uses Replit-managed Clerk. Its managed credentials and
-production provisioning are not automatically transferred to AWS. Do not copy,
-rotate, or overwrite managed Replit keys as a workaround. Establish a supported
-AWS authentication configuration separately, with matching backend and frontend
-Clerk configuration, before expecting sign-in to work.
+The startup wrapper loads the JSON secret referenced by `APP_SECRET_ARN`.
+Values already present in the ECS task definition take precedence, even if
+empty. New tasks must be started after changing runtime settings.
 
-## Browser origins
+Clerk settings, including `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`,
+`VITE_CLERK_PUBLISHABLE_KEY`, and `VITE_CLERK_PROXY_URL`, are unused and no longer
+needed for either build or runtime. Existing workspace secrets were not deleted.
 
-Set `ALLOWED_ORIGINS` in the AWS runtime configuration to the exact HTTPS origin
-of the frontend, e.g. `https://YOUR-DISTRIBUTION.cloudfront.net`. Multiple origins
-may be comma-separated. Do not include paths, wildcards, or credentials.
-Replit's existing domain configuration remains supported.
+## CloudFront and secure cookies
 
-Keep CloudFront's `/api/*` behavior pointed to the ALB with caching disabled and
-headers, cookies, and query strings forwarded. Leave the ALB origin path blank.
+Keep the `/api/*` behavior pointed to the ALB, with caching disabled and request
+headers, cookies, query strings, and all API methods forwarded. Leave the origin
+path blank. Do not convert API 401/403 responses to the SPA's HTML page.
 
-## Verification after deployment
+Production session cookies are always Secure. With an HTTPS ALB origin and the
+correct trusted proxy configuration, `X-Forwarded-Proto: https` is sufficient.
 
-1. Push the code and allow the API GitHub Action to deploy the image.
-2. Confirm the ALB targets become healthy and `/api/healthz` returns 200.
-3. Verify an API request through CloudFront returns JSON, not S3 XML or a timeout.
-4. Verify authentication configuration errors are absent before testing sign-in.
-5. After changing the AWS JSON secret, force a new ECS deployment so tasks reload it.
+For the existing **HTTP CloudFront-to-ALB origin**, configure the origin-request
+policy to include the CloudFront-generated `CloudFront-Forwarded-Proto` header.
+Only after restricting direct ALB access to trusted CloudFront traffic, set
+`TRUST_CLOUDFRONT_PROXY=true`. This lets Express recognize the viewer's HTTPS
+connection and issue its Secure cookie. Never enable this on an unrestricted
+origin that lets callers spoof the protocol header.
 
-Locally run `pnpm --filter @workspace/api-server run test:deployment`.
+## Existing accounts
+
+No profiles or password hashes are deleted. Existing local password accounts
+remain usable, with older hashes upgraded after successful sign-in.
+Users whose profiles came from Clerk and have no local password must use
+**Forgot password** to set one using the emailed link. There is no shared/default
+password and no way to retrieve a user's password from Clerk.
+
+Google sign-in was provided solely by Clerk and is no longer offered.
+Adding direct Google OAuth is a separate integration; Gmail/Outlook connections
+for existing app features were not removed.
+
+## Email behavior and verification
+
+Production verification/reset links are delivered through SES and are never
+returned to the requesting browser. Without SES configuration, registration and
+recovery return a clear 503 rather than pretend to send an email. Existing
+password sign-in still works independently of the email sender.
+
+For local testing only, `DEMO_MODE=true` with non-production `NODE_ENV` allows
+links to be returned in API responses. Production cannot enable this bypass.
+
+Session storage is ensured explicitly at startup using idempotent DDL, preserving
+existing sessions. `GET /api/healthz` checks process liveness; a 200 is not proof
+of email readiness or successful sign-in.
+
+After deployment, verify healthy ALB targets, sign-in, refresh persistence,
+company/professional account routing, sign-out, and rejection of protected
+requests without a session. Verify actual SES delivery before opening signup.
+
+Run `pnpm --filter @workspace/api-server run test:deployment` locally.

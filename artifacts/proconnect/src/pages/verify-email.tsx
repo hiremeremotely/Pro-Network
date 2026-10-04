@@ -3,11 +3,13 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { AlertCircleIcon, CheckCircleIcon, MailIcon, CopyIcon, RefreshCwIcon } from "lucide-react";
 import logo from "@assets/hmr_logo.png";
+import { useAppAuth } from "@/contexts/app-auth";
 
 const BASE = import.meta.env.BASE_URL;
 
 export default function VerifyEmail() {
   const [, navigate] = useLocation();
+  const { establishSession } = useAppAuth();
   const token = new URLSearchParams(window.location.search).get("token") ?? "";
 
   const emailFromSession = sessionStorage.getItem("verify_email_address") ?? "";
@@ -40,10 +42,21 @@ export default function VerifyEmail() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
+      credentials: "include",
     })
       .then((r) => r.json())
       .then((data) => {
-        if (data.authToken) {
+        if (data.authToken && data.profile) {
+          establishSession({
+            id: data.profile.id,
+            name: data.profile.name,
+            email: data.profile.email,
+            accountType: data.profile.accountType,
+            headline: data.profile.headline,
+            bio: data.profile.bio,
+            avatarUrl: data.profile.avatarUrl,
+            authToken: data.authToken,
+          });
           sessionStorage.removeItem("verify_email_address");
           sessionStorage.removeItem("verify_token");
           setVerifyDone(true);
@@ -54,7 +67,7 @@ export default function VerifyEmail() {
       })
       .catch(() => setVerifyError("Server unreachable. Please try again."))
       .finally(() => setVerifying(false));
-  }, [token]);
+  }, [token, establishSession, navigate]);
 
   function copyLink() {
     navigator.clipboard.writeText(verifyLink).then(() => {
@@ -75,10 +88,12 @@ export default function VerifyEmail() {
         body: JSON.stringify({ email: emailFromSession }),
       });
       const data = await res.json();
-      if (res.ok && data.verificationToken) {
-        const newLink = `${window.location.origin}${import.meta.env.BASE_URL}verify-email?token=${data.verificationToken}`;
-        sessionStorage.setItem("verify_token", data.verificationToken);
-        setVerifyLink(newLink);
+      if (res.ok) {
+        if (data.verificationToken) {
+          const newLink = `${window.location.origin}${import.meta.env.BASE_URL}verify-email?token=${data.verificationToken}`;
+          sessionStorage.setItem("verify_token", data.verificationToken);
+          setVerifyLink(newLink);
+        }
         setResendDone(true);
       } else {
         setResendError(data.error ?? "Could not resend. Please try again.");
@@ -157,15 +172,17 @@ export default function VerifyEmail() {
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Verify your email</h1>
           <p className="text-sm text-gray-500 mb-5">
-            {emailFromSession
-              ? <>A verification link has been generated for <span className="font-medium text-gray-700">{emailFromSession}</span>. Use it below to activate your account.</>
-              : "Use the verification link below to activate your account."}
+            {verifyLink
+              ? "Use the verification link below to activate your account."
+              : emailFromSession
+                ? <>Check the inbox for <span className="font-medium text-gray-700">{emailFromSession}</span> and open the verification link to activate your account.</>
+                : "Open the verification link in your email to activate your account."}
           </p>
 
-          <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-4">
+          {verifyLink && <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-4">
             <p className="text-xs font-semibold text-amber-800 mb-1">Demo mode</p>
             <p className="text-xs text-amber-700">In production this link would be emailed to you. Copy it below to verify your account.</p>
-          </div>
+          </div>}
 
           {verifyLink && (
             <>

@@ -37,7 +37,8 @@ WORKDIR /app
 #   @aws-sdk/client-secrets-manager — reads env vars from AWS Secrets Manager at startup
 RUN npm install --no-package-lock --omit=dev \
     @google-cloud/storage@^7.19.0 \
-    @aws-sdk/client-secrets-manager@^3
+    @aws-sdk/client-secrets-manager@^3 \
+    @aws-sdk/client-sesv2@^3
 
 # Bundled application
 COPY --from=builder /app/artifacts/api-server/dist ./dist

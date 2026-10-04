@@ -2389,7 +2389,7 @@ export default function CompanyDashboard() {
           </button>
         </a>
         <button
-          onClick={() => { logout(); navigate("/login"); setSidebarOpen(false); }}
+          onClick={async () => { if (await logout()) { navigate("/login"); setSidebarOpen(false); } }}
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
             dk ? "text-red-400 hover:bg-red-500/10 hover:text-red-300" : "text-red-500 hover:bg-red-50 hover:text-red-600"
           }`}

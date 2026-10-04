@@ -12,6 +12,7 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [resetLink, setResetLink] = useState("");
+  const [sent, setSent] = useState(false);
   const [copied, setCopied] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -26,9 +27,12 @@ export default function ForgotPassword() {
         body: JSON.stringify({ email }),
       });
       const data = await res.json();
-      if (res.ok && data.resetToken) {
-        const url = `${window.location.origin}${import.meta.env.BASE_URL}reset-password?token=${data.resetToken}`;
-        setResetLink(url);
+      if (res.ok) {
+        if (data.resetToken) {
+          const url = `${window.location.origin}${import.meta.env.BASE_URL}reset-password?token=${data.resetToken}`;
+          setResetLink(url);
+        }
+        setSent(true);
       } else {
         setError(data.error ?? "Something went wrong. Please try again.");
       }
@@ -56,7 +60,7 @@ export default function ForgotPassword() {
 
       <div className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-sm bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
-          {!resetLink ? (
+          {!sent ? (
             <>
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-5">
                 <MailIcon className="w-6 h-6 text-primary" />
@@ -99,7 +103,9 @@ export default function ForgotPassword() {
               <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-5">
                 <CheckCircleIcon className="w-6 h-6 text-green-600" />
               </div>
-              <h1 className="text-xl font-bold text-gray-900 mb-2">Reset link ready</h1>
+              <h1 className="text-xl font-bold text-gray-900 mb-2">{resetLink ? "Reset link ready" : "Check your inbox"}</h1>
+              {!resetLink && <p className="text-sm text-gray-500">If that email is registered, a password reset link has been sent.</p>}
+              {resetLink && <>
               <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-4">
                 <p className="text-xs font-semibold text-amber-800 mb-1">Demo mode</p>
                 <p className="text-xs text-amber-700">In production this link would be emailed to you. Copy it below to reset your password.</p>
@@ -117,6 +123,7 @@ export default function ForgotPassword() {
               >
                 Open reset page
               </Button>
+              </>}
             </>
           )}
 
