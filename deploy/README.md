@@ -135,3 +135,34 @@ company/professional account routing, sign-out, and rejection of protected
 requests without a session. Verify actual SES delivery before opening signup.
 
 Run `pnpm --filter @workspace/api-server run test:deployment` locally.
+
+## Missing columns in the external RDS database
+
+Deploying a new API image does not apply the SQL files in `lib/db/migrations`
+to AWS RDS. Replit's managed database is a separate database; updating it does
+not update RDS.
+
+If the deployed API reports `interest_requests.expires_at does not exist`,
+review the RDS schema and pending migrations, including
+`lib/db/migrations/0005_hmr_lifecycle_and_application_consent.sql`. This migration
+adds lifecycle/consent columns and fills null expiry timestamps on existing
+pending and approved introductions. It does not delete profiles or requests.
+Older missing migrations may also need applying in order.
+
+Before changing RDS, confirm the target database, take a backup, and review the
+SQL. From a trusted operator environment with a privately configured
+`DATABASE_URL` using `sslmode=verify-full` and the official RDS CA file:
+
+```bash
+PGSSLROOTCERT=/path/to/aws-rds-global-bundle.pem \
+  psql "$DATABASE_URL" --set=ON_ERROR_STOP=1 --single-transaction \
+  --file=lib/db/migrations/0005_hmr_lifecycle_and_application_consent.sql
+```
+
+This is an operator action, not automatic startup migration. Do not reset or
+reseed an existing database to fix missing columns.
+
+Introduction expiry maintenance is scoped to `/api/interest-requests` and
+`/api/admin/interest-requests`. It must not intercept sign-in, email checks, or
+other feature routes. Errors on introduction routes remain visible rather than
+silently bypassing expiry or consent enforcement.

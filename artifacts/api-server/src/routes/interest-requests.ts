@@ -62,7 +62,9 @@ async function expireStaleRequests(): Promise<void> {
   }
 }
 
-router.use(async (_req, _res, next) => {
+// This router is mounted at /api alongside auth and other feature routers.
+// Expiry maintenance must not run for requests owned by those other routers.
+router.use(["/interest-requests", "/admin/interest-requests"], async (_req, _res, next) => {
   try {
     await expireStaleRequests();
     next();

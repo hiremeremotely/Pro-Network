@@ -84,7 +84,7 @@ node -e "console.log(encodeURIComponent('YOUR_DB_PASSWORD'))"
 
 Then run the push (paste the encoded password into the URL):
 ```bash
-NODE_TLS_REJECT_UNAUTHORIZED=0 DATABASE_URL="postgresql://YOUR_DB_USER:ENCODED_PASSWORD@YOUR_RDS_ENDPOINT:5432/postgres?sslmode=require" pnpm --filter @workspace/db run push
+NODE_EXTRA_CA_CERTS="/path/to/aws-rds-global-bundle.pem" DATABASE_URL="postgresql://YOUR_DB_USER:ENCODED_PASSWORD@YOUR_RDS_ENDPOINT:5432/postgres?sslmode=verify-full" pnpm --filter @workspace/db run push
 ```
 
 - `YOUR_DB_USER` — RDS master username (e.g. `alpha`)
@@ -96,7 +96,7 @@ To seed demo data (6 profiles, 8 jobs, 6 posts, 3 applications), provide a tempo
 destructively clears existing data and is refused in production unless an operator
 explicitly sets `ALLOW_DESTRUCTIVE_SEED=true`:
 ```bash
-NODE_TLS_REJECT_UNAUTHORIZED=0 DATABASE_URL="postgresql://YOUR_DB_USER:ENCODED_PASSWORD@YOUR_RDS_ENDPOINT:5432/postgres?sslmode=require" SEED_DEMO_PASSWORD="..." pnpm --filter @workspace/db run seed
+NODE_EXTRA_CA_CERTS="/path/to/aws-rds-global-bundle.pem" DATABASE_URL="postgresql://YOUR_DB_USER:ENCODED_PASSWORD@YOUR_RDS_ENDPOINT:5432/postgres?sslmode=verify-full" SEED_DEMO_PASSWORD="..." pnpm --filter @workspace/db run seed
 ```
 
 ---
