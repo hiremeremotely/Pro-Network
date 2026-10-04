@@ -10,6 +10,7 @@ import { rootCertificates } from "node:tls";
 import { createRequire } from "node:module";
 import { build } from "esbuild";
 import { validateProductionDatabaseTls } from "../../../lib/db/src/validate-tls.ts";
+import { databaseConnectionDiagnostics } from "../../../lib/db/src/connection-diagnostics.ts";
 import { buildAllowedOrigins } from "./lib/allowed-origins.ts";
 import { hashPassword, verifyPassword } from "./lib/password.ts";
 import { authEmailConfigured, authenticationLink, isDemoAuthEmail } from "./lib/auth-email.ts";
@@ -20,6 +21,30 @@ import { cloudFrontProtocol } from "./middlewares/cloudfront-protocol.ts";
 // Synthetic credentials only. Never use the workspace's configured database.
 const tlsTestUrl = "postgresql://test-user:test-password@db.example.test/test-db";
 const safeTlsUrl = `${tlsTestUrl}?sslmode=verify-full`;
+
+test("database diagnostics show effective driver fields without passwords or query secrets", () => {
+  const password = "synthetic-password@:/%";
+  const url = `postgresql://alpha:${encodeURIComponent(password)}@db.example.test:5433/appdb?sslmode=verify-full&token=synthetic-query-secret`;
+  const result = databaseConnectionDiagnostics(url);
+  assert.equal(result.host, "db.example.test");
+  assert.equal(result.port, 5433);
+  assert.equal(result.database, "appdb");
+  assert.equal(result.username, "alpha");
+  assert.equal(result.passwordConfigured, true);
+  assert.equal(result.sslEnabled, true);
+  assert.equal(result.password, "[REDACTED]");
+  assert.doesNotMatch(JSON.stringify(result), /synthetic-password|synthetic-query-secret/);
+  assert.deepEqual(databaseConnectionDiagnostics(undefined), { configured: false });
+  assert.deepEqual(databaseConnectionDiagnostics("postgresql://["), {
+    configured: true, parseError: true,
+  });
+  const overridden = databaseConnectionDiagnostics(`${safeTlsUrl}&host=effective.example.test&user=effective-user&database=effective-db&password=synthetic-override`);
+  assert.equal(overridden.host, "effective.example.test");
+  assert.equal(overridden.username, "effective-user");
+  // The installed driver takes database from the URL path, not this query key.
+  assert.equal(overridden.database, "test-db");
+  assert.doesNotMatch(JSON.stringify(overridden), /test-password|synthetic-override/);
+});
 
 test("production database TLS requires explicit full verification without rewriting settings", () => {
   const require = createRequire(new URL("../../../lib/db/package.json", import.meta.url));
@@ -131,6 +156,11 @@ test("secret-loaded and ECS settings are rejected before the wrapper imports the
     outfile: join(dir, "dist/validate-tls.mjs"), bundle: true, platform: "node", format: "esm",
   });
   await writeFile(join(dir, "dist/index.mjs"), 'console.log("APP_IMPORTED");');
+  await build({
+    entryPoints: [fileURLToPath(new URL("../../../lib/db/src/connection-diagnostics.ts", import.meta.url))],
+    outfile: join(dir, "dist/connection-diagnostics.mjs"), bundle: true, platform: "node", format: "esm",
+    banner: { js: "import { createRequire } from 'node:module'; globalThis.require = createRequire(import.meta.url);" },
+  });
   // Mock only AWS transport. Execute the real wrapper and real validator.
   const loader = join(dir, "aws-loader.mjs");
   await writeFile(loader, `
@@ -183,6 +213,11 @@ test("secret-loaded and ECS settings are rejected before the wrapper imports the
     const result = run(settings, secrets);
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /APP_IMPORTED/);
+    const diagnostic = result.stdout.split("\n").filter(line => line.startsWith("{")).map(line => JSON.parse(line))
+      .find(line => line.msg === "Effective database connection (password redacted)");
+    assert.equal(diagnostic.source, settings.DATABASE_URL === undefined ? "aws-secrets-manager" : "container-environment");
+    assert.equal(diagnostic.database.username, "test-user");
+    assert.doesNotMatch(result.stdout, /test-password/);
   }
 });
 

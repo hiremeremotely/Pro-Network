@@ -20,6 +20,7 @@ async function buildAll() {
       migrate: path.resolve(artifactDir, "src/migrate.ts"),
       // The wrapper needs this guard before it imports the database/app bundle.
       "validate-tls": path.resolve(artifactDir, "../../lib/db/src/validate-tls.ts"),
+      "connection-diagnostics": path.resolve(artifactDir, "../../lib/db/src/connection-diagnostics.ts"),
     },
     platform: "node",
     bundle: true,

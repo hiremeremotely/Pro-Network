@@ -84,6 +84,15 @@ The startup wrapper loads the JSON secret referenced by `APP_SECRET_ARN`.
 Values already present in the ECS task definition take precedence, even if
 empty. New tasks must be started after changing runtime settings.
 
+After secret loading and TLS validation, both API and migration tasks log
+`Effective database connection (password redacted)` before attempting to connect.
+The log shows the driver's effective host, port, database and username, whether
+a password is configured, and a reconstructed URL with its password redacted and
+all query parameters omitted. It also identifies container-environment versus
+Secrets Manager configuration and, for the latter, the secret ARN/version.
+It never logs the password, a password hash, TLS keys, or the original URL.
+This identifies configuration mismatches; it does not prove the password is valid.
+
 Clerk settings, including `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`,
 `VITE_CLERK_PUBLISHABLE_KEY`, and `VITE_CLERK_PROXY_URL`, are unused and no longer
 needed for either build or runtime. Existing workspace secrets were not deleted.

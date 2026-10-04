@@ -11,6 +11,6 @@ Do not assume `sslmode=require` has a stable certificate-verification policy acr
 
 Security checks on PostgreSQL URLs must agree with the consuming driver's interpretation, not only WHATWG URL parsing.
 
-**Why:** The driver's normalization of raw spaces and malformed percent escapes can change encoded TLS parameter names, so a URL recognized as verified by one parser can become plaintext in the driver.
+**Why:** The driver tolerates and normalizes malformed percent escapes rather than reliably rejecting them. Normalization of raw spaces and malformed escapes can change encoded TLS parameter names, so a URL recognized as verified by one parser can become plaintext in the driver.
 
-**How to apply:** When changing connection validation or upgrading the driver, pair accepted URL cases with the real driver's effective TLS configuration. Include combinations of encoded parameter names, malformed escapes, and whitespace.
+**How to apply:** When changing connection validation or upgrading the driver, pair accepted URL cases with the real driver's effective TLS configuration. Include combinations of encoded parameter names, malformed escapes, and whitespace. Do not rely on constructing a pg client to reject malformed URLs.

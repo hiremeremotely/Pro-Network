@@ -24,8 +24,11 @@
  */
 
 import { validateProductionDatabaseTls } from "./dist/validate-tls.mjs";
+import { databaseConnectionDiagnostics } from "./dist/connection-diagnostics.mjs";
 
 const secretArn = process.env.APP_SECRET_ARN;
+let databaseSource = process.env.DATABASE_URL === undefined ? "unset" : "container-environment";
+let databaseSecretVersion;
 
 if (secretArn) {
   const region = process.env.AWS_REGION ?? "us-east-1";
@@ -42,6 +45,7 @@ if (secretArn) {
       new GetSecretValueCommand({ SecretId: secretArn })
     );
     secretString = response.SecretString;
+    databaseSecretVersion = response.VersionId;
   } catch (err) {
     console.error(
       `[load-secrets] Failed to fetch secret "${secretArn}" from AWS Secrets Manager:`,
@@ -68,6 +72,7 @@ if (secretArn) {
     // Env vars already set in the task definition take precedence
     if (process.env[key] === undefined) {
       process.env[key] = String(value);
+      if (key === "DATABASE_URL") databaseSource = "aws-secrets-manager";
       loaded++;
     }
   }
@@ -85,6 +90,17 @@ try {
   console.error(`[load-secrets] ${err.message}`);
   process.exit(1);
 }
+
+// Runs after secret loading and TLS validation, before either entry point can
+// fail to connect. Only allowlisted driver fields are logged, never credentials.
+console.log(JSON.stringify({
+  level: 30,
+  msg: "Effective database connection (password redacted)",
+  source: databaseSource,
+  ...(databaseSource === "aws-secrets-manager"
+    ? { secretArn, secretVersionId: databaseSecretVersion } : {}),
+  database: databaseConnectionDiagnostics(process.env.DATABASE_URL),
+}));
 
 // The one-off deployment task shares secret loading/TLS policy, but must not
 // start the API or its schedulers.

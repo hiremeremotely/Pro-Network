@@ -91,6 +91,12 @@ test("secret-loading wrapper selects migration-only mode and propagates failure 
     bundle: true, platform: "node", format: "esm",
   });
   await writeFile(join(directory, "dist/index.mjs"), 'process.stdout.write("API_STARTED");');
+  await build({
+    entryPoints: [fileURLToPath(new URL("../../../lib/db/src/connection-diagnostics.ts", import.meta.url))],
+    outfile: join(directory, "dist/connection-diagnostics.mjs"),
+    bundle: true, platform: "node", format: "esm",
+    banner: { js: "import { createRequire } from 'node:module'; globalThis.require = createRequire(import.meta.url);" },
+  });
   await writeFile(join(directory, "dist/migrate.mjs"), 'process.stdout.write("MIGRATION_STARTED");');
   const run = args => spawnSync(process.execPath, [wrapper, ...args], {
     encoding: "utf8",
@@ -102,11 +108,12 @@ test("secret-loading wrapper selects migration-only mode and propagates failure 
   });
   const migration = run(["--migrate"]);
   assert.equal(migration.status, 0, migration.stderr);
-  assert.equal(migration.stdout, "MIGRATION_STARTED");
-  assert.equal(run([]).stdout, "API_STARTED");
+  assert.match(migration.stdout, /MIGRATION_STARTED$/);
+  assert.match(migration.stdout, /Effective database connection \(password redacted\)/);
+  assert.match(run([]).stdout, /API_STARTED$/);
   const invalid = run(["--unknown"]);
   assert.equal(invalid.status, 1);
-  assert.equal(invalid.stdout, "");
+  assert.doesNotMatch(invalid.stdout, /API_STARTED|MIGRATION_STARTED/);
   await writeFile(join(directory, "dist/migrate.mjs"), "process.exitCode = 1;");
   const failed = run(["--migrate"]);
   assert.equal(failed.status, 1);
