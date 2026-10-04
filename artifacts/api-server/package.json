@@ -8,7 +8,8 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:portfolio": "node --test src/routes/portfolio-rules.test.mjs src/lib/portfolio-source-discovery.test.mjs"
+    "test:portfolio": "node --test src/routes/portfolio-rules.test.mjs src/lib/portfolio-source-discovery.test.mjs",
+    "test:deployment": "node --test src/deployment.test.mjs"
   },
   "dependencies": {
     "@clerk/express": "^2.1.69",

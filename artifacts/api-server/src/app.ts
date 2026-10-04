@@ -10,38 +10,9 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import { requireAuth } from "./middlewares/require-auth";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from "./middlewares/clerkProxyMiddleware";
-
-// ── Allowed CORS origins ──────────────────────────────────────────────────────
-// Production domains come from REPLIT_DOMAINS (comma-separated, no protocol).
-// The Replit dev-preview domain comes from REPLIT_DEV_DOMAIN.
-// We always allow localhost variants for local development.
-function buildAllowedOrigins(): string[] {
-  const origins: string[] = [];
-  const isProd = process.env.NODE_ENV === "production";
-
-  // Production domains from REPLIT_DOMAINS (comma-separated, no protocol)
-  const replitDomains = process.env.REPLIT_DOMAINS ?? "";
-  for (const domain of replitDomains.split(",").map(d => d.trim()).filter(Boolean)) {
-    origins.push(`https://${domain}`);
-  }
-
-  // Development-only: Replit dev-preview domain and localhost variants
-  if (!isProd) {
-    const devDomain = process.env.REPLIT_DEV_DOMAIN ?? "";
-    if (devDomain) {
-      origins.push(`https://${devDomain}`);
-    }
-
-    origins.push("http://localhost");
-    origins.push("http://127.0.0.1");
-    for (const port of [3000, 4000, 5000, 5173, 8080]) {
-      origins.push(`http://localhost:${port}`);
-      origins.push(`http://127.0.0.1:${port}`);
-    }
-  }
-
-  return [...new Set(origins)];
-}
+import healthRouter from "./routes/health";
+import { clerkConfigurationGuard } from "./middlewares/clerk-configuration";
+import { buildAllowedOrigins } from "./lib/allowed-origins";
 
 const allowedOrigins = buildAllowedOrigins();
 logger.info({ allowedOrigins }, "CORS allowed origins");
@@ -120,6 +91,10 @@ app.use(
   }),
 );
 
+// ALB/ECS liveness must work without cookies, auth credentials, or DB queries.
+// A healthy process is not a guarantee that authentication is configured.
+app.use("/api", healthRouter);
+
 app.use((req: Request, res: Response, next: NextFunction) => {
   const requestOrigin = req.headers.origin;
   if (requestOrigin && !allowedOrigins.includes(requestOrigin)) {
@@ -129,6 +104,14 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   }
   next();
 });
+
+if (!process.env.CLERK_SECRET_KEY?.trim()) {
+  logger.error(
+    { missingConfiguration: "CLERK_SECRET_KEY" },
+    "Authentication is not configured: non-health requests will return 503. Configure the deployment's supported Clerk credentials and restart the task.",
+  );
+}
+app.use(clerkConfigurationGuard());
 
 // Clerk's frontend API proxy must stream requests before body parsers.
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());

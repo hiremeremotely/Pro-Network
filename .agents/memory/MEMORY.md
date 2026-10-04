@@ -4,3 +4,4 @@
 - [Professional hub trust boundary](professional-hub-trust-boundary.md) — external URLs are private evidence, not public hub links; HMR mediates identity and source-link release.
 - [Pinned DNS with Node requests](pinned-dns-node.md) — custom lookup callbacks must handle Node's all-address form as well as single-address form.
 - [Video transition overlap](video-transition-overlap.md) — inspect rendered boundary frames; timer overlap alone can still leave a near-empty handoff.
+- [External hosting authentication](external-hosting-auth.md) — Replit-managed auth provisioning does not automatically follow deployments to AWS.

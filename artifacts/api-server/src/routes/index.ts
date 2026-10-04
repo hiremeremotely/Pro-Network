@@ -1,6 +1,5 @@
 import { Router, type IRouter } from "express";
 import eventsRouter from "./events";
-import healthRouter from "./health";
 import profilesRouter from "./profiles";
 import educationRouter from "./education";
 import experienceRouter from "./experience";
@@ -33,7 +32,6 @@ const router: IRouter = Router();
 
 router.use(sitemapRouter);
 router.use(eventsRouter);
-router.use(healthRouter);
 router.use(storageRouter);
 router.use(notificationsRouter);
 router.use(messagingRouter);
